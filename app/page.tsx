@@ -15,7 +15,7 @@ const BOSSES = [
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
-  const [defeated, setDefeated] = useState<Set<string>>(new Set())
+  const [defeated, setDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
 
   function toggleBoss(id: string) {
     setDefeated((prev) => {
