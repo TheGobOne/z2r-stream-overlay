@@ -124,12 +124,24 @@ export default function StreamOverlay() {
           color: #7ef5ff;
         }
 
-        /* Boss tracker row — only in left black bottom section */
-        /* Left black section: left:42px, width ~500px (ends before center column ~540px) */
+        /* Boss tracker row — left black bottom section */
         .boss-row {
           position: absolute;
           top: 596px;
           left: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        /* Boss tracker row — right black bottom section */
+        .boss-row-right {
+          position: absolute;
+          top: 596px;
+          right: 39px;
           width: 500px;
           display: flex;
           align-items: center;
@@ -202,11 +214,26 @@ export default function StreamOverlay() {
           />
         </div>
 
-        {/* Boss tracker */}
+        {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Boss tracker">
           {BOSSES.map((boss) => (
             <button
               key={boss.id}
+              className={`boss-btn ${defeated.has(boss.id) ? "defeated" : "active"}`}
+              onClick={() => toggleBoss(boss.id)}
+              aria-label={`${boss.alt} — ${defeated.has(boss.id) ? "defeated" : "alive"}`}
+              title={boss.alt}
+            >
+              <img src={boss.src} alt={boss.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Boss tracker — right */}
+        <div className="boss-row-right" role="group" aria-label="Boss tracker">
+          {BOSSES.map((boss) => (
+            <button
+              key={`right-${boss.id}`}
               className={`boss-btn ${defeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleBoss(boss.id)}
               aria-label={`${boss.alt} — ${defeated.has(boss.id) ? "defeated" : "alive"}`}
