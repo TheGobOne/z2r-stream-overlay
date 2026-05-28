@@ -47,6 +47,11 @@ export default function StreamOverlay() {
   const [rightText, setRightText] = useState("")
   const [leftFontSize, setLeftFontSize] = useState(20)
   const [rightFontSize, setRightFontSize] = useState(20)
+  const [gemX, setGemX] = useState(728) // center horizontal
+  const [gemY, setGemY] = useState(95)
+  const [isDraggingGem, setIsDraggingGem] = useState(false)
+  const [dragOffsetX, setDragOffsetX] = useState(0)
+  const [dragOffsetY, setDragOffsetY] = useState(0)
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -69,6 +74,22 @@ export default function StreamOverlay() {
   function handleRightTextChange(value: string) {
     setRightText(value)
     setRightFontSize(calculateFontSize(value))
+  }
+
+  function handleGemMouseDown(e: React.MouseEvent) {
+    setIsDraggingGem(true)
+    setDragOffsetX(e.clientX - gemX)
+    setDragOffsetY(e.clientY - gemY)
+  }
+
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!isDraggingGem) return
+    setGemX(e.clientX - dragOffsetX)
+    setGemY(e.clientY - dragOffsetY)
+  }
+
+  function handleMouseUp() {
+    setIsDraggingGem(false)
   }
 
   function toggleLeftBoss(id: string) {
@@ -359,16 +380,21 @@ export default function StreamOverlay() {
 
         .gem-image {
           position: absolute;
-          top: 95px;
-          left: 50%;
-          transform: translateX(-50%);
-          pointer-events: none;
+          top: var(--gem-y, 95px);
+          left: var(--gem-x, 50%);
+          transform: translateX(calc(-50% + var(--gem-offset-x, 0px)));
+          pointer-events: auto;
           user-select: none;
           display: block;
           image-rendering: pixelated;
           width: auto;
           height: auto;
           filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
+          cursor: grab;
+        }
+
+        .gem-image:active {
+          cursor: grabbing;
         }
 
         /* Transparent overlays for top black boxes */
@@ -395,7 +421,7 @@ export default function StreamOverlay() {
         }
       `}</style>
 
-      <div className="overlay-wrapper">
+      <div className="overlay-wrapper" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
         {/* Background overlay image */}
         <img
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-sLdN1Aj0x737pKVaQsZhaZE040esK9.png"
@@ -410,12 +436,18 @@ export default function StreamOverlay() {
         {/* Transparent overlay for top-right black box */}
         <div className="transparent-overlay-right" />
 
-        {/* Gem decoration */}
+        {/* Gem decoration - draggable */}
         <img
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
           alt="Gem"
           className="gem-image"
           draggable={false}
+          onMouseDown={handleGemMouseDown}
+          style={{
+            "--gem-x": `${gemX}px`,
+            "--gem-y": `${gemY}px`,
+            "--gem-offset-x": `${gemX - 728}px`,
+          } as React.CSSProperties}
         />
 
         {/* Left editable text box */}
