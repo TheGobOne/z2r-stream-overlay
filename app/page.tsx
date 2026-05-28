@@ -359,7 +359,7 @@ export default function StreamOverlay() {
 
         .gem-image {
           position: absolute;
-          top: 270px;
+          top: 20px;
           left: 50%;
           transform: translateX(-50%);
           pointer-events: none;
