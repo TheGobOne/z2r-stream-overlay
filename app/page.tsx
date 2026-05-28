@@ -393,9 +393,9 @@ export default function StreamOverlay() {
 
         .gem-count {
           position: absolute;
-          top: 295px;
+          top: 345px;
           left: 50%;
-          transform: translateX(-50%);
+          transform: translateX(calc(-50% + 5px));
           color: #ffffff;
           font-family: 'ZeldaII', monospace;
           font-size: 28px;
