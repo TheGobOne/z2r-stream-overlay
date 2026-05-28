@@ -130,6 +130,7 @@ export default function StreamOverlay() {
           width: 1456px;
           height: 816px;
           flex-shrink: 0;
+          background: transparent;
         }
 
         .overlay-bg {
@@ -141,6 +142,7 @@ export default function StreamOverlay() {
           pointer-events: none;
           user-select: none;
           display: block;
+          mix-blend-mode: screen;
         }
 
         /* Left box */
