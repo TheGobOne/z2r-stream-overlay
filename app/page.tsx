@@ -393,7 +393,7 @@ export default function StreamOverlay() {
 
         .gem-count {
           position: absolute;
-          top: 445px;
+          top: 295px;
           left: 50%;
           transform: translateX(-50%);
           color: #ffffff;
