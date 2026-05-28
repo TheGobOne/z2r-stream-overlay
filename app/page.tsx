@@ -548,7 +548,7 @@ export default function StreamOverlay() {
           color: #2ec4b6;
           font-size: 20px;
         }
-      `}
+      `}</style>
 
       <div className="overlay-wrapper">
         {/* Background overlay image */}
