@@ -129,7 +129,7 @@ export default function StreamOverlay() {
         .boss-row {
           position: absolute;
           top: 596px;
-          left: 42px;
+          left: 39px;
           width: 500px;
           display: flex;
           align-items: center;
