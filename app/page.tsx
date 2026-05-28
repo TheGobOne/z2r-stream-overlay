@@ -45,11 +45,31 @@ const ITEMS = [
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
+  const [leftFontSize, setLeftFontSize] = useState(20)
+  const [rightFontSize, setRightFontSize] = useState(20)
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [leftCollected, setLeftCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
   const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
+
+  function calculateFontSize(text: string): number {
+    if (text.length === 0) return 20
+    if (text.length <= 6) return 20
+    if (text.length <= 10) return 18
+    if (text.length <= 14) return 14
+    return 10
+  }
+
+  function handleLeftTextChange(value: string) {
+    setLeftText(value)
+    setLeftFontSize(calculateFontSize(value))
+  }
+
+  function handleRightTextChange(value: string) {
+    setRightText(value)
+    setRightFontSize(calculateFontSize(value))
+  }
 
   function toggleLeftBoss(id: string) {
     setLeftDefeated((prev) => {
@@ -155,7 +175,7 @@ export default function StreamOverlay() {
           outline: none;
           color: #ffffff;
           font-family: 'ZeldaII', monospace;
-          font-size: 20px;
+          font-size: var(--zelda-font-size, 20px);
           text-align: center;
           padding: 0 6px;
           caret-color: #7ef5ff;
@@ -165,6 +185,7 @@ export default function StreamOverlay() {
           line-height: 62px;
           position: relative;
           top: -5px;
+          transition: font-size 0.1s ease;
         }
 
         .zelda-input::placeholder {
@@ -350,10 +371,11 @@ export default function StreamOverlay() {
             type="text"
             className="zelda-input"
             value={leftText}
-            onChange={(e) => setLeftText(e.target.value)}
+            onChange={(e) => handleLeftTextChange(e.target.value)}
             placeholder="PLAYER 1"
             spellCheck={false}
             autoComplete="off"
+            style={{ "--zelda-font-size": `${leftFontSize}px` } as React.CSSProperties}
           />
         </div>
 
@@ -363,10 +385,11 @@ export default function StreamOverlay() {
             type="text"
             className="zelda-input"
             value={rightText}
-            onChange={(e) => setRightText(e.target.value)}
+            onChange={(e) => handleRightTextChange(e.target.value)}
             placeholder="PLAYER 2"
             spellCheck={false}
             autoComplete="off"
+            style={{ "--zelda-font-size": `${rightFontSize}px` } as React.CSSProperties}
           />
         </div>
 
