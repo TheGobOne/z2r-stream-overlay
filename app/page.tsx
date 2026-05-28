@@ -486,12 +486,12 @@ export default function StreamOverlay() {
 
         .commentary-title {
           position: absolute;
-          top: 565px;
+          top: 575px;
           left: 50%;
           transform: translateX(-50%);
           font-family: 'ZeldaII', monospace;
-          font-size: 14px;
-          letter-spacing: 2px;
+          font-size: 11px;
+          letter-spacing: 1px;
           color: #7ef5ff;
           text-transform: uppercase;
           pointer-events: none;
@@ -500,30 +500,30 @@ export default function StreamOverlay() {
 
         .commentary-container {
           position: absolute;
-          top: 595px;
+          top: 592px;
           left: 50%;
           transform: translateX(-50%);
-          width: 520px;
-          height: 50px;
+          width: 280px;
+          height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 16px;
+          gap: 8px;
         }
 
         .commentary-input {
           flex: 1;
           height: 100%;
           background: transparent;
-          border: 2px solid #2ec4b6;
+          border: 1px solid #2ec4b6;
           outline: none;
           color: #ffffff;
           font-family: 'ZeldaII', monospace;
-          font-size: 14px;
+          font-size: 10px;
           text-align: center;
-          padding: 4px;
+          padding: 2px;
           caret-color: #7ef5ff;
-          letter-spacing: 1px;
+          letter-spacing: 0.5px;
           box-sizing: border-box;
           text-transform: uppercase;
           transition: border-color 0.15s ease;
@@ -539,14 +539,14 @@ export default function StreamOverlay() {
         }
 
         .microphone-icon {
-          width: 32px;
-          height: 32px;
+          width: 24px;
+          height: 24px;
           flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
           color: #2ec4b6;
-          font-size: 20px;
+          font-size: 14px;
         }
       `}</style>
 
