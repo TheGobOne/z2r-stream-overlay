@@ -125,16 +125,15 @@ export default function StreamOverlay() {
         }
 
         /* Boss tracker row — only in left black bottom section */
+        /* Left black section: left:42px, width ~500px (ends before center column ~540px) */
         .boss-row {
           position: absolute;
-          /* sit at the very top of the black area below the teal border */
           top: 596px;
-          /* centered horizontally in the left section */
-          left: 159px;
-          width: 452px;
+          left: 42px;
+          width: 500px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          justify-content: space-evenly;
           padding: 0;
           box-sizing: border-box;
         }
@@ -151,8 +150,8 @@ export default function StreamOverlay() {
         }
 
         .boss-btn img {
-          width: 52px;
-          height: 52px;
+          width: 44px;
+          height: 44px;
           image-rendering: pixelated;
           display: block;
         }
