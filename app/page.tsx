@@ -559,7 +559,7 @@ export default function StreamOverlay() {
 
         .tracking-container {
           position: absolute;
-          top: 714px;
+          top: 712px;
           left: 50%;
           transform: translateX(-50%) scale(1.5);
           width: 140px;
