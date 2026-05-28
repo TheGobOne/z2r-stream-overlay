@@ -503,17 +503,18 @@ export default function StreamOverlay() {
           top: 592px;
           left: 50%;
           transform: translateX(-50%);
-          width: 280px;
-          height: 32px;
+          width: 140px;
+          height: 48px;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 8px;
+          gap: 4px;
         }
 
         .commentary-input {
-          flex: 1;
-          height: 100%;
+          width: 100%;
+          height: 20px;
           background: transparent;
           border: 1px solid #2ec4b6;
           outline: none;
@@ -536,17 +537,6 @@ export default function StreamOverlay() {
 
         .commentary-input::placeholder {
           color: rgba(126, 245, 255, 0.25);
-        }
-
-        .microphone-icon {
-          width: 24px;
-          height: 24px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #2ec4b6;
-          font-size: 14px;
         }
       `}</style>
 
@@ -607,17 +597,16 @@ export default function StreamOverlay() {
             className="commentary-input"
             value={commentator1}
             onChange={(e) => setCommentator1(e.target.value)}
-            placeholder="COMMENTATOR 1"
+            placeholder="COM 1"
             spellCheck={false}
             autoComplete="off"
           />
-          <div className="microphone-icon">🎤</div>
           <input
             type="text"
             className="commentary-input"
             value={commentator2}
             onChange={(e) => setCommentator2(e.target.value)}
-            placeholder="COMMENTATOR 2"
+            placeholder="COM 2"
             spellCheck={false}
             autoComplete="off"
           />
