@@ -116,7 +116,7 @@ export default function StreamOverlay() {
         html, body {
           margin: 0;
           padding: 0;
-          background: #000;
+          background: transparent;
           width: 100%;
           height: 100%;
           overflow: hidden;
