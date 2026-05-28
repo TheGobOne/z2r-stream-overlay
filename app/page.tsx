@@ -235,7 +235,7 @@ export default function StreamOverlay() {
         /* Item tracker rows — left black bottom section */
         .item-row-1 {
           position: absolute;
-          top: 650px;
+          top: 630px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -247,7 +247,7 @@ export default function StreamOverlay() {
 
         .item-row-2 {
           position: absolute;
-          top: 704px;
+          top: 684px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -259,7 +259,7 @@ export default function StreamOverlay() {
 
         .item-row-3 {
           position: absolute;
-          top: 758px;
+          top: 738px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -272,7 +272,7 @@ export default function StreamOverlay() {
         /* Item tracker rows — right black bottom section */
         .item-row-1-right {
           position: absolute;
-          top: 650px;
+          top: 630px;
           right: 39px;
           width: 500px;
           display: flex;
@@ -284,7 +284,7 @@ export default function StreamOverlay() {
 
         .item-row-2-right {
           position: absolute;
-          top: 704px;
+          top: 684px;
           right: 39px;
           width: 500px;
           display: flex;
@@ -296,7 +296,7 @@ export default function StreamOverlay() {
 
         .item-row-3-right {
           position: absolute;
-          top: 758px;
+          top: 738px;
           right: 39px;
           width: 500px;
           display: flex;
