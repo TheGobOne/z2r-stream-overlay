@@ -359,7 +359,7 @@ export default function StreamOverlay() {
       <div className="overlay-wrapper">
         {/* Background overlay image */}
         <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-WK0dOjNqj0YXzW4v18zmvSNLkqaih1.png"
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-lomTzoagltyJyAx7ZLeCplIBxrG4gS.png"
           alt="Zelda II Randomizer Stream Overlay"
           className="overlay-bg"
           draggable={false}
@@ -423,7 +423,7 @@ export default function StreamOverlay() {
           ))}
         </div>
 
-        {/* Item tracker row 1 — left */}
+        {/* Item tracker row 1 �� left */}
         <div className="item-row-1" role="group" aria-label="Player 1 item tracker row 1">
           {ITEMS.slice(0, 8).map((item) => (
             <button
