@@ -124,18 +124,18 @@ export default function StreamOverlay() {
           color: #7ef5ff;
         }
 
-        /* Boss tracker row — spans both black bottom sections */
+        /* Boss tracker row — only in left black bottom section */
         .boss-row {
           position: absolute;
           /* sit at the very top of the black area below the teal border */
           top: 596px;
-          /* left black section starts ~42px, right black section ends ~1414px */
+          /* left black section only */
           left: 42px;
-          width: 1372px;
+          width: 284px;
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          padding: 0 8px;
+          justify-content: space-around;
+          padding: 0 4px;
           box-sizing: border-box;
         }
 
