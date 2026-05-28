@@ -36,29 +36,40 @@ const ITEMS = [
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
-  const [defeated, setDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
-  const [collected, setCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
 
-  function toggleBoss(id: string) {
-    setDefeated((prev) => {
+  const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
+  const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
+  const [leftCollected, setLeftCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
+  const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
+
+  function toggleLeftBoss(id: string) {
+    setLeftDefeated((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
   }
 
-  function toggleItem(id: string) {
-    setCollected((prev) => {
+  function toggleRightBoss(id: string) {
+    setRightDefeated((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleLeftItem(id: string) {
+    setLeftCollected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleRightItem(id: string) {
+    setRightCollected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
   }
@@ -327,13 +338,13 @@ export default function StreamOverlay() {
         </div>
 
         {/* Boss tracker — left */}
-        <div className="boss-row" role="group" aria-label="Boss tracker">
+        <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
           {BOSSES.map((boss) => (
             <button
               key={boss.id}
-              className={`boss-btn ${defeated.has(boss.id) ? "defeated" : "active"}`}
-              onClick={() => toggleBoss(boss.id)}
-              aria-label={`${boss.alt} — ${defeated.has(boss.id) ? "defeated" : "alive"}`}
+              className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
+              onClick={() => toggleLeftBoss(boss.id)}
+              aria-label={`${boss.alt} — ${leftDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
@@ -342,13 +353,13 @@ export default function StreamOverlay() {
         </div>
 
         {/* Boss tracker — right */}
-        <div className="boss-row-right" role="group" aria-label="Boss tracker">
+        <div className="boss-row-right" role="group" aria-label="Player 2 boss tracker">
           {BOSSES.map((boss) => (
             <button
               key={`right-${boss.id}`}
-              className={`boss-btn ${defeated.has(boss.id) ? "defeated" : "active"}`}
-              onClick={() => toggleBoss(boss.id)}
-              aria-label={`${boss.alt} — ${defeated.has(boss.id) ? "defeated" : "alive"}`}
+              className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
+              onClick={() => toggleRightBoss(boss.id)}
+              aria-label={`${boss.alt} — ${rightDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
@@ -357,13 +368,13 @@ export default function StreamOverlay() {
         </div>
 
         {/* Item tracker row 1 — left */}
-        <div className="item-row-1" role="group" aria-label="Item tracker row 1">
+        <div className="item-row-1" role="group" aria-label="Player 1 item tracker row 1">
           {ITEMS.slice(0, 8).map((item) => (
             <button
               key={item.id}
-              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
-              onClick={() => toggleItem(item.id)}
-              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleLeftItem(item.id)}
+              aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
@@ -372,13 +383,13 @@ export default function StreamOverlay() {
         </div>
 
         {/* Item tracker row 2 — left */}
-        <div className="item-row-2" role="group" aria-label="Item tracker row 2">
+        <div className="item-row-2" role="group" aria-label="Player 1 item tracker row 2">
           {ITEMS.slice(8, 16).map((item) => (
             <button
               key={item.id}
-              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
-              onClick={() => toggleItem(item.id)}
-              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleLeftItem(item.id)}
+              aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
@@ -387,13 +398,13 @@ export default function StreamOverlay() {
         </div>
 
         {/* Item tracker row 1 — right */}
-        <div className="item-row-1-right" role="group" aria-label="Item tracker row 1">
+        <div className="item-row-1-right" role="group" aria-label="Player 2 item tracker row 1">
           {ITEMS.slice(0, 8).map((item) => (
             <button
               key={`right-${item.id}`}
-              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
-              onClick={() => toggleItem(item.id)}
-              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleRightItem(item.id)}
+              aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
@@ -402,13 +413,13 @@ export default function StreamOverlay() {
         </div>
 
         {/* Item tracker row 2 — right */}
-        <div className="item-row-2-right" role="group" aria-label="Item tracker row 2">
+        <div className="item-row-2-right" role="group" aria-label="Player 2 item tracker row 2">
           {ITEMS.slice(8, 16).map((item) => (
             <button
               key={`right-${item.id}`}
-              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
-              onClick={() => toggleItem(item.id)}
-              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleRightItem(item.id)}
+              aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
