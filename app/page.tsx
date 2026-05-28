@@ -544,7 +544,7 @@ export default function StreamOverlay() {
 
         .tracking-title {
           position: absolute;
-          top: 699px;
+          top: 694px;
           left: 50%;
           transform: translateX(-50%) scale(1.5);
           font-family: 'ZeldaII', monospace;
@@ -559,7 +559,7 @@ export default function StreamOverlay() {
 
         .tracking-container {
           position: absolute;
-          top: 722px;
+          top: 714px;
           left: 50%;
           transform: translateX(-50%) scale(1.5);
           width: 140px;
