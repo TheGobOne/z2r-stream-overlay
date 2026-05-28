@@ -486,7 +486,7 @@ export default function StreamOverlay() {
 
         .commentary-title {
           position: absolute;
-          top: 595px;
+          top: 615px;
           left: 50%;
           transform: translateX(-50%) scale(1.5);
           font-family: 'ZeldaII', monospace;
