@@ -357,6 +357,19 @@ export default function StreamOverlay() {
           filter: grayscale(100%);
         }
 
+        .gem-image {
+          position: absolute;
+          top: 544px;
+          left: 50%;
+          transform: translateX(-50%);
+          pointer-events: none;
+          user-select: none;
+          display: block;
+          image-rendering: pixelated;
+          width: auto;
+          height: auto;
+        }
+
         /* Transparent overlays for top black boxes */
         .transparent-overlay-left {
           position: absolute;
@@ -395,6 +408,14 @@ export default function StreamOverlay() {
 
         {/* Transparent overlay for top-right black box */}
         <div className="transparent-overlay-right" />
+
+        {/* Gem decoration */}
+        <img
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
+          alt="Gem"
+          className="gem-image"
+          draggable={false}
+        />
 
         {/* Left editable text box */}
         <div className="text-box-left">
