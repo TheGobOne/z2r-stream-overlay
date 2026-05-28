@@ -131,11 +131,11 @@ export default function StreamOverlay() {
           top: 596px;
           /* left black section spans from left edge to center */
           left: 42px;
-          width: 656px;
+          width: 452px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 16px;
+          padding: 0;
           box-sizing: border-box;
         }
 
