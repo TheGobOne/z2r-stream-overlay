@@ -501,7 +501,7 @@ export default function StreamOverlay() {
 
         .commentary-container {
           position: absolute;
-          top: 610px;
+          top: 607px;
           left: 50%;
           transform: translateX(-50%) scale(1.5);
           width: 140px;
