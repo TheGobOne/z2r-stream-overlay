@@ -486,9 +486,9 @@ export default function StreamOverlay() {
 
         .commentary-title {
           position: absolute;
-          top: 575px;
+          top: 625px;
           left: 50%;
-          transform: translateX(-50%);
+          transform: translateX(-50%) scale(1.5);
           font-family: 'ZeldaII', monospace;
           font-size: 11px;
           letter-spacing: 1px;
@@ -496,13 +496,14 @@ export default function StreamOverlay() {
           text-transform: uppercase;
           pointer-events: none;
           user-select: none;
+          transform-origin: center;
         }
 
         .commentary-container {
           position: absolute;
-          top: 592px;
+          top: 657px;
           left: 50%;
-          transform: translateX(-50%);
+          transform: translateX(-50%) scale(1.5);
           width: 140px;
           height: 48px;
           display: flex;
@@ -510,6 +511,7 @@ export default function StreamOverlay() {
           align-items: center;
           justify-content: center;
           gap: 4px;
+          transform-origin: top center;
         }
 
         .commentary-input {
