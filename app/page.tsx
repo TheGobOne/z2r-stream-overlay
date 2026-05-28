@@ -85,6 +85,8 @@ export default function StreamOverlay() {
           letter-spacing: 2px;
           box-sizing: border-box;
           text-transform: uppercase;
+          vertical-align: middle;
+          line-height: 1;
         }
 
         .zelda-input::placeholder {
