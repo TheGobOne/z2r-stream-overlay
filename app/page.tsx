@@ -51,6 +51,7 @@ export default function StreamOverlay() {
   const [gemPopupOpen, setGemPopupOpen] = useState(false)
   const [commentator1, setCommentator1] = useState("")
   const [commentator2, setCommentator2] = useState("")
+  const [tracking, setTracking] = useState("")
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -540,6 +541,61 @@ export default function StreamOverlay() {
         .commentary-input::placeholder {
           color: rgba(126, 245, 255, 0.25);
         }
+
+        .tracking-title {
+          position: absolute;
+          top: 699px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          letter-spacing: 1px;
+          color: #ffffff;
+          text-transform: uppercase;
+          pointer-events: none;
+          user-select: none;
+          transform-origin: center;
+        }
+
+        .tracking-container {
+          position: absolute;
+          top: 722px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          width: 140px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: top center;
+        }
+
+        .tracking-input {
+          width: 100%;
+          height: 100%;
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 10px;
+          text-align: center;
+          padding: 2px;
+          caret-color: #7ef5ff;
+          letter-spacing: 0.5px;
+          box-sizing: border-box;
+          text-transform: uppercase;
+          transition: border-color 0.15s ease;
+        }
+
+        .tracking-input:focus {
+          border-color: #7ef5ff;
+          color: #7ef5ff;
+        }
+
+        .tracking-input::placeholder {
+          color: rgba(126, 245, 255, 0.25);
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -609,6 +665,20 @@ export default function StreamOverlay() {
             value={commentator2}
             onChange={(e) => setCommentator2(e.target.value)}
             placeholder="COM 2"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Tracking section */}
+        <div className="tracking-title">TRACKING</div>
+        <div className="tracking-container">
+          <input
+            type="text"
+            className="tracking-input"
+            value={tracking}
+            onChange={(e) => setTracking(e.target.value)}
+            placeholder="TRACKING"
             spellCheck={false}
             autoComplete="off"
           />
