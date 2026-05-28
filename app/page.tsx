@@ -49,6 +49,8 @@ export default function StreamOverlay() {
   const [rightFontSize, setRightFontSize] = useState(20)
   const [gemCount, setGemCount] = useState<number | null>(null)
   const [gemPopupOpen, setGemPopupOpen] = useState(false)
+  const [commentator1, setCommentator1] = useState("")
+  const [commentator2, setCommentator2] = useState("")
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -481,7 +483,72 @@ export default function StreamOverlay() {
           pointer-events: none;
           z-index: 10;
         }
-      `}</style>
+
+        .commentary-title {
+          position: absolute;
+          top: 565px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          letter-spacing: 2px;
+          color: #7ef5ff;
+          text-transform: uppercase;
+          pointer-events: none;
+          user-select: none;
+        }
+
+        .commentary-container {
+          position: absolute;
+          top: 595px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 520px;
+          height: 50px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+        }
+
+        .commentary-input {
+          flex: 1;
+          height: 100%;
+          background: transparent;
+          border: 2px solid #2ec4b6;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          text-align: center;
+          padding: 4px;
+          caret-color: #7ef5ff;
+          letter-spacing: 1px;
+          box-sizing: border-box;
+          text-transform: uppercase;
+          transition: border-color 0.15s ease;
+        }
+
+        .commentary-input:focus {
+          border-color: #7ef5ff;
+          color: #7ef5ff;
+        }
+
+        .commentary-input::placeholder {
+          color: rgba(126, 245, 255, 0.25);
+        }
+
+        .microphone-icon {
+          width: 32px;
+          height: 32px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #2ec4b6;
+          font-size: 20px;
+        }
+      `}
 
       <div className="overlay-wrapper">
         {/* Background overlay image */}
@@ -531,6 +598,30 @@ export default function StreamOverlay() {
             </div>
           </div>
         )}
+
+        {/* Commentary section */}
+        <div className="commentary-title">COMMENTARY</div>
+        <div className="commentary-container">
+          <input
+            type="text"
+            className="commentary-input"
+            value={commentator1}
+            onChange={(e) => setCommentator1(e.target.value)}
+            placeholder="COMMENTATOR 1"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <div className="microphone-icon">🎤</div>
+          <input
+            type="text"
+            className="commentary-input"
+            value={commentator2}
+            onChange={(e) => setCommentator2(e.target.value)}
+            placeholder="COMMENTATOR 2"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
 
         {/* Left editable text box */}
         <div className="text-box-left">
