@@ -2,9 +2,32 @@
 
 import { useState } from "react"
 
+const BOSSES = [
+  { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
+  { id: "helmethead",  src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/helmethead-KfyfAeeYOhwquQq1uRs3fZUfQHeCe6.png",  alt: "Helmethead" },
+  { id: "rebonack",    src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rebonack-zxfzxTTdw7gVkGbediDpNzXQaKiVZb.png",    alt: "Rebonack" },
+  { id: "karock",      src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/karock-Ygs9STWmocAZjGJy6uBGyDs9qQif11.png",      alt: "Karock" },
+  { id: "gooma",       src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/gooma-rJomB6KNKyZ7GPJuHAGQI6degiEArl.png",       alt: "Gooma" },
+  { id: "barba",       src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/barba-pdhNRfOzPJla7oRYees6hb9WT1SI6U.png",       alt: "Barba" },
+  { id: "thunderbird", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/thunderbird-yJKu35CrTvTV46jN5zDqqB9aDJDNaq.png", alt: "Thunderbird" },
+]
+
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
+  const [defeated, setDefeated] = useState<Set<string>>(new Set())
+
+  function toggleBoss(id: string) {
+    setDefeated((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
 
   return (
     <>
@@ -46,7 +69,7 @@ export default function StreamOverlay() {
           display: block;
         }
 
-        /* Left box — matches the blue-outlined rect lower-left */
+        /* Left box */
         .text-box-left {
           position: absolute;
           left: 42px;
@@ -58,7 +81,7 @@ export default function StreamOverlay() {
           justify-content: center;
         }
 
-        /* Right box — matches the blue-outlined rect lower-right */
+        /* Right box */
         .text-box-right {
           position: absolute;
           right: 42px;
@@ -100,6 +123,49 @@ export default function StreamOverlay() {
         .zelda-input:focus {
           color: #7ef5ff;
         }
+
+        /* Boss tracker row — spans both black bottom sections */
+        .boss-row {
+          position: absolute;
+          /* sit at the very top of the black area below the teal border */
+          top: 596px;
+          /* left black section starts ~42px, right black section ends ~1414px */
+          left: 42px;
+          width: 1372px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 8px;
+          box-sizing: border-box;
+        }
+
+        .boss-btn {
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.15s ease, filter 0.15s ease;
+        }
+
+        .boss-btn img {
+          width: 52px;
+          height: 52px;
+          image-rendering: pixelated;
+          display: block;
+        }
+
+        .boss-btn.active {
+          opacity: 1;
+          filter: none;
+        }
+
+        .boss-btn.defeated {
+          opacity: 0.25;
+          filter: grayscale(100%);
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -135,6 +201,21 @@ export default function StreamOverlay() {
             spellCheck={false}
             autoComplete="off"
           />
+        </div>
+
+        {/* Boss tracker */}
+        <div className="boss-row" role="group" aria-label="Boss tracker">
+          {BOSSES.map((boss) => (
+            <button
+              key={boss.id}
+              className={`boss-btn ${defeated.has(boss.id) ? "defeated" : "active"}`}
+              onClick={() => toggleBoss(boss.id)}
+              aria-label={`${boss.alt} — ${defeated.has(boss.id) ? "defeated" : "alive"}`}
+              title={boss.alt}
+            >
+              <img src={boss.src} alt={boss.alt} />
+            </button>
+          ))}
         </div>
       </div>
     </>
