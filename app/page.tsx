@@ -177,6 +177,19 @@ export default function StreamOverlay() {
           opacity: 0.6;
           filter: grayscale(100%);
         }
+
+        /* Black overlay for center bottom section */
+        .center-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 220px;
+          height: 220px;
+          background: #000000;
+          pointer-events: none;
+          z-index: 1;
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -243,6 +256,9 @@ export default function StreamOverlay() {
             </button>
           ))}
         </div>
+
+        {/* Center bottom overlay to hide brick pattern */}
+        <div className="center-overlay" />
       </div>
     </>
   )
