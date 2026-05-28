@@ -377,7 +377,7 @@ export default function StreamOverlay() {
 
         .gem-image {
           position: absolute;
-          top: 95px;
+          top: 195px;
           left: 50%;
           transform: translateX(-50%);
           pointer-events: auto;
@@ -393,7 +393,7 @@ export default function StreamOverlay() {
 
         .gem-count {
           position: absolute;
-          top: 345px;
+          top: 445px;
           left: 50%;
           transform: translateX(-50%);
           color: #ffffff;
@@ -402,7 +402,7 @@ export default function StreamOverlay() {
           letter-spacing: 4px;
           pointer-events: none;
           user-select: none;
-          filter: drop-shadow(0 0 4px #000) drop-shadow(0 0 8px #000);
+          filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
           z-index: 5;
         }
 
