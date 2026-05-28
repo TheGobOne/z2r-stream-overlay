@@ -12,13 +12,45 @@ const BOSSES = [
   { id: "thunderbird", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/thunderbird-yJKu35CrTvTV46jN5zDqqB9aDJDNaq.png", alt: "Thunderbird" },
 ]
 
+const ITEMS = [
+  { id: "boots",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/boots-3YlIFbtnVXATYwX3G8enKtd9LBtR6u.png",           alt: "Boots" },
+  { id: "candle",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/candle-215T0VkrriKMMF3KNj996UclZvjPrm.png",          alt: "Candle" },
+  { id: "cross",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cross-0xVtnawiBF2w3Rv2lz5jsYtX3rFCbY.png",           alt: "Cross" },
+  { id: "downstab",        src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/downstab-LChMwvu5kaovx9zC9dsCk8iFZ3Z2QV.png",        alt: "Downstab" },
+  { id: "flute",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/flute-c5UguBIJ4FpbVmBGMY02fLQtRYzI4o.png",           alt: "Flute" },
+  { id: "glove",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/glove-OEDPJotBIReqdX3PYHnjH8Bi7cte8Q.png",           alt: "Glove" },
+  { id: "hammer",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/hammer-gMBYciaxpn3ddlwv2yvx3DDCDHjEPv.png",          alt: "Hammer" },
+  { id: "kid",             src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/kid-pAWRqLS8Yg8R6Y8b23EUdV82q052cM.png",             alt: "Kid" },
+  { id: "magickey",        src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/magickey-EzGnClZo5xEMTEJhzc0wJaRsKuD17X.png",        alt: "Magic Key" },
+  { id: "mirror",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/mirror-9ZAZVG4Lh8ZhAXIBs8X6dN3Ec1EI7H.png",          alt: "Mirror" },
+  { id: "noteforriverman", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/noteforriverman-9tVlIuEHCATEIHy9QPM1weChDulMfC.png", alt: "Note for Riverman" },
+  { id: "raft",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/raft-Njv9edZYYpIp9fAlh4IkfQInw0Bu6S.png",            alt: "Raft" },
+  { id: "trophy",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/trophy-bLgI9Q0JTDoNJWSM2wK6ohPw6GTFSS.png",          alt: "Trophy" },
+  { id: "upstab",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/upstab-R04iJ6nCHpREpaKmLCyAG69wJtG82A.png",          alt: "Upstab" },
+  { id: "water",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/water-1g1wpR7bGmXT6hjLiRSkQxgmmWrC8D.png",           alt: "Water" },
+  { id: "wateroflife",     src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wateroflife-oDZH7bh4kmZ2zwi2S7xsgk4P7HSnGM.png",     alt: "Water of Life" },
+]
+
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
   const [defeated, setDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
+  const [collected, setCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
 
   function toggleBoss(id: string) {
     setDefeated((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function toggleItem(id: string) {
+    setCollected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {
         next.delete(id)
@@ -177,6 +209,84 @@ export default function StreamOverlay() {
           opacity: 0.6;
           filter: grayscale(100%);
         }
+
+        /* Item tracker rows — left black bottom section */
+        .item-row-1 {
+          position: absolute;
+          top: 650px;
+          left: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        .item-row-2 {
+          position: absolute;
+          top: 704px;
+          left: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        /* Item tracker rows — right black bottom section */
+        .item-row-1-right {
+          position: absolute;
+          top: 650px;
+          right: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        .item-row-2-right {
+          position: absolute;
+          top: 704px;
+          right: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        .item-btn {
+          background: none;
+          border: none;
+          padding: 0;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.15s ease, filter 0.15s ease;
+        }
+
+        .item-btn img {
+          width: 44px;
+          height: 44px;
+          image-rendering: pixelated;
+          display: block;
+        }
+
+        .item-btn.active {
+          opacity: 1;
+          filter: none;
+        }
+
+        .item-btn.collected {
+          opacity: 0.6;
+          filter: grayscale(100%);
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -240,6 +350,66 @@ export default function StreamOverlay() {
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Item tracker row 1 — left */}
+        <div className="item-row-1" role="group" aria-label="Item tracker row 1">
+          {ITEMS.slice(0, 8).map((item) => (
+            <button
+              key={item.id}
+              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleItem(item.id)}
+              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              title={item.alt}
+            >
+              <img src={item.src} alt={item.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Item tracker row 2 — left */}
+        <div className="item-row-2" role="group" aria-label="Item tracker row 2">
+          {ITEMS.slice(8, 16).map((item) => (
+            <button
+              key={item.id}
+              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleItem(item.id)}
+              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              title={item.alt}
+            >
+              <img src={item.src} alt={item.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Item tracker row 1 — right */}
+        <div className="item-row-1-right" role="group" aria-label="Item tracker row 1">
+          {ITEMS.slice(0, 8).map((item) => (
+            <button
+              key={`right-${item.id}`}
+              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleItem(item.id)}
+              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              title={item.alt}
+            >
+              <img src={item.src} alt={item.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Item tracker row 2 — right */}
+        <div className="item-row-2-right" role="group" aria-label="Item tracker row 2">
+          {ITEMS.slice(8, 16).map((item) => (
+            <button
+              key={`right-${item.id}`}
+              className={`item-btn ${collected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleItem(item.id)}
+              aria-label={`${item.alt} — ${collected.has(item.id) ? "collected" : "not collected"}`}
+              title={item.alt}
+            >
+              <img src={item.src} alt={item.alt} />
             </button>
           ))}
         </div>
