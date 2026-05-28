@@ -359,7 +359,7 @@ export default function StreamOverlay() {
 
         .gem-image {
           position: absolute;
-          top: 544px;
+          top: 204px;
           left: 50%;
           transform: translateX(-50%);
           pointer-events: none;
@@ -368,6 +368,7 @@ export default function StreamOverlay() {
           image-rendering: pixelated;
           width: auto;
           height: auto;
+          filter: drop-shadow(-2px 0 0 #000) drop-shadow(2px 0 0 #000) drop-shadow(0 -2px 0 #000) drop-shadow(0 2px 0 #000);
         }
 
         /* Transparent overlays for top black boxes */
