@@ -182,7 +182,7 @@ export default function StreamOverlay() {
       <div className="overlay-wrapper">
         {/* Background overlay image */}
         <img
-          src="/New Z2R Overlay.png"
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-WK0dOjNqj0YXzW4v18zmvSNLkqaih1.png"
           alt="Zelda II Randomizer Stream Overlay"
           className="overlay-bg"
           draggable={false}
