@@ -360,8 +360,8 @@ export default function StreamOverlay() {
           position: absolute;
           top: 0;
           left: 0;
-          width: 330px;
-          height: 480px;
+          width: 368px;
+          height: 516px;
           background: rgba(0, 0, 0, 0);
           pointer-events: none;
           z-index: 10;
@@ -371,8 +371,8 @@ export default function StreamOverlay() {
           position: absolute;
           top: 0;
           right: 0;
-          width: 330px;
-          height: 480px;
+          width: 368px;
+          height: 516px;
           background: rgba(0, 0, 0, 0);
           pointer-events: none;
           z-index: 10;
