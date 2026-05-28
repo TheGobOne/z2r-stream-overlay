@@ -129,8 +129,8 @@ export default function StreamOverlay() {
           position: absolute;
           /* sit at the very top of the black area below the teal border */
           top: 596px;
-          /* left black section spans from left edge to center */
-          left: 42px;
+          /* centered horizontally in the left section */
+          left: 159px;
           width: 452px;
           display: flex;
           align-items: center;
