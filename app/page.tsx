@@ -162,7 +162,7 @@ export default function StreamOverlay() {
         }
 
         .boss-btn.defeated {
-          opacity: 0.25;
+          opacity: 0.6;
           filter: grayscale(100%);
         }
       `}</style>
