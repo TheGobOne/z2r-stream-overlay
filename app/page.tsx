@@ -47,11 +47,8 @@ export default function StreamOverlay() {
   const [rightText, setRightText] = useState("")
   const [leftFontSize, setLeftFontSize] = useState(20)
   const [rightFontSize, setRightFontSize] = useState(20)
-  const [gemX, setGemX] = useState(728) // center horizontal
-  const [gemY, setGemY] = useState(95)
-  const [isDraggingGem, setIsDraggingGem] = useState(false)
-  const [dragOffsetX, setDragOffsetX] = useState(0)
-  const [dragOffsetY, setDragOffsetY] = useState(0)
+  const [gemCount, setGemCount] = useState<number | null>(null)
+  const [gemPopupOpen, setGemPopupOpen] = useState(false)
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -380,9 +377,9 @@ export default function StreamOverlay() {
 
         .gem-image {
           position: absolute;
-          top: var(--gem-y, 95px);
-          left: var(--gem-x, 50%);
-          transform: translateX(calc(-50% + var(--gem-offset-x, 0px)));
+          top: 95px;
+          left: 50%;
+          transform: translateX(-50%);
           pointer-events: auto;
           user-select: none;
           display: block;
@@ -390,11 +387,76 @@ export default function StreamOverlay() {
           width: auto;
           height: auto;
           filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
-          cursor: grab;
+          cursor: pointer;
+          z-index: 5;
         }
 
-        .gem-image:active {
-          cursor: grabbing;
+        .gem-count {
+          position: absolute;
+          top: 345px;
+          left: 50%;
+          transform: translateX(-50%);
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 28px;
+          letter-spacing: 4px;
+          pointer-events: none;
+          user-select: none;
+          filter: drop-shadow(0 0 4px #000) drop-shadow(0 0 8px #000);
+          z-index: 5;
+        }
+
+        .gem-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.75);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .gem-modal-box {
+          background: #0a0a0a;
+          border: 3px solid #2ec4b6;
+          padding: 32px 40px;
+          text-align: center;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+          min-width: 320px;
+        }
+
+        .gem-modal-title {
+          font-size: 16px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+          margin-bottom: 28px;
+        }
+
+        .gem-modal-options {
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .gem-modal-opt {
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 18px;
+          width: 48px;
+          height: 48px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .gem-modal-opt:hover,
+        .gem-modal-opt.selected {
+          background: #2ec4b6;
+          color: #000000;
         }
 
         /* Transparent overlays for top black boxes */
@@ -421,7 +483,7 @@ export default function StreamOverlay() {
         }
       `}</style>
 
-      <div className="overlay-wrapper" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+      <div className="overlay-wrapper">
         {/* Background overlay image */}
         <img
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-sLdN1Aj0x737pKVaQsZhaZE040esK9.png"
@@ -436,19 +498,39 @@ export default function StreamOverlay() {
         {/* Transparent overlay for top-right black box */}
         <div className="transparent-overlay-right" />
 
-        {/* Gem decoration - draggable */}
+        {/* Gem — click to set count */}
         <img
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
           alt="Gem"
           className="gem-image"
           draggable={false}
-          onMouseDown={handleGemMouseDown}
-          style={{
-            "--gem-x": `${gemX}px`,
-            "--gem-y": `${gemY}px`,
-            "--gem-offset-x": `${gemX - 728}px`,
-          } as React.CSSProperties}
+          onClick={() => setGemPopupOpen(true)}
         />
+
+        {/* Gem count display */}
+        {gemCount !== null && (
+          <span className="gem-count">{gemCount}</span>
+        )}
+
+        {/* Gem count popup */}
+        {gemPopupOpen && (
+          <div className="gem-modal-backdrop" onClick={() => setGemPopupOpen(false)}>
+            <div className="gem-modal-box" onClick={(e) => e.stopPropagation()}>
+              <p className="gem-modal-title">How many gems?</p>
+              <div className="gem-modal-options">
+                {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    className={`gem-modal-opt${gemCount === n ? " selected" : ""}`}
+                    onClick={() => { setGemCount(n); setGemPopupOpen(false) }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Left editable text box */}
         <div className="text-box-left">
