@@ -129,13 +129,13 @@ export default function StreamOverlay() {
           position: absolute;
           /* sit at the very top of the black area below the teal border */
           top: 596px;
-          /* left black section only */
+          /* left black section spans from left edge to center */
           left: 42px;
-          width: 284px;
+          width: 656px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0;
+          padding: 0 16px;
           box-sizing: border-box;
         }
 
