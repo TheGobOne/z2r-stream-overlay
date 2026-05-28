@@ -14,6 +14,7 @@ const BOSSES = [
 
 // Row 1: candle, glove, raft, boots, flute, cross, downstab, upstab
 // Row 2: hammer, magickey, trophy, mirror, noteforriverman, wateroflife, water, kid
+// Row 3: shield, jump, life, fairy, fire, reflect, spell, thunder
 const ITEMS = [
   { id: "candle",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/candle-215T0VkrriKMMF3KNj996UclZvjPrm.png",          alt: "Candle" },
   { id: "glove",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/glove-OEDPJotBIReqdX3PYHnjH8Bi7cte8Q.png",           alt: "Glove" },
@@ -31,6 +32,14 @@ const ITEMS = [
   { id: "wateroflife",     src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wateroflife-oDZH7bh4kmZ2zwi2S7xsgk4P7HSnGM.png",     alt: "Water of Life" },
   { id: "water",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/water-1g1wpR7bGmXT6hjLiRSkQxgmmWrC8D.png",           alt: "Water" },
   { id: "kid",             src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/kid-pAWRqLS8Yg8R6Y8b23EUdV82q052cM.png",             alt: "Child" },
+  { id: "shield",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/shield-1ykMtmxCvcfpYBBoImNlAvClkwCXCh.png",          alt: "Shield" },
+  { id: "jump",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/jump-CRoANAOlg9BaNCaluUdq0iTIB6Ejlg.png",            alt: "Jump" },
+  { id: "life",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/life-bEtDgJjFmftdUXyk4VjzCDC5xetcc4.png",            alt: "Life" },
+  { id: "fairy",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/fairy-0mhukM512CWJOuemkBP9l10zrO6pO6.png",           alt: "Fairy" },
+  { id: "fire",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/fire-SbCeoCfgjlAPAYeIRdrFYL6Eq6jrIM.png",            alt: "Fire" },
+  { id: "reflect",         src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/reflect-ViHrAXATIYAIR8nvHk29TU63Wn8YJc.png",         alt: "Reflect" },
+  { id: "spell",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/spell-JRQjkytihtvztUGdbkioWpXhuyHlm9.png",           alt: "Spell" },
+  { id: "thunder",         src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/thunder-acYwJLumZAKTqphP3AUuYki6M3oiKt.png",         alt: "Thunder" },
 ]
 
 export default function StreamOverlay() {
@@ -248,6 +257,18 @@ export default function StreamOverlay() {
           box-sizing: border-box;
         }
 
+        .item-row-3 {
+          position: absolute;
+          top: 758px;
+          left: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
         /* Item tracker rows — right black bottom section */
         .item-row-1-right {
           position: absolute;
@@ -264,6 +285,18 @@ export default function StreamOverlay() {
         .item-row-2-right {
           position: absolute;
           top: 704px;
+          right: 39px;
+          width: 500px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        .item-row-3-right {
+          position: absolute;
+          top: 758px;
           right: 39px;
           width: 500px;
           display: flex;
@@ -415,6 +448,36 @@ export default function StreamOverlay() {
         {/* Item tracker row 2 — right */}
         <div className="item-row-2-right" role="group" aria-label="Player 2 item tracker row 2">
           {ITEMS.slice(8, 16).map((item) => (
+            <button
+              key={`right-${item.id}`}
+              className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleRightItem(item.id)}
+              aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
+              title={item.alt}
+            >
+              <img src={item.src} alt={item.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Item tracker row 3 — left */}
+        <div className="item-row-3" role="group" aria-label="Player 1 item tracker row 3">
+          {ITEMS.slice(16, 24).map((item) => (
+            <button
+              key={item.id}
+              className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
+              onClick={() => toggleLeftItem(item.id)}
+              aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
+              title={item.alt}
+            >
+              <img src={item.src} alt={item.alt} />
+            </button>
+          ))}
+        </div>
+
+        {/* Item tracker row 3 — right */}
+        <div className="item-row-3-right" role="group" aria-label="Player 2 item tracker row 3">
+          {ITEMS.slice(16, 24).map((item) => (
             <button
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
