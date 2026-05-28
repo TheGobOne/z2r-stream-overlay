@@ -492,7 +492,7 @@ export default function StreamOverlay() {
           font-family: 'ZeldaII', monospace;
           font-size: 11px;
           letter-spacing: 1px;
-          color: #7ef5ff;
+          color: #ffffff;
           text-transform: uppercase;
           pointer-events: none;
           user-select: none;
@@ -518,7 +518,7 @@ export default function StreamOverlay() {
           width: 100%;
           height: 20px;
           background: transparent;
-          border: 1px solid #2ec4b6;
+          border: none;
           outline: none;
           color: #ffffff;
           font-family: 'ZeldaII', monospace;
