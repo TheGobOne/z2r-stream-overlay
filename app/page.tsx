@@ -181,7 +181,7 @@ export default function StreamOverlay() {
         /* Boss tracker row — left black bottom section */
         .boss-row {
           position: absolute;
-          top: 596px;
+          top: 606px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -194,7 +194,7 @@ export default function StreamOverlay() {
         /* Boss tracker row — right black bottom section */
         .boss-row-right {
           position: absolute;
-          top: 596px;
+          top: 606px;
           right: 39px;
           width: 500px;
           display: flex;
@@ -235,7 +235,7 @@ export default function StreamOverlay() {
         /* Item tracker rows — left black bottom section */
         .item-row-1 {
           position: absolute;
-          top: 630px;
+          top: 660px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -247,7 +247,7 @@ export default function StreamOverlay() {
 
         .item-row-2 {
           position: absolute;
-          top: 684px;
+          top: 714px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -259,7 +259,7 @@ export default function StreamOverlay() {
 
         .item-row-3 {
           position: absolute;
-          top: 738px;
+          top: 768px;
           left: 39px;
           width: 500px;
           display: flex;
@@ -272,7 +272,7 @@ export default function StreamOverlay() {
         /* Item tracker rows — right black bottom section */
         .item-row-1-right {
           position: absolute;
-          top: 630px;
+          top: 660px;
           right: 39px;
           width: 500px;
           display: flex;
@@ -284,7 +284,7 @@ export default function StreamOverlay() {
 
         .item-row-2-right {
           position: absolute;
-          top: 684px;
+          top: 714px;
           right: 39px;
           width: 500px;
           display: flex;
@@ -296,7 +296,7 @@ export default function StreamOverlay() {
 
         .item-row-3-right {
           position: absolute;
-          top: 738px;
+          top: 768px;
           right: 39px;
           width: 500px;
           display: flex;
