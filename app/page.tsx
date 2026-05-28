@@ -354,6 +354,29 @@ export default function StreamOverlay() {
           opacity: 0.6;
           filter: grayscale(100%);
         }
+
+        /* Transparent overlays for top black boxes */
+        .transparent-overlay-left {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 330px;
+          height: 480px;
+          background: rgba(0, 0, 0, 0);
+          pointer-events: none;
+          z-index: 10;
+        }
+
+        .transparent-overlay-right {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 330px;
+          height: 480px;
+          background: rgba(0, 0, 0, 0);
+          pointer-events: none;
+          z-index: 10;
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -364,6 +387,12 @@ export default function StreamOverlay() {
           className="overlay-bg"
           draggable={false}
         />
+
+        {/* Transparent overlay for top-left black box */}
+        <div className="transparent-overlay-left" />
+
+        {/* Transparent overlay for top-right black box */}
+        <div className="transparent-overlay-right" />
 
         {/* Left editable text box */}
         <div className="text-box-left">
@@ -423,7 +452,7 @@ export default function StreamOverlay() {
           ))}
         </div>
 
-        {/* Item tracker row 1 �� left */}
+        {/* Item tracker row 1 ��� left */}
         <div className="item-row-1" role="group" aria-label="Player 1 item tracker row 1">
           {ITEMS.slice(0, 8).map((item) => (
             <button
