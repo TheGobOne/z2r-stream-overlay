@@ -43,6 +43,7 @@ const ITEMS = [
 ]
 
 export default function StreamOverlay() {
+  const [maxRando, setMaxRando] = useState<boolean | null>(null)
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
   const [leftFontSize, setLeftFontSize] = useState(20)
@@ -357,6 +358,60 @@ export default function StreamOverlay() {
           filter: grayscale(100%);
         }
 
+        /* Modal backdrop */
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.85);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .modal-box {
+          background: #0a0a0a;
+          border: 3px solid #2ec4b6;
+          padding: 40px 48px;
+          text-align: center;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+          min-width: 340px;
+        }
+
+        .modal-title {
+          font-size: 18px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+          margin-bottom: 32px;
+          line-height: 1.5;
+        }
+
+        .modal-buttons {
+          display: flex;
+          gap: 24px;
+          justify-content: center;
+        }
+
+        .modal-btn {
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 16px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 12px 32px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .modal-btn:hover {
+          background: #2ec4b6;
+          color: #000000;
+        }
+
         /* Transparent overlays for top black boxes */
         .transparent-overlay-left {
           position: absolute;
@@ -380,6 +435,18 @@ export default function StreamOverlay() {
           z-index: 10;
         }
       `}</style>
+
+      {maxRando === null && (
+        <div className="modal-backdrop">
+          <div className="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <p className="modal-title" id="modal-title">Is this a Max Rando race?</p>
+            <div className="modal-buttons">
+              <button className="modal-btn" onClick={() => setMaxRando(true)}>Yes</button>
+              <button className="modal-btn" onClick={() => setMaxRando(false)}>No</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="overlay-wrapper">
         {/* Background overlay image */}
