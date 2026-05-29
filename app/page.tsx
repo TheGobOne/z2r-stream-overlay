@@ -829,8 +829,6 @@ export default function StreamOverlay() {
           />
         </div>
 
-        </div>
-
         {/* Timer */}
         <div
           className={`timer-display${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
