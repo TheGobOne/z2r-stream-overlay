@@ -660,14 +660,14 @@ export default function StreamOverlay() {
           position: absolute;
           top: 753px;
           left: 50%;
-          transform: translateX(-50%) scale(1.5);
+          transform: scale(1.5) translateX(-50%);
           font-family: 'ZeldaII', monospace;
           font-size: 14px;
           letter-spacing: 2px;
           color: #ffffff;
           cursor: pointer;
           user-select: none;
-          transform-origin: top center;
+          transform-origin: center;
           filter: drop-shadow(-2px 0 0 #000) drop-shadow(2px 0 0 #000) drop-shadow(0 -2px 0 #000) drop-shadow(0 2px 0 #000);
           z-index: 5;
         }
