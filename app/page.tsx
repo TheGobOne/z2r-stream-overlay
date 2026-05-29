@@ -658,7 +658,7 @@ export default function StreamOverlay() {
 
         .timer-display {
           position: absolute;
-          top: 748px;
+          top: 753px;
           left: 50%;
           transform: translateX(-50%) scale(1.5);
           font-family: 'ZeldaII', monospace;
