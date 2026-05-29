@@ -673,7 +673,7 @@ export default function StreamOverlay() {
         }
 
         .timer-display.running {
-          color: #7ef5ff;
+          color: #ffffff;
         }
 
         .timer-display.paused {
