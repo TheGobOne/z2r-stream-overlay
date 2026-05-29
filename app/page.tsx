@@ -660,9 +660,9 @@ export default function StreamOverlay() {
           position: absolute;
           top: 753px;
           left: 50%;
-          transform: scale(1.5) translateX(-50%);
+          transform: translateX(-50%);
           font-family: 'ZeldaII', monospace;
-          font-size: 14px;
+          font-size: 21px;
           letter-spacing: 2px;
           color: #ffffff;
           cursor: pointer;
