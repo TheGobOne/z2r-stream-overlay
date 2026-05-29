@@ -90,23 +90,28 @@ export default function StreamOverlay() {
     setTimerPhase(0)
     timerAccRef.current = 0
     setTimerMs(0)
-    setTimerEditValue(formatTimer(timerMs))
+    setTimerEditValue("")
     setTimerEditOpen(true)
   }
 
   function formatTimer(ms: number): string {
-    const totalSec = Math.floor(ms / 1000)
+    const negative = ms < 0
+    const abs = Math.abs(ms)
+    const totalSec = Math.floor(abs / 1000)
     const h = Math.floor(totalSec / 3600)
     const m = Math.floor((totalSec % 3600) / 60)
     const s = totalSec % 60
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    return `${negative ? "-" : ""}${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
   }
 
   function applyTimerEdit() {
-    const parts = timerEditValue.split(":").map(Number)
+    const raw = timerEditValue.trim()
+    const negative = raw.startsWith("-")
+    const parts = raw.replace("-", "").split(":").map(Number)
     let ms = 0
     if (parts.length === 3) ms = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000
     else if (parts.length === 2) ms = ((parts[0] * 60) + parts[1]) * 1000
+    if (negative) ms = -ms
     timerAccRef.current = ms
     setTimerMs(ms)
     setTimerEditOpen(false)
