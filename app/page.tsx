@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -52,6 +52,65 @@ export default function StreamOverlay() {
   const [commentator1, setCommentator1] = useState("")
   const [commentator2, setCommentator2] = useState("")
   const [tracking, setTracking] = useState("")
+
+  // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
+  const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
+  const [timerMs, setTimerMs] = useState(0)
+  const [timerEditOpen, setTimerEditOpen] = useState(false)
+  const [timerEditValue, setTimerEditValue] = useState("0:00:00")
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerStartRef = useRef<number>(0)
+  const timerAccRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (timerPhase === 1) {
+      timerStartRef.current = Date.now()
+      timerRef.current = setInterval(() => {
+        setTimerMs(timerAccRef.current + (Date.now() - timerStartRef.current))
+      }, 100)
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (timerPhase === 2) timerAccRef.current = timerMs
+      if (timerPhase === 0) { timerAccRef.current = 0; setTimerMs(0) }
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [timerPhase])
+
+  function handleTimerClick() {
+    setTimerPhase(prev => {
+      if (prev === 0) return 1  // start
+      if (prev === 1) return 2  // pause
+      return 0                  // reset
+    })
+  }
+
+  function handleTimerRightClick(e: React.MouseEvent) {
+    e.preventDefault()
+    if (timerRef.current) clearInterval(timerRef.current)
+    setTimerPhase(0)
+    timerAccRef.current = 0
+    setTimerMs(0)
+    setTimerEditValue(formatTimer(timerMs))
+    setTimerEditOpen(true)
+  }
+
+  function formatTimer(ms: number): string {
+    const totalSec = Math.floor(ms / 1000)
+    const h = Math.floor(totalSec / 3600)
+    const m = Math.floor((totalSec % 3600) / 60)
+    const s = totalSec % 60
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  }
+
+  function applyTimerEdit() {
+    const parts = timerEditValue.split(":").map(Number)
+    let ms = 0
+    if (parts.length === 3) ms = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000
+    else if (parts.length === 2) ms = ((parts[0] * 60) + parts[1]) * 1000
+    timerAccRef.current = ms
+    setTimerMs(ms)
+    setTimerEditOpen(false)
+  }
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -596,6 +655,92 @@ export default function StreamOverlay() {
         .tracking-input::placeholder {
           color: rgba(126, 245, 255, 0.25);
         }
+
+        .timer-display {
+          position: absolute;
+          top: 748px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          letter-spacing: 2px;
+          color: #ffffff;
+          cursor: pointer;
+          user-select: none;
+          transform-origin: top center;
+          filter: drop-shadow(-2px 0 0 #000) drop-shadow(2px 0 0 #000) drop-shadow(0 -2px 0 #000) drop-shadow(0 2px 0 #000);
+          z-index: 5;
+        }
+
+        .timer-display.running {
+          color: #7ef5ff;
+        }
+
+        .timer-display.paused {
+          color: #ffcc00;
+        }
+
+        .timer-edit-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.75);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .timer-edit-box {
+          background: #0a0a0a;
+          border: 3px solid #2ec4b6;
+          padding: 32px 40px;
+          text-align: center;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+          min-width: 280px;
+        }
+
+        .timer-edit-title {
+          font-size: 13px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+          margin-bottom: 20px;
+        }
+
+        .timer-edit-input {
+          background: transparent;
+          border: 2px solid #2ec4b6;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 20px;
+          text-align: center;
+          padding: 8px 12px;
+          caret-color: #7ef5ff;
+          letter-spacing: 3px;
+          width: 100%;
+          box-sizing: border-box;
+          margin-bottom: 20px;
+        }
+
+        .timer-edit-btn {
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 13px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 10px 24px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .timer-edit-btn:hover {
+          background: #2ec4b6;
+          color: #000000;
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -683,6 +828,37 @@ export default function StreamOverlay() {
             autoComplete="off"
           />
         </div>
+
+        </div>
+
+        {/* Timer */}
+        <div
+          className={`timer-display${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
+          onClick={handleTimerClick}
+          onContextMenu={handleTimerRightClick}
+          title="Click: start/pause/reset | Right-click: edit start time"
+        >
+          {formatTimer(timerMs)}
+        </div>
+
+        {/* Timer edit popup */}
+        {timerEditOpen && (
+          <div className="timer-edit-backdrop" onClick={() => setTimerEditOpen(false)}>
+            <div className="timer-edit-box" onClick={(e) => e.stopPropagation()}>
+              <p className="timer-edit-title">Set start time</p>
+              <input
+                className="timer-edit-input"
+                value={timerEditValue}
+                onChange={(e) => setTimerEditValue(e.target.value)}
+                placeholder="0:00:00"
+                spellCheck={false}
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
+              />
+              <button className="timer-edit-btn" onClick={applyTimerEdit}>Set</button>
+            </div>
+          </div>
+        )}
 
         {/* Left editable text box */}
         <div className="text-box-left">
