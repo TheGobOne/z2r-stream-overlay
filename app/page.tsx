@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -47,6 +47,75 @@ export default function StreamOverlay() {
   const [rightText, setRightText] = useState("")
   const [leftFontSize, setLeftFontSize] = useState(20)
   const [rightFontSize, setRightFontSize] = useState(20)
+  const [gemCount, setGemCount] = useState<number | null>(null)
+  const [gemPopupOpen, setGemPopupOpen] = useState(false)
+  const [commentator1, setCommentator1] = useState("")
+  const [commentator2, setCommentator2] = useState("")
+  const [tracking, setTracking] = useState("")
+
+  // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
+  const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
+  const [timerMs, setTimerMs] = useState(0)
+  const [timerEditOpen, setTimerEditOpen] = useState(false)
+  const [timerEditValue, setTimerEditValue] = useState("0:00:00")
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timerStartRef = useRef<number>(0)
+  const timerAccRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (timerPhase === 1) {
+      timerStartRef.current = Date.now()
+      timerRef.current = setInterval(() => {
+        setTimerMs(timerAccRef.current + (Date.now() - timerStartRef.current))
+      }, 100)
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (timerPhase === 2) timerAccRef.current = timerMs
+      if (timerPhase === 0) { timerAccRef.current = 0; setTimerMs(0) }
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [timerPhase])
+
+  function handleTimerClick() {
+    setTimerPhase(prev => {
+      if (prev === 0) return 1  // start
+      if (prev === 1) return 2  // pause
+      return 0                  // reset
+    })
+  }
+
+  function handleTimerRightClick(e: React.MouseEvent) {
+    e.preventDefault()
+    if (timerRef.current) clearInterval(timerRef.current)
+    setTimerPhase(0)
+    timerAccRef.current = 0
+    setTimerMs(0)
+    setTimerEditValue("")
+    setTimerEditOpen(true)
+  }
+
+  function formatTimer(ms: number): string {
+    const negative = ms < 0
+    const abs = Math.abs(ms)
+    const totalSec = Math.floor(abs / 1000)
+    const h = Math.floor(totalSec / 3600)
+    const m = Math.floor((totalSec % 3600) / 60)
+    const s = totalSec % 60
+    return `${negative ? "-" : ""}${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  }
+
+  function applyTimerEdit() {
+    const raw = timerEditValue.trim()
+    const negative = raw.startsWith("-")
+    const parts = raw.replace("-", "").split(":").map(Number)
+    let ms = 0
+    if (parts.length === 3) ms = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000
+    else if (parts.length === 2) ms = ((parts[0] * 60) + parts[1]) * 1000
+    if (negative) ms = -ms
+    timerAccRef.current = ms
+    setTimerMs(ms)
+    setTimerEditOpen(false)
+  }
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -69,6 +138,22 @@ export default function StreamOverlay() {
   function handleRightTextChange(value: string) {
     setRightText(value)
     setRightFontSize(calculateFontSize(value))
+  }
+
+  function handleGemMouseDown(e: React.MouseEvent) {
+    setIsDraggingGem(true)
+    setDragOffsetX(e.clientX - gemX)
+    setDragOffsetY(e.clientY - gemY)
+  }
+
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!isDraggingGem) return
+    setGemX(e.clientX - dragOffsetX)
+    setGemY(e.clientY - dragOffsetY)
+  }
+
+  function handleMouseUp() {
+    setIsDraggingGem(false)
   }
 
   function toggleLeftBoss(id: string) {
@@ -357,6 +442,90 @@ export default function StreamOverlay() {
           filter: grayscale(100%);
         }
 
+        .gem-image {
+          position: absolute;
+          top: 195px;
+          left: 50%;
+          transform: translateX(-50%);
+          pointer-events: auto;
+          user-select: none;
+          display: block;
+          image-rendering: pixelated;
+          width: auto;
+          height: auto;
+          filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
+          cursor: pointer;
+          z-index: 5;
+        }
+
+        .gem-count {
+          position: absolute;
+          top: 330px;
+          left: 50%;
+          transform: translateX(calc(-50% + 5px));
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 36px;
+          letter-spacing: 4px;
+          pointer-events: none;
+          user-select: none;
+          filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
+          z-index: 5;
+        }
+
+        .gem-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.75);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .gem-modal-box {
+          background: #0a0a0a;
+          border: 3px solid #2ec4b6;
+          padding: 32px 40px;
+          text-align: center;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+          min-width: 320px;
+        }
+
+        .gem-modal-title {
+          font-size: 16px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+          margin-bottom: 28px;
+        }
+
+        .gem-modal-options {
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+          flex-wrap: wrap;
+        }
+
+        .gem-modal-opt {
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 18px;
+          width: 48px;
+          height: 48px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .gem-modal-opt:hover,
+        .gem-modal-opt.selected {
+          background: #2ec4b6;
+          color: #000000;
+        }
+
         /* Transparent overlays for top black boxes */
         .transparent-overlay-left {
           position: absolute;
@@ -379,6 +548,204 @@ export default function StreamOverlay() {
           pointer-events: none;
           z-index: 10;
         }
+
+        .commentary-title {
+          position: absolute;
+          top: 592px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          letter-spacing: 1px;
+          color: #ffffff;
+          text-transform: uppercase;
+          pointer-events: none;
+          user-select: none;
+          transform-origin: center;
+        }
+
+        .commentary-container {
+          position: absolute;
+          top: 607px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          width: 140px;
+          height: 48px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          transform-origin: top center;
+        }
+
+        .commentary-input {
+          width: 100%;
+          height: 20px;
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 10px;
+          text-align: center;
+          padding: 2px;
+          caret-color: #7ef5ff;
+          letter-spacing: 0.5px;
+          box-sizing: border-box;
+          text-transform: uppercase;
+          transition: border-color 0.15s ease;
+        }
+
+        .commentary-input:focus {
+          border-color: #7ef5ff;
+          color: #7ef5ff;
+        }
+
+        .commentary-input::placeholder {
+          color: rgba(126, 245, 255, 0.25);
+        }
+
+        .tracking-title {
+          position: absolute;
+          top: 694px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          letter-spacing: 1px;
+          color: #ffffff;
+          text-transform: uppercase;
+          pointer-events: none;
+          user-select: none;
+          transform-origin: center;
+        }
+
+        .tracking-container {
+          position: absolute;
+          top: 712px;
+          left: 50%;
+          transform: translateX(-50%) scale(1.5);
+          width: 140px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform-origin: top center;
+        }
+
+        .tracking-input {
+          width: 100%;
+          height: 100%;
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 10px;
+          text-align: center;
+          padding: 2px;
+          caret-color: #7ef5ff;
+          letter-spacing: 0.5px;
+          box-sizing: border-box;
+          text-transform: uppercase;
+          transition: border-color 0.15s ease;
+        }
+
+        .tracking-input:focus {
+          border-color: #7ef5ff;
+          color: #7ef5ff;
+        }
+
+        .tracking-input::placeholder {
+          color: rgba(126, 245, 255, 0.25);
+        }
+
+        .timer-display {
+          position: absolute;
+          top: 753px;
+          left: 50%;
+          transform: translateX(-50%);
+          font-family: 'ZeldaII', monospace;
+          font-size: 21px;
+          letter-spacing: 2px;
+          color: #ffffff;
+          cursor: pointer;
+          user-select: none;
+          transform-origin: center;
+          filter: drop-shadow(-2px 0 0 #000) drop-shadow(2px 0 0 #000) drop-shadow(0 -2px 0 #000) drop-shadow(0 2px 0 #000);
+          z-index: 5;
+        }
+
+        .timer-display.running {
+          color: #ffffff;
+        }
+
+        .timer-display.paused {
+          color: #ffcc00;
+        }
+
+        .timer-edit-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.75);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .timer-edit-box {
+          background: #0a0a0a;
+          border: 3px solid #2ec4b6;
+          padding: 32px 40px;
+          text-align: center;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+          min-width: 280px;
+        }
+
+        .timer-edit-title {
+          font-size: 13px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+          margin-bottom: 20px;
+        }
+
+        .timer-edit-input {
+          background: transparent;
+          border: 2px solid #2ec4b6;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 20px;
+          text-align: center;
+          padding: 8px 12px;
+          caret-color: #7ef5ff;
+          letter-spacing: 3px;
+          width: 100%;
+          box-sizing: border-box;
+          margin-bottom: 20px;
+        }
+
+        .timer-edit-btn {
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 13px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 10px 24px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .timer-edit-btn:hover {
+          background: #2ec4b6;
+          color: #000000;
+        }
       `}</style>
 
       <div className="overlay-wrapper">
@@ -395,6 +762,106 @@ export default function StreamOverlay() {
 
         {/* Transparent overlay for top-right black box */}
         <div className="transparent-overlay-right" />
+
+        {/* Gem — click to set count */}
+        <img
+          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
+          alt="Gem"
+          className="gem-image"
+          draggable={false}
+          onClick={() => setGemPopupOpen(true)}
+        />
+
+        {/* Gem count display */}
+        {gemCount !== null && (
+          <span className="gem-count">{gemCount}</span>
+        )}
+
+        {/* Gem count popup */}
+        {gemPopupOpen && (
+          <div className="gem-modal-backdrop" onClick={() => setGemPopupOpen(false)}>
+            <div className="gem-modal-box" onClick={(e) => e.stopPropagation()}>
+              <p className="gem-modal-title">How many gems?</p>
+              <div className="gem-modal-options">
+                {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    className={`gem-modal-opt${gemCount === n ? " selected" : ""}`}
+                    onClick={() => { setGemCount(n); setGemPopupOpen(false) }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Commentary section */}
+        <div className="commentary-title">COMMENTARY</div>
+        <div className="commentary-container">
+          <input
+            type="text"
+            className="commentary-input"
+            value={commentator1}
+            onChange={(e) => setCommentator1(e.target.value)}
+            placeholder="COM 1"
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <input
+            type="text"
+            className="commentary-input"
+            value={commentator2}
+            onChange={(e) => setCommentator2(e.target.value)}
+            placeholder="COM 2"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Tracking section */}
+        <div className="tracking-title">TRACKING</div>
+        <div className="tracking-container">
+          <input
+            type="text"
+            className="tracking-input"
+            value={tracking}
+            onChange={(e) => setTracking(e.target.value)}
+            placeholder="TRACKING"
+            spellCheck={false}
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Timer */}
+        <div
+          className={`timer-display${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
+          onClick={handleTimerClick}
+          onContextMenu={handleTimerRightClick}
+          title="Click: start/pause/reset | Right-click: edit start time"
+        >
+          {formatTimer(timerMs)}
+        </div>
+
+        {/* Timer edit popup */}
+        {timerEditOpen && (
+          <div className="timer-edit-backdrop" onClick={() => setTimerEditOpen(false)}>
+            <div className="timer-edit-box" onClick={(e) => e.stopPropagation()}>
+              <p className="timer-edit-title">Set start time</p>
+              <input
+                className="timer-edit-input"
+                value={timerEditValue}
+                onChange={(e) => setTimerEditValue(e.target.value)}
+                placeholder="0:00:00"
+                spellCheck={false}
+                autoFocus
+                onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
+              />
+              <button className="timer-edit-btn" onClick={applyTimerEdit}>Set</button>
+            </div>
+          </div>
+        )}
 
         {/* Left editable text box */}
         <div className="text-box-left">
