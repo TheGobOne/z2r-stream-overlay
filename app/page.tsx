@@ -121,12 +121,7 @@ export default function StreamOverlay() {
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
 
   // Boss badge cycling: W -> E -> MI -> DV -> clear
-  const BOSS_BADGES = [
-    "/overlays/letter-w.png",
-    "/overlays/letter-e.png",
-    "/overlays/letter-mi.png",
-    "/overlays/letter-dv.png",
-  ]
+  const BOSS_BADGES = ["W", "E", "MI", "DV"]
   const [leftBossBadge, setLeftBossBadge] = useState<Record<string, number>>({})
   const [rightBossBadge, setRightBossBadge] = useState<Record<string, number>>({})
 
@@ -420,9 +415,10 @@ export default function StreamOverlay() {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 18px;
-          height: 18px;
-          image-rendering: pixelated;
+          font-family: 'ZeldaII', monospace;
+          font-size: 18px;
+          color: #ffd700;
+          line-height: 1;
           pointer-events: none;
           filter: drop-shadow(-1px 0 0 #000) drop-shadow(1px 0 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(0 1px 0 #000);
           z-index: 2;
@@ -1095,7 +1091,7 @@ export default function StreamOverlay() {
             >
               <img src={boss.src} alt={boss.alt} />
               {leftBossBadge[boss.id] !== undefined && (
-                <img className="boss-badge" src={BOSS_BADGES[leftBossBadge[boss.id]]} alt="" draggable={false} />
+                <span className="boss-badge">{BOSS_BADGES[leftBossBadge[boss.id]]}</span>
               )}
             </button>
           ))}
@@ -1114,7 +1110,7 @@ export default function StreamOverlay() {
             >
               <img src={boss.src} alt={boss.alt} />
               {rightBossBadge[boss.id] !== undefined && (
-                <img className="boss-badge" src={BOSS_BADGES[rightBossBadge[boss.id]]} alt="" draggable={false} />
+                <span className="boss-badge">{BOSS_BADGES[rightBossBadge[boss.id]]}</span>
               )}
             </button>
           ))}
