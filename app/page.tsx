@@ -582,7 +582,7 @@ export default function StreamOverlay() {
         .item-context-menu button {
           background: transparent;
           border: none;
-          color: #ffffff;
+          color: #ffd700;
           font-family: 'ZeldaII', monospace;
           font-size: 14px;
           letter-spacing: 1px;
