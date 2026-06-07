@@ -431,12 +431,12 @@ export default function StreamOverlay() {
           display: block;
         }
 
-        .boss-btn.active {
+        .boss-btn.active img {
           opacity: 1;
           filter: none;
         }
 
-        .boss-btn.defeated {
+        .boss-btn.defeated img {
           opacity: 0.6;
           filter: grayscale(100%);
         }
