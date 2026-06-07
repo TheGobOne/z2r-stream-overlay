@@ -556,9 +556,23 @@ export default function StreamOverlay() {
           background: #0a0a0a;
           border: 2px solid #2ec4b6;
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
+          align-items: center;
           padding: 4px;
           gap: 2px;
+        }
+
+        .item-context-divider {
+          width: 2px;
+          align-self: stretch;
+          background: #2ec4b6;
+          margin: 0 2px;
+        }
+
+        .item-context-menu .clear-x {
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          line-height: 1;
         }
 
         .item-context-menu button {
@@ -568,11 +582,11 @@ export default function StreamOverlay() {
           font-family: 'ZeldaII', monospace;
           font-size: 14px;
           letter-spacing: 1px;
-          padding: 6px 16px;
+          padding: 6px 10px;
           cursor: pointer;
           text-align: center;
-          min-width: 56px;
-          min-height: 28px;
+          min-width: 32px;
+          min-height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1206,19 +1220,21 @@ export default function StreamOverlay() {
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {itemMenu.type === "number"
-            ? NUMBER_OPTIONS.map((n) => (
-                <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
-              ))
-            : LETTER_OPTIONS.map((opt, i) =>
-                opt.clear ? (
-                  <button key="clear" onClick={() => selectItemBadge(null)} aria-label="Clear badge" />
-                ) : (
-                  <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
-                    <img src={opt.src} alt={opt.label} />
-                  </button>
-                ),
-              )}
+          {NUMBER_OPTIONS.map((n) => (
+            <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
+          ))}
+          <span className="item-context-divider" aria-hidden="true" />
+          {LETTER_OPTIONS.map((opt) =>
+            opt.clear ? (
+              <button key="clear" onClick={() => selectItemBadge(null)} title="Clear" aria-label="Clear badge">
+                <span className="clear-x">{"\u2715"}</span>
+              </button>
+            ) : (
+              <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
+                <img src={opt.src} alt={opt.label} />
+              </button>
+            ),
+          )}
         </div>
       )}
     </>
