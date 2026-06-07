@@ -350,10 +350,11 @@ export default function StreamOverlay() {
 
         .boss-badge {
           position: absolute;
-          top: -2px;
-          right: -2px;
-          width: 22px;
-          height: 22px;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 18px;
+          height: 18px;
           image-rendering: pixelated;
           pointer-events: none;
           filter: drop-shadow(-1px 0 0 #000) drop-shadow(1px 0 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(0 1px 0 #000);
