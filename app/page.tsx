@@ -147,6 +147,7 @@ export default function StreamOverlay() {
   const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
 
   // Item badge menus
+  const CODE_OPTIONS = ["RA", "RU", "SA", "MD", "NA", "DA", "NK", "OK"]
   const NUMBER_OPTIONS = ["1", "2", "3", "4", "5", "6"]
   const LETTER_OPTIONS: { label: string; src?: string; clear?: boolean }[] = [
     { label: "W", src: "/overlays/letter-w.png" },
@@ -564,6 +565,7 @@ export default function StreamOverlay() {
           display: flex;
           flex-direction: row;
           align-items: center;
+          justify-content: center;
           gap: 2px;
         }
 
@@ -1224,6 +1226,11 @@ export default function StreamOverlay() {
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
+          <div className="item-context-row">
+            {CODE_OPTIONS.map((c) => (
+              <button key={c} onClick={() => selectItemBadge(c)}>{c}</button>
+            ))}
+          </div>
           <div className="item-context-row">
             {NUMBER_OPTIONS.map((n) => (
               <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
