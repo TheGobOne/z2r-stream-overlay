@@ -543,7 +543,7 @@ export default function StreamOverlay() {
 
         .item-badge.num-badge {
           font-family: 'ZeldaII', monospace;
-          font-size: 16px;
+          font-size: 24px;
           color: #ffd700;
           line-height: 1;
         }
@@ -616,12 +616,12 @@ export default function StreamOverlay() {
           display: block;
         }
 
-        .item-btn.active {
+        .item-btn.active img {
           opacity: 1;
           filter: none;
         }
 
-        .item-btn.collected {
+        .item-btn.collected img {
           opacity: 0.6;
           filter: grayscale(100%);
         }
