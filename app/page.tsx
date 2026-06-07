@@ -204,8 +204,6 @@ export default function StreamOverlay() {
 
   function renderItemBadge(value: string | undefined) {
     if (value === undefined) return null
-    const letter = LETTER_OPTIONS.find((o) => o.label === value && o.src)
-    if (letter) return <img className="item-badge img-badge" src={letter.src} alt="" draggable={false} />
     return <span className="item-badge num-badge">{value}</span>
   }
 
@@ -546,7 +544,7 @@ export default function StreamOverlay() {
         .item-badge.num-badge {
           font-family: 'ZeldaII', monospace;
           font-size: 16px;
-          color: #ffffff;
+          color: #ffd700;
           line-height: 1;
         }
 
