@@ -146,6 +146,69 @@ export default function StreamOverlay() {
   const [leftCollected, setLeftCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
   const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
 
+  // Item badge menus
+  const NUMBER_OPTIONS = ["1", "2", "3", "4", "5", "6"]
+  const LETTER_OPTIONS: { label: string; src?: string; clear?: boolean }[] = [
+    { label: "W", src: "/overlays/letter-w.png" },
+    { label: "E", src: "/overlays/letter-e.png" },
+    { label: "MI", src: "/overlays/letter-mi.png" },
+    { label: "DM", src: "/overlays/letter-dm.png" },
+    { label: "", clear: true },
+  ]
+
+  // Badge values keyed by item id, per side
+  const [leftItemBadge, setLeftItemBadge] = useState<Record<string, string>>({})
+  const [rightItemBadge, setRightItemBadge] = useState<Record<string, string>>({})
+
+  type ItemMenu = {
+    x: number
+    y: number
+    side: "left" | "right"
+    itemId: string
+    type: "number" | "letter"
+  } | null
+  const [itemMenu, setItemMenu] = useState<ItemMenu>(null)
+
+  function openItemMenu(
+    e: React.MouseEvent,
+    side: "left" | "right",
+    itemId: string,
+    type: "number" | "letter",
+  ) {
+    e.preventDefault()
+    setItemMenu({ x: e.clientX, y: e.clientY, side, itemId, type })
+  }
+
+  function selectItemBadge(value: string | null) {
+    if (!itemMenu) return
+    const setter = itemMenu.side === "left" ? setLeftItemBadge : setRightItemBadge
+    setter((prev) => {
+      const next = { ...prev }
+      if (value === null) delete next[itemMenu.itemId]
+      else next[itemMenu.itemId] = value
+      return next
+    })
+    setItemMenu(null)
+  }
+
+  useEffect(() => {
+    if (!itemMenu) return
+    const close = () => setItemMenu(null)
+    window.addEventListener("click", close)
+    window.addEventListener("scroll", close, true)
+    return () => {
+      window.removeEventListener("click", close)
+      window.removeEventListener("scroll", close, true)
+    }
+  }, [itemMenu])
+
+  function renderItemBadge(value: string | undefined) {
+    if (value === undefined) return null
+    const letter = LETTER_OPTIONS.find((o) => o.label === value && o.src)
+    if (letter) return <img className="item-badge img-badge" src={letter.src} alt="" draggable={false} />
+    return <span className="item-badge num-badge">{value}</span>
+  }
+
   function calculateFontSize(text: string): number {
     if (text.length === 0) return 20
     if (text.length <= 6) return 20
@@ -460,7 +523,72 @@ export default function StreamOverlay() {
           display: flex;
           align-items: center;
           justify-content: center;
+          position: relative;
           transition: opacity 0.15s ease, filter 0.15s ease;
+        }
+
+        .item-badge {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          image-rendering: pixelated;
+          pointer-events: none;
+          z-index: 2;
+          filter: drop-shadow(-1px 0 0 #000) drop-shadow(1px 0 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(0 1px 0 #000);
+        }
+
+        .item-badge.img-badge {
+          width: 18px;
+          height: 18px;
+        }
+
+        .item-badge.num-badge {
+          font-family: 'ZeldaII', monospace;
+          font-size: 16px;
+          color: #ffffff;
+          line-height: 1;
+        }
+
+        .item-context-menu {
+          position: fixed;
+          z-index: 2000;
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          display: flex;
+          flex-direction: column;
+          padding: 4px;
+          gap: 2px;
+        }
+
+        .item-context-menu button {
+          background: transparent;
+          border: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          letter-spacing: 1px;
+          padding: 6px 16px;
+          cursor: pointer;
+          text-align: center;
+          min-width: 56px;
+          min-height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.1s ease, color 0.1s ease;
+        }
+
+        .item-context-menu button:hover {
+          background: #2ec4b6;
+          color: #000000;
+        }
+
+        .item-context-menu button img {
+          width: 22px;
+          height: 22px;
+          image-rendering: pixelated;
+          display: block;
         }
 
         .item-btn img {
@@ -974,10 +1102,12 @@ export default function StreamOverlay() {
               key={item.id}
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
+              onContextMenu={(e) => openItemMenu(e, "left", item.id, "number")}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
+              {renderItemBadge(leftItemBadge[item.id])}
             </button>
           ))}
         </div>
@@ -989,10 +1119,12 @@ export default function StreamOverlay() {
               key={item.id}
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
+              onContextMenu={(e) => openItemMenu(e, "left", item.id, "letter")}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
+              {renderItemBadge(leftItemBadge[item.id])}
             </button>
           ))}
         </div>
@@ -1004,10 +1136,12 @@ export default function StreamOverlay() {
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
+              onContextMenu={(e) => openItemMenu(e, "right", item.id, "number")}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
+              {renderItemBadge(rightItemBadge[item.id])}
             </button>
           ))}
         </div>
@@ -1019,10 +1153,12 @@ export default function StreamOverlay() {
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
+              onContextMenu={(e) => openItemMenu(e, "right", item.id, "letter")}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
+              {renderItemBadge(rightItemBadge[item.id])}
             </button>
           ))}
         </div>
@@ -1034,10 +1170,12 @@ export default function StreamOverlay() {
               key={item.id}
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
+              onContextMenu={(e) => openItemMenu(e, "left", item.id, "letter")}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
+              {renderItemBadge(leftItemBadge[item.id])}
             </button>
           ))}
         </div>
@@ -1049,14 +1187,40 @@ export default function StreamOverlay() {
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
+              onContextMenu={(e) => openItemMenu(e, "right", item.id, "letter")}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
+              {renderItemBadge(rightItemBadge[item.id])}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Item badge context menu */}
+      {itemMenu && (
+        <div
+          className="item-context-menu"
+          style={{ top: itemMenu.y, left: itemMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {itemMenu.type === "number"
+            ? NUMBER_OPTIONS.map((n) => (
+                <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
+              ))
+            : LETTER_OPTIONS.map((opt, i) =>
+                opt.clear ? (
+                  <button key="clear" onClick={() => selectItemBadge(null)} aria-label="Clear badge" />
+                ) : (
+                  <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
+                    <img src={opt.src} alt={opt.label} />
+                  </button>
+                ),
+              )}
+        </div>
+      )}
     </>
   )
 }
