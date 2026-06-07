@@ -543,7 +543,7 @@ export default function StreamOverlay() {
 
         .item-badge.num-badge {
           font-family: 'ZeldaII', monospace;
-          font-size: 24px;
+          font-size: 18px;
           color: #ffd700;
           line-height: 1;
         }
