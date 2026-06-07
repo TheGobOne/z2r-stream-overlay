@@ -576,9 +576,13 @@ export default function StreamOverlay() {
         }
 
         .item-context-row:first-child button {
-          color: #4a6bff;
+          color: #ffd700;
           text-shadow:
             -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000;
+        }
+
+        .item-context-row:last-child button img {
+          filter: brightness(0) saturate(100%) invert(85%) sepia(60%) saturate(900%) hue-rotate(358deg) brightness(103%) contrast(104%);
         }
 
         .item-context-menu button {
