@@ -131,17 +131,20 @@ export default function StreamOverlay() {
   const [rightBossBadge, setRightBossBadge] = useState<Record<string, number>>({})
 
   function cycleBadge(
-    setter: React.Dispatch<React.SetStateAction<Record<string, number>>>,
+    _setter: React.Dispatch<React.SetStateAction<Record<string, number>>>,
     id: string,
   ) {
-    setter((prev) => {
+    const updater = (prev: Record<string, number>) => {
       const next = { ...prev }
       const current = prev[id]
       if (current === undefined) next[id] = 0
       else if (current >= BOSS_BADGES.length - 1) delete next[id]
       else next[id] = current + 1
       return next
-    })
+    }
+    // Mirror the boss badge across both players
+    setLeftBossBadge(updater)
+    setRightBossBadge(updater)
   }
   const [leftCollected, setLeftCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
   const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
