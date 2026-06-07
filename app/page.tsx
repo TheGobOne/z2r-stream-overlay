@@ -575,14 +575,10 @@ export default function StreamOverlay() {
           line-height: 1;
         }
 
-        .item-context-row:first-child button {
+        .item-context-row button {
           color: #ffd700;
           text-shadow:
             -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000;
-        }
-
-        .item-context-row:last-child button img {
-          filter: brightness(0) saturate(100%) invert(85%) sepia(60%) saturate(900%) hue-rotate(358deg) brightness(103%) contrast(104%);
         }
 
         .item-context-menu button {
@@ -1243,7 +1239,7 @@ export default function StreamOverlay() {
                 </button>
               ) : (
                 <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
-                  <img src={opt.src} alt={opt.label} />
+                  {opt.label}
                 </button>
               ),
             )}
