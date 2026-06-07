@@ -192,6 +192,26 @@ export default function StreamOverlay() {
     setItemMenu(null)
   }
 
+  function clearItemBadge(itemId: string) {
+    const updater = (prev: Record<string, string>) => {
+      const next = { ...prev }
+      delete next[itemId]
+      return next
+    }
+    setLeftItemBadge(updater)
+    setRightItemBadge(updater)
+  }
+
+  function clearBossBadge(bossId: string) {
+    const updater = (prev: Record<string, number>) => {
+      const next = { ...prev }
+      delete next[bossId]
+      return next
+    }
+    setLeftBossBadge(updater)
+    setRightBossBadge(updater)
+  }
+
   useEffect(() => {
     if (!itemMenu) return
     const close = () => setItemMenu(null)
@@ -1086,6 +1106,7 @@ export default function StreamOverlay() {
               className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleLeftBoss(boss.id)}
               onContextMenu={(e) => { e.preventDefault(); cycleBadge(setLeftBossBadge, boss.id) }}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearBossBadge(boss.id) } }}
               aria-label={`${boss.alt} — ${leftDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
@@ -1105,6 +1126,7 @@ export default function StreamOverlay() {
               className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleRightBoss(boss.id)}
               onContextMenu={(e) => { e.preventDefault(); cycleBadge(setRightBossBadge, boss.id) }}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearBossBadge(boss.id) } }}
               aria-label={`${boss.alt} — ${rightDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
@@ -1124,6 +1146,7 @@ export default function StreamOverlay() {
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
               onContextMenu={(e) => openItemMenu(e, "left", item.id, "number")}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
@@ -1141,6 +1164,7 @@ export default function StreamOverlay() {
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
               onContextMenu={(e) => openItemMenu(e, "left", item.id, "letter")}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
@@ -1158,6 +1182,7 @@ export default function StreamOverlay() {
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
               onContextMenu={(e) => openItemMenu(e, "right", item.id, "number")}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
@@ -1175,6 +1200,7 @@ export default function StreamOverlay() {
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
               onContextMenu={(e) => openItemMenu(e, "right", item.id, "letter")}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
@@ -1192,6 +1218,7 @@ export default function StreamOverlay() {
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
               onContextMenu={(e) => openItemMenu(e, "left", item.id, "letter")}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
@@ -1209,6 +1236,7 @@ export default function StreamOverlay() {
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
               onContextMenu={(e) => openItemMenu(e, "right", item.id, "letter")}
+              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
