@@ -575,6 +575,12 @@ export default function StreamOverlay() {
           line-height: 1;
         }
 
+        .item-context-row:first-child button {
+          color: #4a6bff;
+          text-shadow:
+            -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000;
+        }
+
         .item-context-menu button {
           background: transparent;
           border: none;
