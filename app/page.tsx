@@ -182,13 +182,15 @@ export default function StreamOverlay() {
 
   function selectItemBadge(value: string | null) {
     if (!itemMenu) return
-    const setter = itemMenu.side === "left" ? setLeftItemBadge : setRightItemBadge
-    setter((prev) => {
+    const updater = (prev: Record<string, string>) => {
       const next = { ...prev }
       if (value === null) delete next[itemMenu.itemId]
       else next[itemMenu.itemId] = value
       return next
-    })
+    }
+    // Mirror the badge across both players
+    setLeftItemBadge(updater)
+    setRightItemBadge(updater)
     setItemMenu(null)
   }
 
