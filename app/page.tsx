@@ -119,6 +119,30 @@ export default function StreamOverlay() {
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
+
+  // Boss badge cycling: W -> E -> MI -> DV -> clear
+  const BOSS_BADGES = [
+    "/overlays/letter-w.png",
+    "/overlays/letter-e.png",
+    "/overlays/letter-mi.png",
+    "/overlays/letter-dv.png",
+  ]
+  const [leftBossBadge, setLeftBossBadge] = useState<Record<string, number>>({})
+  const [rightBossBadge, setRightBossBadge] = useState<Record<string, number>>({})
+
+  function cycleBadge(
+    setter: React.Dispatch<React.SetStateAction<Record<string, number>>>,
+    id: string,
+  ) {
+    setter((prev) => {
+      const next = { ...prev }
+      const current = prev[id]
+      if (current === undefined) next[id] = 0
+      else if (current >= BOSS_BADGES.length - 1) delete next[id]
+      else next[id] = current + 1
+      return next
+    })
+  }
   const [leftCollected, setLeftCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
   const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
 
@@ -320,7 +344,20 @@ export default function StreamOverlay() {
           display: flex;
           align-items: center;
           justify-content: center;
+          position: relative;
           transition: opacity 0.15s ease, filter 0.15s ease;
+        }
+
+        .boss-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          width: 22px;
+          height: 22px;
+          image-rendering: pixelated;
+          pointer-events: none;
+          filter: drop-shadow(-1px 0 0 #000) drop-shadow(1px 0 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(0 1px 0 #000);
+          z-index: 2;
         }
 
         .boss-btn img {
@@ -898,10 +935,14 @@ export default function StreamOverlay() {
               key={boss.id}
               className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleLeftBoss(boss.id)}
+              onContextMenu={(e) => { e.preventDefault(); cycleBadge(setLeftBossBadge, boss.id) }}
               aria-label={`${boss.alt} — ${leftDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
+              {leftBossBadge[boss.id] !== undefined && (
+                <img className="boss-badge" src={BOSS_BADGES[leftBossBadge[boss.id]]} alt="" draggable={false} />
+              )}
             </button>
           ))}
         </div>
@@ -913,10 +954,14 @@ export default function StreamOverlay() {
               key={`right-${boss.id}`}
               className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleRightBoss(boss.id)}
+              onContextMenu={(e) => { e.preventDefault(); cycleBadge(setRightBossBadge, boss.id) }}
               aria-label={`${boss.alt} — ${rightDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
+              {rightBossBadge[boss.id] !== undefined && (
+                <img className="boss-badge" src={BOSS_BADGES[rightBossBadge[boss.id]]} alt="" draggable={false} />
+              )}
             </button>
           ))}
         </div>
