@@ -556,17 +556,17 @@ export default function StreamOverlay() {
           background: #0a0a0a;
           border: 2px solid #2ec4b6;
           display: flex;
-          flex-direction: row;
-          align-items: center;
+          flex-direction: column;
+          align-items: stretch;
           padding: 4px;
           gap: 2px;
         }
 
-        .item-context-divider {
-          width: 2px;
-          align-self: stretch;
-          background: #2ec4b6;
-          margin: 0 2px;
+        .item-context-row {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 2px;
         }
 
         .item-context-menu .clear-x {
@@ -1220,21 +1220,24 @@ export default function StreamOverlay() {
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {NUMBER_OPTIONS.map((n) => (
-            <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
-          ))}
-          <span className="item-context-divider" aria-hidden="true" />
-          {LETTER_OPTIONS.map((opt) =>
-            opt.clear ? (
-              <button key="clear" onClick={() => selectItemBadge(null)} title="Clear" aria-label="Clear badge">
-                <span className="clear-x">{"\u2715"}</span>
-              </button>
-            ) : (
-              <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
-                <img src={opt.src} alt={opt.label} />
-              </button>
-            ),
-          )}
+          <div className="item-context-row">
+            {NUMBER_OPTIONS.map((n) => (
+              <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
+            ))}
+          </div>
+          <div className="item-context-row">
+            {LETTER_OPTIONS.map((opt) =>
+              opt.clear ? (
+                <button key="clear" onClick={() => selectItemBadge(null)} title="Clear" aria-label="Clear badge">
+                  <span className="clear-x">{"\u2715"}</span>
+                </button>
+              ) : (
+                <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
+                  <img src={opt.src} alt={opt.label} />
+                </button>
+              ),
+            )}
+          </div>
         </div>
       )}
     </>
