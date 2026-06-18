@@ -436,7 +436,7 @@ export default function StreamOverlay() {
           left: 50%;
           transform: translate(-50%, -50%);
           font-family: 'ZeldaII', monospace;
-          font-size: 18px;
+          font-size: 13.5px;
           color: #ffd700;
           line-height: 1;
           pointer-events: none;
@@ -565,7 +565,7 @@ export default function StreamOverlay() {
 
         .item-badge.num-badge {
           font-family: 'ZeldaII', monospace;
-          font-size: 18px;
+          font-size: 13.5px;
           color: #ffd700;
           line-height: 1;
         }
@@ -764,7 +764,8 @@ export default function StreamOverlay() {
           font-family: 'ZeldaII', monospace;
           font-size: 11px;
           letter-spacing: 1px;
-          color: #ffffff;
+          color: #ffd700;
+          text-decoration: underline;
           text-transform: uppercase;
           pointer-events: none;
           user-select: none;
@@ -821,7 +822,8 @@ export default function StreamOverlay() {
           font-family: 'ZeldaII', monospace;
           font-size: 11px;
           letter-spacing: 1px;
-          color: #ffffff;
+          color: #ffd700;
+          text-decoration: underline;
           text-transform: uppercase;
           pointer-events: none;
           user-select: none;
