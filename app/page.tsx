@@ -436,7 +436,7 @@ export default function StreamOverlay() {
           left: 50%;
           transform: translate(-50%, -50%);
           font-family: 'ZeldaII', monospace;
-          font-size: 18px;
+          font-size: 13.5px;
           color: #ffd700;
           line-height: 1;
           pointer-events: none;
@@ -565,7 +565,7 @@ export default function StreamOverlay() {
 
         .item-badge.num-badge {
           font-family: 'ZeldaII', monospace;
-          font-size: 18px;
+          font-size: 13.5px;
           color: #ffd700;
           line-height: 1;
         }
