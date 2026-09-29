@@ -66,6 +66,13 @@ export default function StreamOverlay() {
     setSetupOpen(false)
   }
 
+  function reopenSetup(e: React.MouseEvent) {
+    e.preventDefault()
+    setDraftCommentatorCount(commentatorCount)
+    setDraftMaxRando(isMaxRando)
+    setSetupOpen(true)
+  }
+
   // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
   const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
   const [timerMs, setTimerMs] = useState(0)
@@ -769,6 +776,14 @@ export default function StreamOverlay() {
           z-index: 10;
         }
 
+        .center-panel-hitbox {
+          position: absolute;
+          top: 584px;
+          left: 581px;
+          width: 294px;
+          height: 214px;
+        }
+
         .commentary-title {
           position: absolute;
           top: 592px;
@@ -1116,9 +1131,12 @@ export default function StreamOverlay() {
           </div>
         )}
 
+        {/* Right-click anywhere in the center panel to reopen setup */}
+        <div className="center-panel-hitbox" onContextMenu={reopenSetup} aria-hidden="true" />
+
         {/* Commentary section */}
         <div className="commentary-title">COMMENTARY</div>
-        <div className="commentary-container">
+        <div className="commentary-container" onContextMenu={reopenSetup}>
           <input
             type="text"
             className="commentary-input"
@@ -1143,7 +1161,7 @@ export default function StreamOverlay() {
 
         {/* Tracking section */}
         <div className="tracking-title">TRACKING</div>
-        <div className="tracking-container">
+        <div className="tracking-container" onContextMenu={reopenSetup}>
           <input
             type="text"
             className="tracking-input"
