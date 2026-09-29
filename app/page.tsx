@@ -1,6 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
+import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
+import { VodPanel } from "@/components/vod-panel"
+import { clamp, createVodConfig, MAX_ZOOM, MIN_ZOOM, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -73,6 +76,68 @@ export default function StreamOverlay() {
     setSetupOpen(true)
   }
 
+  const [vods, setVods] = useState<Record<VodSide, VodConfig>>(() => ({
+    left: createVodConfig(),
+    right: createVodConfig(),
+  }))
+  const [vodPanelSide, setVodPanelSide] = useState<VodSide | null>(null)
+  const [vodClickThrough, setVodClickThrough] = useState(false)
+  const [linkVodsToTimer, setLinkVodsToTimer] = useState(true)
+  const leftVodRef = useRef<VodPlayerHandle>(null)
+  const rightVodRef = useRef<VodPlayerHandle>(null)
+  const vodRefs = { left: leftVodRef, right: rightVodRef }
+  const dragRef = useRef<{ x: number; y: number } | null>(null)
+
+  function updateVod(side: VodSide, patch: Partial<VodConfig>) {
+    setVods((prev) => ({ ...prev, [side]: { ...prev[side], ...patch } }))
+  }
+
+  function playBothVods() {
+    leftVodRef.current?.play()
+    rightVodRef.current?.play()
+  }
+
+  function pauseBothVods() {
+    leftVodRef.current?.pause()
+    rightVodRef.current?.pause()
+  }
+
+  const closeVodPanel = useCallback(() => {
+    setVodPanelSide(null)
+    setVodClickThrough(false)
+  }, [])
+
+  function openVodPanel(side: VodSide, e: React.MouseEvent) {
+    e.preventDefault()
+    setVodClickThrough(false)
+    setVodPanelSide(side)
+  }
+
+  function handleVodDragStart(side: VodSide, e: React.PointerEvent<HTMLDivElement>) {
+    if (vodPanelSide !== side || e.button !== 0 || !vods[side].videoId) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragRef.current = { x: e.clientX, y: e.clientY }
+  }
+
+  function handleVodDragMove(side: VodSide, e: React.PointerEvent<HTMLDivElement>) {
+    const start = dragRef.current
+    if (!start) return
+    const frameWidth = VOD_WINDOWS[side].width * vods[side].zoom
+    const frameHeight = (frameWidth * 9) / 16
+    const dx = e.clientX - start.x
+    const dy = e.clientY - start.y
+    dragRef.current = { x: e.clientX, y: e.clientY }
+    updateVod(side, {
+      centerX: clamp(vods[side].centerX - dx / frameWidth, 0, 1),
+      centerY: clamp(vods[side].centerY - dy / frameHeight, 0, 1),
+    })
+  }
+
+  function handleVodWheel(side: VodSide, e: React.WheelEvent<HTMLDivElement>) {
+    if (vodPanelSide !== side || !vods[side].videoId) return
+    updateVod(side, { zoom: clamp(vods[side].zoom * Math.pow(1.1, -e.deltaY / 100), MIN_ZOOM, MAX_ZOOM) })
+  }
+
   // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
   const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
   const [timerMs, setTimerMs] = useState(0)
@@ -97,11 +162,13 @@ export default function StreamOverlay() {
   }, [timerPhase])
 
   function handleTimerClick() {
-    setTimerPhase(prev => {
-      if (prev === 0) return 1  // start
-      if (prev === 1) return 2  // pause
-      return 0                  // reset
-    })
+    // 0 -> start, 1 -> pause, 2 -> reset
+    const next = timerPhase === 0 ? 1 : timerPhase === 1 ? 2 : 0
+    setTimerPhase(next)
+    if (linkVodsToTimer) {
+      if (next === 1) playBothVods()
+      else pauseBothVods()
+    }
   }
 
   function handleTimerRightClick(e: React.MouseEvent) {
@@ -1031,6 +1098,203 @@ export default function StreamOverlay() {
           outline-offset: 2px;
         }
 
+        .setup-hint {
+          margin: 0 0 24px;
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+          line-height: 1.6;
+        }
+
+        .vod-window {
+          position: absolute;
+          overflow: hidden;
+          background: #000000;
+        }
+
+        .vod-frame {
+          position: absolute;
+        }
+
+        .vod-hitbox {
+          position: absolute;
+          z-index: 5;
+        }
+
+        .vod-hitbox.adjusting {
+          cursor: grab;
+          outline: 2px dashed #ffd700;
+          outline-offset: -2px;
+        }
+
+        .vod-hitbox.adjusting:active {
+          cursor: grabbing;
+        }
+
+        .vod-panel {
+          position: absolute;
+          z-index: 900;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          padding: 18px 22px;
+          background: #0a0a0a;
+          border: 3px solid #2ec4b6;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+          overflow-y: auto;
+        }
+
+        .vod-panel-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .vod-panel-title {
+          margin: 0;
+          font-size: 14px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #7ef5ff;
+        }
+
+        .vod-panel-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .vod-panel-footer {
+          margin-top: auto;
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding-top: 12px;
+          border-top: 2px solid #1b3b3a;
+        }
+
+        .vod-row {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .vod-label {
+          margin: 0;
+          font-size: 10px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #2ec4b6;
+        }
+
+        .vod-hint {
+          margin-left: 8px;
+          color: #8a9a9a;
+          letter-spacing: 1px;
+        }
+
+        .vod-time, .vod-value {
+          color: #ffffff;
+          font-size: 11px;
+          letter-spacing: 1px;
+        }
+
+        .vod-time { margin-left: 8px; }
+
+        .vod-value {
+          min-width: 44px;
+          text-align: center;
+        }
+
+        .vod-input {
+          background: transparent;
+          border: 2px solid #2ec4b6;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          letter-spacing: 1px;
+          padding: 7px 10px;
+          caret-color: #7ef5ff;
+          box-sizing: border-box;
+          width: 100%;
+        }
+
+        .vod-input:focus-visible { border-color: #ffd700; }
+
+        .vod-input-time {
+          width: 110px;
+          text-align: center;
+        }
+
+        .vod-btn {
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 7px 10px;
+          cursor: pointer;
+          transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .vod-btn:hover:not(:disabled), .vod-btn-primary:not(:disabled) {
+          background: #2ec4b6;
+          color: #000000;
+        }
+
+        .vod-btn-primary:hover:not(:disabled) { background: #7ef5ff; }
+
+        .vod-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .vod-btn:focus-visible {
+          outline: 2px solid #ffd700;
+          outline-offset: 2px;
+        }
+
+        .vod-btn-wide { min-width: 84px; }
+
+        .vod-range {
+          flex: 1;
+          min-width: 120px;
+          accent-color: #2ec4b6;
+        }
+
+        .vod-check {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 10px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          cursor: pointer;
+        }
+
+        .vod-check input {
+          accent-color: #2ec4b6;
+          width: 16px;
+          height: 16px;
+          margin: 0;
+        }
+
+        .vod-error {
+          margin: 0;
+          font-size: 10px;
+          letter-spacing: 1px;
+          color: #ff6b6b;
+        }
+
         /* Single commentator: collapse COM 2 and re-center the section */
         .single-com .commentary-title { top: 613px; }
         .single-com .commentary-container { top: 628px; height: 20px; }
@@ -1040,6 +1304,17 @@ export default function StreamOverlay() {
       `}</style>
 
       <div className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}>
+        {/* Twitch VODs render beneath the overlay art, showing through the game windows */}
+        {(["left", "right"] as const).map((side) => (
+          <TwitchVodPlayer
+            key={side}
+            ref={vodRefs[side]}
+            side={side}
+            config={vods[side]}
+            interactive={vodPanelSide === side && vodClickThrough}
+          />
+        ))}
+
         {/* Background overlay image */}
         <img
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-sLdN1Aj0x737pKVaQsZhaZE040esK9.png"
@@ -1126,9 +1401,55 @@ export default function StreamOverlay() {
                   Max Rando
                 </label>
               </div>
+              <p className="setup-hint">Right-click a game window to load a Twitch VOD</p>
               <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
             </div>
           </div>
+        )}
+
+        {/* Right-click a game window to set up that player's VOD; drag/scroll to crop while its panel is open */}
+        {(["left", "right"] as const).map((side) => {
+          const win = VOD_WINDOWS[side]
+          const adjusting = vodPanelSide === side && Boolean(vods[side].videoId)
+          return (
+            <div
+              key={side}
+              className={`vod-hitbox${adjusting ? " adjusting" : ""}`}
+              style={{
+                left: win.left,
+                top: win.top,
+                width: win.width,
+                height: win.height,
+                clipPath: win.clipPath,
+                pointerEvents: vodPanelSide === side && vodClickThrough ? "none" : "auto",
+              }}
+              onContextMenu={(e) => openVodPanel(side, e)}
+              onPointerDown={(e) => handleVodDragStart(side, e)}
+              onPointerMove={(e) => handleVodDragMove(side, e)}
+              onPointerUp={() => (dragRef.current = null)}
+              onPointerCancel={() => (dragRef.current = null)}
+              onWheel={(e) => handleVodWheel(side, e)}
+              aria-hidden="true"
+            />
+          )
+        })}
+
+        {vodPanelSide && (
+          <VodPanel
+            key={vodPanelSide}
+            side={vodPanelSide}
+            playerLabel={(vodPanelSide === "left" ? leftText : rightText) || (vodPanelSide === "left" ? "Player 1" : "Player 2")}
+            config={vods[vodPanelSide]}
+            onChange={(patch) => updateVod(vodPanelSide, patch)}
+            playerRef={vodRefs[vodPanelSide]}
+            clickThrough={vodClickThrough}
+            onClickThroughChange={setVodClickThrough}
+            linkToTimer={linkVodsToTimer}
+            onLinkToTimerChange={setLinkVodsToTimer}
+            onPlayBoth={playBothVods}
+            onPauseBoth={pauseBothVods}
+            onClose={closeVodPanel}
+          />
         )}
 
         {/* Right-click anywhere in the center panel to reopen setup */}
