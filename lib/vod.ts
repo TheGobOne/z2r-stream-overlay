@@ -22,7 +22,8 @@ export const VOD_WINDOWS: Record<
 > = {
   // top sits 3px above the art's transparent hole so the video covers the grey shading row
   // along the bottom of the top brick band. The left window likewise starts 2px early to cover
-  // the dark shading column inside the left brick border.
+  // the dark shading column inside the left brick border, and the right window ends 3px late to
+  // cover the light bevel column inside the right brick border.
   left: {
     left: 34,
     top: 33,
@@ -33,7 +34,7 @@ export const VOD_WINDOWS: Record<
   right: {
     left: 764,
     top: 33,
-    width: 655,
+    width: 658,
     height: 511,
     clipPath: "polygon(0 0, 100% 0, 100% 475px, 363px 475px, 363px 100%, 0 100%)",
   },
