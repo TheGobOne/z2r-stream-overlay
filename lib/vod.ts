@@ -56,6 +56,47 @@ export function createVodConfig(): VodConfig {
   }
 }
 
+export type VodFrameLayout = { left: number; top: number; width: number; height: number; onTop: boolean }
+
+const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
+
+function frameFor(side: VodSide, config: VodConfig) {
+  const win = VOD_WINDOWS[side]
+  const width = win.width * config.zoom
+  const height = (width * 9) / 16
+  const left = win.width / 2 - config.centerX * width
+  const top = win.height / 2 - config.centerY * height
+  const innerOverflow = side === "left" ? left + width - win.width : -left
+  return { left, top, width, height, innerOverflow }
+}
+
+/**
+ * Twitch pauses any embed whose iframe rect is covered, and a zoomed iframe's full rect counts
+ * even where it's clipped away. The frame reaching further toward the middle goes on top; the
+ * other may only overflow into the gap between windows, never under the top window.
+ */
+export function resolveVodLayouts(configs: Record<VodSide, VodConfig>): Record<VodSide, VodFrameLayout> {
+  const left = frameFor("left", configs.left)
+  const right = frameFor("right", configs.right)
+  const bothLoaded = Boolean(configs.left.videoId && configs.right.videoId)
+  const leftOnTop = left.innerOverflow >= right.innerOverflow
+
+  if (bothLoaded && leftOnTop) {
+    right.left = Math.max(right.left, -WINDOW_GAP)
+  } else if (bothLoaded) {
+    left.left = Math.min(left.left, VOD_WINDOWS.left.width + WINDOW_GAP - left.width)
+  }
+
+  const toLayout = ({ left: l, top, width, height }: ReturnType<typeof frameFor>, onTop: boolean) => ({
+    left: l,
+    top,
+    width,
+    height,
+    onTop,
+  })
+  return { left: toLayout(left, leftOnTop), right: toLayout(right, !leftOnTop) }
+}
+
 export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }

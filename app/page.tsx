@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
-import { clamp, createVodConfig, FRAME_HITBOX, MAX_ZOOM, MIN_ZOOM, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { clamp, createVodConfig, FRAME_HITBOX, MAX_ZOOM, MIN_ZOOM, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -126,6 +126,8 @@ export default function StreamOverlay() {
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = { x: e.clientX, y: e.clientY }
   }
+
+  const vodLayouts = resolveVodLayouts(vods)
 
   function handleVodDragMove(side: VodSide, e: React.PointerEvent<HTMLDivElement>) {
     const start = dragRef.current
@@ -1329,8 +1331,9 @@ export default function StreamOverlay() {
             ref={vodRefs[side]}
             side={side}
             config={vods[side]}
-  onAutoMute={() => updateVod(side, { muted: true })}
-                />
+            layout={vodLayouts[side]}
+            onAutoMute={() => updateVod(side, { muted: true })}
+          />
         ))}
 
         {/* Background overlay image */}
