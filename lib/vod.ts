@@ -20,19 +20,21 @@ export const VOD_WINDOWS: Record<
   VodSide,
   { left: number; top: number; width: number; height: number; clipPath: string }
 > = {
+  // top sits 3px above the art's transparent hole so the video covers the grey shading row
+  // along the bottom of the top brick band
   left: {
     left: 36,
-    top: 36,
+    top: 33,
     width: 655,
-    height: 508,
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 292px 100%, 292px 472px, 0 472px)",
+    height: 511,
+    clipPath: "polygon(0 0, 100% 0, 100% 100%, 292px 100%, 292px 475px, 0 475px)",
   },
   right: {
     left: 764,
-    top: 36,
+    top: 33,
     width: 655,
-    height: 508,
-    clipPath: "polygon(0 0, 100% 0, 100% 472px, 363px 472px, 363px 100%, 0 100%)",
+    height: 511,
+    clipPath: "polygon(0 0, 100% 0, 100% 475px, 363px 475px, 363px 100%, 0 100%)",
   },
 }
 
@@ -42,7 +44,7 @@ export const FRAME_HITBOX = 30
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 6
 // Zoom at which a 16:9 VOD exactly fills the window height
-export const DEFAULT_ZOOM = Math.round((508 / ((655 * 9) / 16)) * 100) / 100
+export const DEFAULT_ZOOM = Math.round((511 / ((655 * 9) / 16)) * 100) / 100
 
 export function createVodConfig(): VodConfig {
   return {
