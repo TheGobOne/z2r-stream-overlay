@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
-import { createVodConfig, FRAME_HITBOX, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { createVodConfig, FRAME_HITBOX, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -122,7 +122,7 @@ export default function StreamOverlay() {
   }
 
   // While picking crop corners, the cropping side shows its whole uncropped video
-  const croppingSide = vodPanelSide && vodCropMode && vods[vodPanelSide].videoId ? vodPanelSide : null
+  const croppingSide = vodPanelSide && vodCropMode && hasSource(vods[vodPanelSide]) ? vodPanelSide : null
   const vodLayouts = resolveVodLayouts(
     croppingSide ? { ...vods, [croppingSide]: { ...vods[croppingSide], ...UNCROPPED_VIEW } } : vods,
   )
@@ -1463,7 +1463,7 @@ export default function StreamOverlay() {
             Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
         {(["left", "right"] as const).map((side) => {
           const win = VOD_WINDOWS[side]
-          const hasVod = Boolean(vods[side].videoId)
+          const hasVod = hasSource(vods[side])
           if (croppingSide === side) {
             return (
               <VodCropSelector

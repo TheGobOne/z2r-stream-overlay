@@ -116,11 +116,12 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
     }, AUTOPLAY_CHECK_MS)
   }
 
-  const { videoId, loadKey, muted, volume } = config
+  const { videoId, channel, loadKey, muted, volume } = config
+  const isLive = !videoId && Boolean(channel)
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || !videoId) return
+    if (!host || (!videoId && !channel)) return
     let cancelled = false
 
     const mount = document.createElement("div")
@@ -135,8 +136,9 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         const player = new window.Twitch.Player(mountId, {
           width: "100%",
           height: "100%",
-          video: `v${videoId}`,
-          time: toTwitchTime(latest.current.startSeconds),
+          ...(videoId
+            ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
+            : { channel }),
           autoplay: false,
           muted: latest.current.muted,
           parent: getParentDomains(),
@@ -163,7 +165,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       pendingPlayRef.current = false
       host.replaceChildren()
     }
-  }, [videoId, loadKey, mountId])
+  }, [videoId, channel, loadKey, mountId])
 
   useEffect(() => {
     playerRef.current?.setMuted(muted)
@@ -184,17 +186,17 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       if (readyRef.current) playerRef.current?.pause()
     },
     seekTo: (seconds) => {
-      if (readyRef.current) playerRef.current?.seek(Math.max(0, seconds))
+      if (readyRef.current && !isLive) playerRef.current?.seek(Math.max(0, seconds))
     },
     nudge: (seconds) => {
       const player = playerRef.current
-      if (player && readyRef.current) player.seek(Math.max(0, player.getCurrentTime() + seconds))
+      if (player && readyRef.current && !isLive) player.seek(Math.max(0, player.getCurrentTime() + seconds))
     },
     getCurrentTime: () => (readyRef.current ? (playerRef.current?.getCurrentTime() ?? null) : null),
     isPaused: () => (readyRef.current ? (playerRef.current?.isPaused() ?? true) : true),
   }))
 
-  if (!videoId) return null
+  if (!videoId && !channel) return null
 
   const win = VOD_WINDOWS[side]
 

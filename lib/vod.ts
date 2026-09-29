@@ -3,6 +3,8 @@ export type VodSide = "left" | "right"
 export type VodConfig = {
   url: string
   videoId: string | null
+  /** Set instead of videoId when showing a live channel. */
+  channel: string | null
   startSeconds: number
   loadKey: number
   zoom: number
@@ -46,6 +48,7 @@ export function createVodConfig(): VodConfig {
   return {
     url: "",
     videoId: null,
+    channel: null,
     startSeconds: 0,
     loadKey: 0,
     zoom: DEFAULT_ZOOM,
@@ -109,7 +112,7 @@ function frameFor(side: VodSide, config: VodConfig) {
 export function resolveVodLayouts(configs: Record<VodSide, VodConfig>): Record<VodSide, VodFrameLayout> {
   const left = frameFor("left", configs.left)
   const right = frameFor("right", configs.right)
-  const bothLoaded = Boolean(configs.left.videoId && configs.right.videoId)
+  const bothLoaded = hasSource(configs.left) && hasSource(configs.right)
   const leftOnTop = left.innerOverflow >= right.innerOverflow
 
   if (bothLoaded && leftOnTop) {
@@ -132,13 +135,30 @@ export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-/** Accepts a twitch.tv/videos/123 URL (optionally with ?t=1h2m3s) or a bare video id. */
-export function parseTwitchVod(input: string): { videoId: string; startSeconds: number | null } | null {
+export function hasSource(config: VodConfig) {
+  return Boolean(config.videoId || config.channel)
+}
+
+export type TwitchSource =
+  | { kind: "vod"; videoId: string; startSeconds: number | null }
+  | { kind: "live"; channel: string }
+
+const CHANNEL_NAME = /^[a-zA-Z0-9_]{3,25}$/
+const RESERVED_PATHS = new Set(["videos", "directory", "search", "settings", "downloads", "p", "jobs", "turbo"])
+
+/**
+ * Accepts a twitch.tv/videos/123 URL (optionally with ?t=1h2m3s), a bare video id,
+ * a twitch.tv/channel URL, or a bare channel name for live streams.
+ */
+export function parseTwitchSource(input: string): TwitchSource | null {
   const trimmed = input.trim()
   if (!trimmed) return null
 
   const bare = trimmed.match(/^v?(\d{5,})$/)
-  if (bare) return { videoId: bare[1], startSeconds: null }
+  if (bare) return { kind: "vod", videoId: bare[1], startSeconds: null }
+  if (CHANNEL_NAME.test(trimmed) && !RESERVED_PATHS.has(trimmed.toLowerCase())) {
+    return { kind: "live", channel: trimmed.toLowerCase() }
+  }
 
   try {
     const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`)
@@ -146,9 +166,16 @@ export function parseTwitchVod(input: string): { videoId: string; startSeconds: 
     const fromPath = url.pathname.match(/\/videos\/(\d+)/)
     const fromQuery = url.searchParams.get("video")?.match(/^v?(\d+)$/)
     const videoId = fromPath?.[1] ?? fromQuery?.[1]
-    if (!videoId) return null
-    const t = url.searchParams.get("t")
-    return { videoId, startSeconds: t ? parseTime(t) : null }
+    if (videoId) {
+      const t = url.searchParams.get("t")
+      return { kind: "vod", videoId, startSeconds: t ? parseTime(t) : null }
+    }
+
+    const channel = url.searchParams.get("channel") ?? url.pathname.split("/").filter(Boolean)[0]
+    if (channel && CHANNEL_NAME.test(channel) && !RESERVED_PATHS.has(channel.toLowerCase())) {
+      return { kind: "live", channel: channel.toLowerCase() }
+    }
+    return null
   } catch {
     return null
   }
