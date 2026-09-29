@@ -27,7 +27,7 @@ export const VOD_WINDOWS: Record<
     top: 33,
     width: 655,
     height: 511,
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 292px 100%, 292px 475px, 0 475px)",
+    clipPath: "polygon(0 0, 100% 0, 100% 100%, 291px 100%, 291px 475px, 0 475px)",
   },
   right: {
     left: 764,
