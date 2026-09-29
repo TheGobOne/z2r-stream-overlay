@@ -53,6 +53,19 @@ export default function StreamOverlay() {
   const [commentator2, setCommentator2] = useState("")
   const [tracking, setTracking] = useState("")
 
+  const [setupOpen, setSetupOpen] = useState(true)
+  const [commentatorCount, setCommentatorCount] = useState<1 | 2>(2)
+  const [isMaxRando, setIsMaxRando] = useState(false)
+  const [draftCommentatorCount, setDraftCommentatorCount] = useState<1 | 2>(2)
+  const [draftMaxRando, setDraftMaxRando] = useState(false)
+
+  function confirmSetup() {
+    setCommentatorCount(draftCommentatorCount)
+    setIsMaxRando(draftMaxRando)
+    if (draftCommentatorCount === 1) setCommentator2("")
+    setSetupOpen(false)
+  }
+
   // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
   const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
   const [timerMs, setTimerMs] = useState(0)
@@ -955,9 +968,63 @@ export default function StreamOverlay() {
           background: #2ec4b6;
           color: #000000;
         }
+
+        .setup-section {
+          margin-bottom: 28px;
+        }
+
+        .setup-section .gem-modal-title {
+          margin-bottom: 16px;
+        }
+
+        .setup-checkbox {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 14px;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          color: #ffffff;
+        }
+
+        .setup-checkbox input {
+          appearance: none;
+          width: 24px;
+          height: 24px;
+          border: 2px solid #2ec4b6;
+          background: #0a0a0a;
+          cursor: pointer;
+          display: grid;
+          place-content: center;
+          margin: 0;
+        }
+
+        .setup-checkbox input:checked {
+          background: #2ec4b6;
+        }
+
+        .setup-checkbox input:checked::after {
+          content: "";
+          width: 10px;
+          height: 10px;
+          background: #000000;
+        }
+
+        .setup-checkbox input:focus-visible {
+          outline: 2px solid #ffd700;
+          outline-offset: 2px;
+        }
+
+        /* Single commentator: collapse COM 2 and re-center the section */
+        .single-com .commentary-title { top: 613px; }
+        .single-com .commentary-container { top: 628px; height: 20px; }
+        .single-com .tracking-title { top: 673px; }
+        .single-com .tracking-container { top: 691px; }
+        .single-com .timer-display { top: 732px; }
       `}</style>
 
-      <div className="overlay-wrapper">
+      <div className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}>
         {/* Background overlay image */}
         <img
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-sLdN1Aj0x737pKVaQsZhaZE040esK9.png"
@@ -972,17 +1039,19 @@ export default function StreamOverlay() {
         {/* Transparent overlay for top-right black box */}
         <div className="transparent-overlay-right" />
 
-        {/* Gem — click to set count */}
-        <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
-          alt="Gem"
-          className="gem-image"
-          draggable={false}
-          onClick={() => setGemPopupOpen(true)}
-        />
+        {/* Gem — click to set count (max rando only) */}
+        {isMaxRando && (
+          <img
+            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
+            alt="Gem"
+            className="gem-image"
+            draggable={false}
+            onClick={() => setGemPopupOpen(true)}
+          />
+        )}
 
         {/* Gem count display */}
-        {gemCount !== null && (
+        {isMaxRando && gemCount !== null && (
           <span className="gem-count">{gemCount}</span>
         )}
 
@@ -1006,6 +1075,47 @@ export default function StreamOverlay() {
           </div>
         )}
 
+        {/* Initial setup popup */}
+        {setupOpen && (
+          <div className="gem-modal-backdrop">
+            <div
+              className="gem-modal-box"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="setup-title"
+              onKeyDown={(e) => e.key === "Enter" && confirmSetup()}
+            >
+              <div className="setup-section">
+                <p id="setup-title" className="gem-modal-title">How many commentators?</p>
+                <div className="gem-modal-options" role="radiogroup" aria-label="Number of commentators">
+                  {([1, 2] as const).map((n) => (
+                    <button
+                      key={n}
+                      role="radio"
+                      aria-checked={draftCommentatorCount === n}
+                      className={`gem-modal-opt${draftCommentatorCount === n ? " selected" : ""}`}
+                      onClick={() => setDraftCommentatorCount(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="setup-section">
+                <label className="setup-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={draftMaxRando}
+                    onChange={(e) => setDraftMaxRando(e.target.checked)}
+                  />
+                  Max Rando
+                </label>
+              </div>
+              <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
+            </div>
+          </div>
+        )}
+
         {/* Commentary section */}
         <div className="commentary-title">COMMENTARY</div>
         <div className="commentary-container">
@@ -1018,15 +1128,17 @@ export default function StreamOverlay() {
             spellCheck={false}
             autoComplete="off"
           />
-          <input
-            type="text"
-            className="commentary-input"
-            value={commentator2}
-            onChange={(e) => setCommentator2(e.target.value)}
-            placeholder="COM 2"
-            spellCheck={false}
-            autoComplete="off"
-          />
+          {commentatorCount === 2 && (
+            <input
+              type="text"
+              className="commentary-input"
+              value={commentator2}
+              onChange={(e) => setCommentator2(e.target.value)}
+              placeholder="COM 2"
+              spellCheck={false}
+              autoComplete="off"
+            />
+          )}
         </div>
 
         {/* Tracking section */}
