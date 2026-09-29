@@ -3,14 +3,12 @@
 import { useEffect, useState, type RefObject } from "react"
 import type { VodPlayerHandle } from "@/components/twitch-vod-player"
 import {
-  clamp,
   createVodConfig,
   DEFAULT_ZOOM,
   formatTime,
-  MAX_ZOOM,
-  MIN_ZOOM,
+  hasSource,
   parseTime,
-  parseTwitchVod,
+  parseTwitchSource,
   VOD_WINDOWS,
   type VodConfig,
   type VodSide,
@@ -68,9 +66,21 @@ export function VodPanel({
   }, [onClose])
 
   function loadVod() {
-    const parsed = parseTwitchVod(urlDraft)
+    const parsed = parseTwitchSource(urlDraft)
     if (!parsed) {
-      setError("Paste a twitch.tv/videos/... link")
+      setError("Paste a twitch.tv/videos/... or twitch.tv/channel link")
+      return
+    }
+    if (parsed.kind === "live") {
+      setError("")
+      setStartDraft("")
+      onChange({
+        url: urlDraft.trim(),
+        videoId: null,
+        channel: parsed.channel,
+        startSeconds: 0,
+        loadKey: config.loadKey + 1,
+      })
       return
     }
     const typedStart = startDraft.trim() ? parseTime(startDraft) : null
@@ -84,6 +94,7 @@ export function VodPanel({
     onChange({
       url: urlDraft.trim(),
       videoId: parsed.videoId,
+      channel: null,
       startSeconds,
       loadKey: config.loadKey + 1,
     })
@@ -107,7 +118,8 @@ export function VodPanel({
     setStartDraft("")
   }
 
-  const hasVod = Boolean(config.videoId)
+  const hasVod = hasSource(config)
+  const isLive = hasVod && !config.videoId
   const ready = hasVod && currentTime !== null
   const dock = VOD_WINDOWS[side]
 
@@ -121,7 +133,7 @@ export function VodPanel({
     >
       <div className="vod-panel-header">
         <p id={`vod-panel-title-${side}`} className="vod-panel-title">
-          {playerLabel} VOD
+          {playerLabel} {isLive ? "live stream" : "VOD"}
         </p>
         <button className="vod-btn" onClick={onClose}>
           Done
@@ -130,7 +142,7 @@ export function VodPanel({
 
       <div className="vod-panel-section">
         <label className="vod-label" htmlFor={`vod-url-${side}`}>
-          Twitch VOD link
+          Twitch VOD or channel link
         </label>
         <input
           id={`vod-url-${side}`}
@@ -138,25 +150,29 @@ export function VodPanel({
           value={urlDraft}
           onChange={(e) => setUrlDraft(e.target.value)}
           onKeyDown={onEnter}
-          placeholder="twitch.tv/videos/123456789"
+          placeholder="twitch.tv/videos/123456789 or twitch.tv/channel"
           spellCheck={false}
           autoComplete="off"
           autoFocus
         />
         <div className="vod-row">
-          <label className="vod-label" htmlFor={`vod-start-${side}`}>
-            Start
-          </label>
-          <input
-            id={`vod-start-${side}`}
-            className="vod-input vod-input-time"
-            value={startDraft}
-            onChange={(e) => setStartDraft(e.target.value)}
-            onKeyDown={onEnter}
-            placeholder="0:00:00"
-            spellCheck={false}
-            autoComplete="off"
-          />
+          {!isLive && (
+            <>
+              <label className="vod-label" htmlFor={`vod-start-${side}`}>
+                Start
+              </label>
+              <input
+                id={`vod-start-${side}`}
+                className="vod-input vod-input-time"
+                value={startDraft}
+                onChange={(e) => setStartDraft(e.target.value)}
+                onKeyDown={onEnter}
+                placeholder="0:00:00"
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </>
+          )}
           <button className="vod-btn vod-btn-primary" onClick={loadVod}>
             {hasVod ? "Reload" : "Load"}
           </button>
@@ -175,6 +191,22 @@ export function VodPanel({
 
       {hasVod && (
         <>
+          {isLive ? (
+            <div className="vod-panel-section">
+              <p className="vod-label">
+                Playback <span className="vod-time">{ready ? "LIVE" : "loading..."}</span>
+              </p>
+              <div className="vod-row">
+                <button
+                  className="vod-btn vod-btn-primary vod-btn-wide"
+                  disabled={!ready}
+                  onClick={() => (paused ? playerRef.current?.play() : playerRef.current?.pause())}
+                >
+                  {paused ? "Play" : "Pause"}
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="vod-panel-section">
             <p className="vod-label">
               Playback <span className="vod-time">{ready ? formatTime(currentTime) : "loading..."}</span>
@@ -211,29 +243,17 @@ export function VodPanel({
               </button>
             </div>
           </div>
+          )}
 
           <div className="vod-panel-section">
-            <p className="vod-label">Crop</p>
-            <label className="vod-check">
-              <input type="checkbox" checked={cropMode} onChange={(e) => onCropModeChange(e.target.checked)} />
-              Crop mode <span className="vod-hint">drag the video to move, scroll to zoom (pauses playback)</span>
-            </label>
+            <p className="vod-label">
+              Crop <span className="vod-hint">pick top-left, then bottom-right corner</span>
+            </p>
             <div className="vod-row">
-              <button
-                className="vod-btn"
-                aria-label="Zoom out"
-                onClick={() => onChange({ zoom: clamp(config.zoom / 1.1, MIN_ZOOM, MAX_ZOOM) })}
-              >
-                -
+              <button className="vod-btn vod-btn-primary" aria-pressed={cropMode} onClick={() => onCropModeChange(true)}>
+                Select crop area
               </button>
               <span className="vod-value">{Math.round(config.zoom * 100)}%</span>
-              <button
-                className="vod-btn"
-                aria-label="Zoom in"
-                onClick={() => onChange({ zoom: clamp(config.zoom * 1.1, MIN_ZOOM, MAX_ZOOM) })}
-              >
-                +
-              </button>
               <button
                 className="vod-btn"
                 onClick={() => onChange({ zoom: DEFAULT_ZOOM, centerX: 0.5, centerY: 0.5 })}

@@ -1,6 +1,7 @@
 "use client"
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react"
+import { Music } from "lucide-react"
 import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide } from "@/lib/vod"
 
 type TwitchPlayer = {
@@ -81,6 +82,22 @@ type Props = {
   raised?: boolean
 }
 
+// Twitch's player draws a thin grey edge, and fractional offsets leave a sub-pixel seam,
+// so the frame is grown a few pixels past the window (keeping aspect) and clipped away.
+const EDGE_OVERSCAN_PX = 3
+
+function overscan(layout: VodFrameLayout) {
+  const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
+  const width = layout.width * scale
+  const height = layout.height * scale
+  return {
+    width,
+    height,
+    left: layout.left - (width - layout.width) / 2,
+    top: layout.top - (height - layout.height) / 2,
+  }
+}
+
 const AUTOPLAY_CHECK_MS = 1200
 const MAX_PLAY_ATTEMPTS = 4
 
@@ -116,11 +133,12 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
     }, AUTOPLAY_CHECK_MS)
   }
 
-  const { videoId, loadKey, muted, volume } = config
+  const { videoId, channel, loadKey, muted, volume } = config
+  const isLive = !videoId && Boolean(channel)
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || !videoId) return
+    if (!host || (!videoId && !channel)) return
     let cancelled = false
 
     const mount = document.createElement("div")
@@ -135,8 +153,9 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         const player = new window.Twitch.Player(mountId, {
           width: "100%",
           height: "100%",
-          video: `v${videoId}`,
-          time: toTwitchTime(latest.current.startSeconds),
+          ...(videoId
+            ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
+            : { channel }),
           autoplay: false,
           muted: latest.current.muted,
           parent: getParentDomains(),
@@ -163,7 +182,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       pendingPlayRef.current = false
       host.replaceChildren()
     }
-  }, [videoId, loadKey, mountId])
+  }, [videoId, channel, loadKey, mountId])
 
   useEffect(() => {
     playerRef.current?.setMuted(muted)
@@ -184,17 +203,17 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       if (readyRef.current) playerRef.current?.pause()
     },
     seekTo: (seconds) => {
-      if (readyRef.current) playerRef.current?.seek(Math.max(0, seconds))
+      if (readyRef.current && !isLive) playerRef.current?.seek(Math.max(0, seconds))
     },
     nudge: (seconds) => {
       const player = playerRef.current
-      if (player && readyRef.current) player.seek(Math.max(0, player.getCurrentTime() + seconds))
+      if (player && readyRef.current && !isLive) player.seek(Math.max(0, player.getCurrentTime() + seconds))
     },
     getCurrentTime: () => (readyRef.current ? (playerRef.current?.getCurrentTime() ?? null) : null),
     isPaused: () => (readyRef.current ? (playerRef.current?.isPaused() ?? true) : true),
   }))
 
-  if (!videoId) return null
+  if (!videoId && !channel) return null
 
   const win = VOD_WINDOWS[side]
 
@@ -213,8 +232,13 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       <div
         ref={hostRef}
         className="vod-frame"
-        style={{ width: layout.width, height: layout.height, left: layout.left, top: layout.top }}
+        style={overscan(layout)}
       />
+      {!muted && (
+        <div className="vod-audio-badge" role="img" aria-label={`Listening to ${side === "left" ? "Player 1" : "Player 2"} audio`}>
+          <Music aria-hidden="true" />
+        </div>
+      )}
     </div>
   )
 })

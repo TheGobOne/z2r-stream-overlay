@@ -3,6 +3,8 @@ export type VodSide = "left" | "right"
 export type VodConfig = {
   url: string
   videoId: string | null
+  /** Set instead of videoId when showing a live channel. */
+  channel: string | null
   startSeconds: number
   loadKey: number
   zoom: number
@@ -18,19 +20,21 @@ export const VOD_WINDOWS: Record<
   VodSide,
   { left: number; top: number; width: number; height: number; clipPath: string }
 > = {
+  // top sits 3px above the art's transparent hole so the video covers the grey shading row
+  // along the bottom of the top brick band
   left: {
     left: 36,
-    top: 36,
+    top: 33,
     width: 655,
-    height: 508,
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 292px 100%, 292px 472px, 0 472px)",
+    height: 511,
+    clipPath: "polygon(0 0, 100% 0, 100% 100%, 292px 100%, 292px 475px, 0 475px)",
   },
   right: {
     left: 764,
-    top: 36,
+    top: 33,
     width: 655,
-    height: 508,
-    clipPath: "polygon(0 0, 100% 0, 100% 472px, 363px 472px, 363px 100%, 0 100%)",
+    height: 511,
+    clipPath: "polygon(0 0, 100% 0, 100% 475px, 363px 475px, 363px 100%, 0 100%)",
   },
 }
 
@@ -40,12 +44,13 @@ export const FRAME_HITBOX = 30
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 6
 // Zoom at which a 16:9 VOD exactly fills the window height
-export const DEFAULT_ZOOM = Math.round((508 / ((655 * 9) / 16)) * 100) / 100
+export const DEFAULT_ZOOM = Math.round((511 / ((655 * 9) / 16)) * 100) / 100
 
 export function createVodConfig(): VodConfig {
   return {
     url: "",
     videoId: null,
+    channel: null,
     startSeconds: 0,
     loadKey: 0,
     zoom: DEFAULT_ZOOM,
@@ -53,6 +58,37 @@ export function createVodConfig(): VodConfig {
     centerY: 0.5,
     muted: false,
     volume: 0.5,
+  }
+}
+
+/** A rectangle in video-relative coordinates, 0..1 on each axis. */
+export type VideoRect = { x0: number; y0: number; x1: number; y1: number }
+
+export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, centerX: 0.5, centerY: 0.5 }
+
+/** Zoom and center so the selected area fills the window, trimming whichever axis doesn't match its aspect. */
+export function cropToSelection(side: VodSide, sel: VideoRect) {
+  const win = VOD_WINDOWS[side]
+  const selWidth = Math.abs(sel.x1 - sel.x0)
+  const selHeight = Math.abs(sel.y1 - sel.y0)
+  const zoom = clamp(
+    Math.max(1 / selWidth, win.height / (((win.width * 9) / 16) * selHeight)),
+    MIN_ZOOM,
+    MAX_ZOOM,
+  )
+  return { zoom, centerX: (sel.x0 + sel.x1) / 2, centerY: (sel.y0 + sel.y1) / 2 }
+}
+
+/** The part of the video, in video-relative coordinates, that shows through the window for a given view. */
+export function visibleVideoRect(side: VodSide, view: { zoom: number; centerX: number; centerY: number }): VideoRect {
+  const win = VOD_WINDOWS[side]
+  const halfWidth = 1 / view.zoom / 2
+  const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom) / 2
+  return {
+    x0: view.centerX - halfWidth,
+    y0: view.centerY - halfHeight,
+    x1: view.centerX + halfWidth,
+    y1: view.centerY + halfHeight,
   }
 }
 
@@ -78,7 +114,7 @@ function frameFor(side: VodSide, config: VodConfig) {
 export function resolveVodLayouts(configs: Record<VodSide, VodConfig>): Record<VodSide, VodFrameLayout> {
   const left = frameFor("left", configs.left)
   const right = frameFor("right", configs.right)
-  const bothLoaded = Boolean(configs.left.videoId && configs.right.videoId)
+  const bothLoaded = hasSource(configs.left) && hasSource(configs.right)
   const leftOnTop = left.innerOverflow >= right.innerOverflow
 
   if (bothLoaded && leftOnTop) {
@@ -101,13 +137,30 @@ export function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-/** Accepts a twitch.tv/videos/123 URL (optionally with ?t=1h2m3s) or a bare video id. */
-export function parseTwitchVod(input: string): { videoId: string; startSeconds: number | null } | null {
+export function hasSource(config: VodConfig) {
+  return Boolean(config.videoId || config.channel)
+}
+
+export type TwitchSource =
+  | { kind: "vod"; videoId: string; startSeconds: number | null }
+  | { kind: "live"; channel: string }
+
+const CHANNEL_NAME = /^[a-zA-Z0-9_]{3,25}$/
+const RESERVED_PATHS = new Set(["videos", "directory", "search", "settings", "downloads", "p", "jobs", "turbo"])
+
+/**
+ * Accepts a twitch.tv/videos/123 URL (optionally with ?t=1h2m3s), a bare video id,
+ * a twitch.tv/channel URL, or a bare channel name for live streams.
+ */
+export function parseTwitchSource(input: string): TwitchSource | null {
   const trimmed = input.trim()
   if (!trimmed) return null
 
   const bare = trimmed.match(/^v?(\d{5,})$/)
-  if (bare) return { videoId: bare[1], startSeconds: null }
+  if (bare) return { kind: "vod", videoId: bare[1], startSeconds: null }
+  if (CHANNEL_NAME.test(trimmed) && !RESERVED_PATHS.has(trimmed.toLowerCase())) {
+    return { kind: "live", channel: trimmed.toLowerCase() }
+  }
 
   try {
     const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`)
@@ -115,9 +168,16 @@ export function parseTwitchVod(input: string): { videoId: string; startSeconds: 
     const fromPath = url.pathname.match(/\/videos\/(\d+)/)
     const fromQuery = url.searchParams.get("video")?.match(/^v?(\d+)$/)
     const videoId = fromPath?.[1] ?? fromQuery?.[1]
-    if (!videoId) return null
-    const t = url.searchParams.get("t")
-    return { videoId, startSeconds: t ? parseTime(t) : null }
+    if (videoId) {
+      const t = url.searchParams.get("t")
+      return { kind: "vod", videoId, startSeconds: t ? parseTime(t) : null }
+    }
+
+    const channel = url.searchParams.get("channel") ?? url.pathname.split("/").filter(Boolean)[0]
+    if (channel && CHANNEL_NAME.test(channel) && !RESERVED_PATHS.has(channel.toLowerCase())) {
+      return { kind: "live", channel: channel.toLowerCase() }
+    }
+    return null
   } catch {
     return null
   }
