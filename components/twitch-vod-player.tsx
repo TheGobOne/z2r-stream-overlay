@@ -81,6 +81,22 @@ type Props = {
   raised?: boolean
 }
 
+// Twitch's player draws a thin grey edge, and fractional offsets leave a sub-pixel seam,
+// so the frame is grown a few pixels past the window (keeping aspect) and clipped away.
+const EDGE_OVERSCAN_PX = 3
+
+function overscan(layout: VodFrameLayout) {
+  const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
+  const width = layout.width * scale
+  const height = layout.height * scale
+  return {
+    width,
+    height,
+    left: layout.left - (width - layout.width) / 2,
+    top: layout.top - (height - layout.height) / 2,
+  }
+}
+
 const AUTOPLAY_CHECK_MS = 1200
 const MAX_PLAY_ATTEMPTS = 4
 
@@ -215,7 +231,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       <div
         ref={hostRef}
         className="vod-frame"
-        style={{ width: layout.width, height: layout.height, left: layout.left, top: layout.top }}
+        style={overscan(layout)}
       />
     </div>
   )
