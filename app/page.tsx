@@ -1214,7 +1214,7 @@ export default function StreamOverlay() {
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
           padding: 18px 22px;
           background: #0a0a0a;
           border: 3px solid #2ec4b6;
@@ -1272,6 +1272,8 @@ export default function StreamOverlay() {
         .vod-hint {
           margin-left: 8px;
           color: #8a9a9a;
+          font-size: 9px;
+          line-height: 1.4;
           letter-spacing: 1px;
         }
 
