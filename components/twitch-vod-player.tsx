@@ -99,10 +99,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
 
   function attemptPlay(player: TwitchPlayer, attempt = 0) {
     const startedAt = player.getCurrentTime()
-    console.log("[v0] attemptPlay", side, "attempt=", attempt, "t=", startedAt, "paused=", player.isPaused())
     player.play()
     window.setTimeout(() => {
-      console.log("[v0] autoplay check", side, "attempt=", attempt, "t=", player.getCurrentTime(), "pending=", pendingPlayRef.current)
       if (playerRef.current !== player || !pendingPlayRef.current) return
       // Twitch's isPaused() can report "playing" while the browser has blocked playback,
       // so check whether the playhead actually moved before retrying.
@@ -177,7 +175,6 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
 
   useImperativeHandle(ref, () => ({
     play: () => {
-      console.log("[v0] handle.play", side, "ready=", readyRef.current, "player=", !!playerRef.current)
       pendingPlayRef.current = true
       const player = playerRef.current
       if (player && readyRef.current) attemptPlay(player)

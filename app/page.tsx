@@ -172,7 +172,6 @@ export default function StreamOverlay() {
   function handleTimerClick() {
     // 0 -> start, 1 -> pause, 2 -> reset
     const next = timerPhase === 0 ? 1 : timerPhase === 1 ? 2 : 0
-    console.log("[v0] timer click", timerPhase, "->", next, "linked=", linkVodsToTimer, "left=", !!leftVodRef.current, "right=", !!rightVodRef.current)
     setTimerPhase(next)
     if (linkVodsToTimer) {
       if (next === 1) playBothVods()
