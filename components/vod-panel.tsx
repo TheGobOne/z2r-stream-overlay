@@ -109,8 +109,7 @@ export function VodPanel({
 
   const hasVod = Boolean(config.videoId)
   const ready = hasVod && currentTime !== null
-  // Dock the panel over the other player's window so this one stays visible while cropping
-  const dock = VOD_WINDOWS[side === "left" ? "right" : "left"]
+  const dock = VOD_WINDOWS[side]
 
   return (
     <div

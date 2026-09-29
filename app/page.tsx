@@ -1329,8 +1329,7 @@ export default function StreamOverlay() {
             ref={vodRefs[side]}
             side={side}
             config={vods[side]}
-                  onAutoMute={() => updateVod(side, { muted: true })}
-                  raised={vodPanelSide === side}
+  onAutoMute={() => updateVod(side, { muted: true })}
                 />
         ))}
 
