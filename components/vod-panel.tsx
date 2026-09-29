@@ -22,8 +22,8 @@ type Props = {
   config: VodConfig
   onChange: (patch: Partial<VodConfig>) => void
   playerRef: RefObject<VodPlayerHandle | null>
-  clickThrough: boolean
-  onClickThroughChange: (value: boolean) => void
+  cropMode: boolean
+  onCropModeChange: (value: boolean) => void
   linkToTimer: boolean
   onLinkToTimerChange: (value: boolean) => void
   onPlayBoth: () => void
@@ -39,8 +39,8 @@ export function VodPanel({
   config,
   onChange,
   playerRef,
-  clickThrough,
-  onClickThroughChange,
+  cropMode,
+  onCropModeChange,
   linkToTimer,
   onLinkToTimerChange,
   onPlayBoth,
@@ -109,8 +109,7 @@ export function VodPanel({
 
   const hasVod = Boolean(config.videoId)
   const ready = hasVod && currentTime !== null
-  // Dock the panel over the other player's window so this one stays visible while cropping
-  const dock = VOD_WINDOWS[side === "left" ? "right" : "left"]
+  const dock = VOD_WINDOWS[side]
 
   return (
     <div
@@ -214,9 +213,11 @@ export function VodPanel({
           </div>
 
           <div className="vod-panel-section">
-            <p className="vod-label">
-              Crop <span className="vod-hint">drag the video to move, scroll to zoom</span>
-            </p>
+            <p className="vod-label">Crop</p>
+            <label className="vod-check">
+              <input type="checkbox" checked={cropMode} onChange={(e) => onCropModeChange(e.target.checked)} />
+              Crop mode <span className="vod-hint">drag the video to move, scroll to zoom (pauses playback)</span>
+            </label>
             <div className="vod-row">
               <button
                 className="vod-btn"
@@ -259,10 +260,9 @@ export function VodPanel({
               />
               <span className="vod-value">{Math.round(config.volume * 100)}%</span>
             </div>
-            <label className="vod-check">
-              <input type="checkbox" checked={clickThrough} onChange={(e) => onClickThroughChange(e.target.checked)} />
-              Click through to Twitch player
-            </label>
+            <p className="vod-hint">
+              Twitch controls work directly on the video. Right-click the frame around it to reopen this panel.
+            </p>
           </div>
         </>
       )}

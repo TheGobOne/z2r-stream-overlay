@@ -10,6 +10,7 @@ type TwitchPlayer = {
   getCurrentTime(): number
   isPaused(): boolean
   setMuted(muted: boolean): void
+  getMuted(): boolean
   setVolume(volume: number): void
   addEventListener(event: string, callback: () => void): void
 }
@@ -74,18 +75,46 @@ function getParentDomains() {
 type Props = {
   side: VodSide
   config: VodConfig
-  interactive: boolean
+  onAutoMute: () => void
+  /** Lift this player above the settings panel while it is being edited. */
+  raised?: boolean
 }
 
+const AUTOPLAY_CHECK_MS = 1200
+const MAX_PLAY_ATTEMPTS = 4
+
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
-  { side, config, interactive },
+  { side, config, onAutoMute, raised = false },
   ref,
 ) {
   const mountId = `twitch-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
   const hostRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<TwitchPlayer | null>(null)
+  const readyRef = useRef(false)
+  const pendingPlayRef = useRef(false)
   const latest = useRef(config)
   latest.current = config
+  const onAutoMuteRef = useRef(onAutoMute)
+  onAutoMuteRef.current = onAutoMute
+
+  function attemptPlay(player: TwitchPlayer, attempt = 0) {
+    const startedAt = player.getCurrentTime()
+    player.play()
+    window.setTimeout(() => {
+      if (playerRef.current !== player || !pendingPlayRef.current) return
+      // Twitch's isPaused() can report "playing" while the browser has blocked playback,
+      // so check whether the playhead actually moved before retrying.
+      if (player.getCurrentTime() - startedAt > 0.25) return
+      if (attempt >= MAX_PLAY_ATTEMPTS) return
+      if (attempt === 0 && !player.getMuted()) {
+        player.setMuted(true)
+        onAutoMuteRef.current()
+      }
+      // A paused-then-played cycle un-sticks embeds that silently ignored the first play()
+      player.pause()
+      attemptPlay(player, attempt + 1)
+    }, AUTOPLAY_CHECK_MS)
+  }
 
   const { videoId, loadKey, muted, volume, zoom, centerX, centerY } = config
 
@@ -112,18 +141,26 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
           muted: latest.current.muted,
           parent: getParentDomains(),
         })
-        player.addEventListener(window.Twitch.Player.READY, () => {
-          if (cancelled) return
-          playerRef.current = player
+        playerRef.current = player
+        const markReady = () => {
+          if (cancelled || readyRef.current) return
+          readyRef.current = true
           player.setVolume(latest.current.volume)
-          player.setMuted(latest.current.muted)
-        })
+          // Unmuting before playback starts makes browsers block the next play() call
+          if (latest.current.muted) player.setMuted(true)
+          if (pendingPlayRef.current) attemptPlay(player)
+        }
+        player.addEventListener(window.Twitch.Player.READY, markReady)
+        player.addEventListener("playing", markReady)
+        player.addEventListener("play", markReady)
       })
       .catch((error) => console.error(error))
 
     return () => {
       cancelled = true
       playerRef.current = null
+      readyRef.current = false
+      pendingPlayRef.current = false
       host.replaceChildren()
     }
   }, [videoId, loadKey, mountId])
@@ -137,15 +174,24 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   }, [volume])
 
   useImperativeHandle(ref, () => ({
-    play: () => playerRef.current?.play(),
-    pause: () => playerRef.current?.pause(),
-    seekTo: (seconds) => playerRef.current?.seek(Math.max(0, seconds)),
+    play: () => {
+      pendingPlayRef.current = true
+      const player = playerRef.current
+      if (player && readyRef.current) attemptPlay(player)
+    },
+    pause: () => {
+      pendingPlayRef.current = false
+      if (readyRef.current) playerRef.current?.pause()
+    },
+    seekTo: (seconds) => {
+      if (readyRef.current) playerRef.current?.seek(Math.max(0, seconds))
+    },
     nudge: (seconds) => {
       const player = playerRef.current
-      if (player) player.seek(Math.max(0, player.getCurrentTime() + seconds))
+      if (player && readyRef.current) player.seek(Math.max(0, player.getCurrentTime() + seconds))
     },
-    getCurrentTime: () => playerRef.current?.getCurrentTime() ?? null,
-    isPaused: () => playerRef.current?.isPaused() ?? true,
+    getCurrentTime: () => (readyRef.current ? (playerRef.current?.getCurrentTime() ?? null) : null),
+    isPaused: () => (readyRef.current ? (playerRef.current?.isPaused() ?? true) : true),
   }))
 
   if (!videoId) return null
@@ -163,7 +209,10 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         width: win.width,
         height: win.height,
         clipPath: win.clipPath,
-        pointerEvents: interactive ? "auto" : "none",
+        // Chrome's visibility check (which Twitch uses to allow playback) tests the iframe's
+        // full rect, including the zoomed overflow that's cropped away. The left video's crop
+        // usually spills toward the right window, so it stacks above the right one.
+        zIndex: raised ? 902 : side === "left" ? 14 : 13,
       }}
     >
       <div

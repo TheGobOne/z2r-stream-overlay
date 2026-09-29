@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
-import { clamp, createVodConfig, MAX_ZOOM, MIN_ZOOM, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { clamp, createVodConfig, FRAME_HITBOX, MAX_ZOOM, MIN_ZOOM, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -81,7 +81,7 @@ export default function StreamOverlay() {
     right: createVodConfig(),
   }))
   const [vodPanelSide, setVodPanelSide] = useState<VodSide | null>(null)
-  const [vodClickThrough, setVodClickThrough] = useState(false)
+  const [vodCropMode, setVodCropMode] = useState(false)
   const [linkVodsToTimer, setLinkVodsToTimer] = useState(true)
   const leftVodRef = useRef<VodPlayerHandle>(null)
   const rightVodRef = useRef<VodPlayerHandle>(null)
@@ -93,8 +93,16 @@ export default function StreamOverlay() {
   }
 
   function playBothVods() {
-    leftVodRef.current?.play()
-    rightVodRef.current?.play()
+    // Twitch refuses to play embeds that are covered, and the panel covers the other window
+    const panelWasOpen = vodPanelSide !== null
+    closeVodPanel()
+    window.setTimeout(
+      () => {
+        leftVodRef.current?.play()
+        rightVodRef.current?.play()
+      },
+      panelWasOpen ? 100 : 0,
+    )
   }
 
   function pauseBothVods() {
@@ -104,17 +112,17 @@ export default function StreamOverlay() {
 
   const closeVodPanel = useCallback(() => {
     setVodPanelSide(null)
-    setVodClickThrough(false)
+    setVodCropMode(false)
   }, [])
 
   function openVodPanel(side: VodSide, e: React.MouseEvent) {
     e.preventDefault()
-    setVodClickThrough(false)
+    setVodCropMode(false)
     setVodPanelSide(side)
   }
 
   function handleVodDragStart(side: VodSide, e: React.PointerEvent<HTMLDivElement>) {
-    if (vodPanelSide !== side || e.button !== 0 || !vods[side].videoId) return
+    if (vodPanelSide !== side || !vodCropMode || e.button !== 0 || !vods[side].videoId) return
     e.currentTarget.setPointerCapture(e.pointerId)
     dragRef.current = { x: e.clientX, y: e.clientY }
   }
@@ -134,7 +142,7 @@ export default function StreamOverlay() {
   }
 
   function handleVodWheel(side: VodSide, e: React.WheelEvent<HTMLDivElement>) {
-    if (vodPanelSide !== side || !vods[side].videoId) return
+    if (vodPanelSide !== side || !vodCropMode || !vods[side].videoId) return
     updateVod(side, { zoom: clamp(vods[side].zoom * Math.pow(1.1, -e.deltaY / 100), MIN_ZOOM, MAX_ZOOM) })
   }
 
@@ -1111,6 +1119,10 @@ export default function StreamOverlay() {
           position: absolute;
           overflow: hidden;
           background: #000000;
+          /* Twitch pauses embeds that are covered by any other element (even empty ones like
+             .transparent-overlay-* and .vod-hitbox), so the video sits above everything that
+             overlaps it. The per-side z-index is set inline by TwitchVodPlayer. */
+          z-index: 13;
         }
 
         .vod-frame {
@@ -1119,10 +1131,11 @@ export default function StreamOverlay() {
 
         .vod-hitbox {
           position: absolute;
-          z-index: 5;
+          z-index: 12;
         }
 
         .vod-hitbox.adjusting {
+          z-index: 903;
           cursor: grab;
           outline: 2px dashed #ffd700;
           outline-offset: -2px;
@@ -1130,6 +1143,11 @@ export default function StreamOverlay() {
 
         .vod-hitbox.adjusting:active {
           cursor: grabbing;
+        }
+
+        .vod-frame-hitbox {
+          position: absolute;
+          z-index: 5;
         }
 
         .vod-panel {
@@ -1304,15 +1322,15 @@ export default function StreamOverlay() {
       `}</style>
 
       <div className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}>
-        {/* Twitch VODs render beneath the overlay art, showing through the game windows */}
+        {/* Twitch VODs render above the overlay art, clipped to the game windows */}
         {(["left", "right"] as const).map((side) => (
           <TwitchVodPlayer
             key={side}
             ref={vodRefs[side]}
             side={side}
             config={vods[side]}
-            interactive={vodPanelSide === side && vodClickThrough}
-          />
+  onAutoMute={() => updateVod(side, { muted: true })}
+                />
         ))}
 
         {/* Background overlay image */}
@@ -1407,21 +1425,37 @@ export default function StreamOverlay() {
           </div>
         )}
 
-        {/* Right-click a game window to set up that player's VOD; drag/scroll to crop while its panel is open */}
+        {/* Right-click an empty game window (or the frame around a loaded one) to set up that player's VOD.
+            Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists in crop mode. */}
         {(["left", "right"] as const).map((side) => {
           const win = VOD_WINDOWS[side]
-          const adjusting = vodPanelSide === side && Boolean(vods[side].videoId)
+          const hasVod = Boolean(vods[side].videoId)
+          const cropping = hasVod && vodPanelSide === side && vodCropMode
+          if (hasVod && !cropping) {
+            const strips = [
+              { left: win.left, top: win.top - FRAME_HITBOX, width: win.width, height: FRAME_HITBOX },
+              { left: win.left - FRAME_HITBOX, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
+              { left: win.left + win.width, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
+            ]
+            return strips.map((strip, i) => (
+              <div
+                key={`${side}-${i}`}
+                className="vod-frame-hitbox"
+                style={strip}
+                onContextMenu={(e) => openVodPanel(side, e)}
+                aria-hidden="true"
+              />
+            ))
+          }
           return (
             <div
               key={side}
-              className={`vod-hitbox${adjusting ? " adjusting" : ""}`}
+              className={`vod-hitbox${cropping ? " adjusting" : ""}`}
               style={{
                 left: win.left,
                 top: win.top,
                 width: win.width,
                 height: win.height,
-                clipPath: win.clipPath,
-                pointerEvents: vodPanelSide === side && vodClickThrough ? "none" : "auto",
               }}
               onContextMenu={(e) => openVodPanel(side, e)}
               onPointerDown={(e) => handleVodDragStart(side, e)}
@@ -1442,8 +1476,8 @@ export default function StreamOverlay() {
             config={vods[vodPanelSide]}
             onChange={(patch) => updateVod(vodPanelSide, patch)}
             playerRef={vodRefs[vodPanelSide]}
-            clickThrough={vodClickThrough}
-            onClickThroughChange={setVodClickThrough}
+              cropMode={vodCropMode}
+              onCropModeChange={setVodCropMode}
             linkToTimer={linkVodsToTimer}
             onLinkToTimerChange={setLinkVodsToTimer}
             onPlayBoth={playBothVods}
