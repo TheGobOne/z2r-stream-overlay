@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
-import { clamp, createVodConfig, FRAME_HITBOX, MAX_ZOOM, MIN_ZOOM, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { VodCropSelector } from "@/components/vod-crop-selector"
+import { createVodConfig, FRAME_HITBOX, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -86,7 +87,6 @@ export default function StreamOverlay() {
   const leftVodRef = useRef<VodPlayerHandle>(null)
   const rightVodRef = useRef<VodPlayerHandle>(null)
   const vodRefs = { left: leftVodRef, right: rightVodRef }
-  const dragRef = useRef<{ x: number; y: number } | null>(null)
 
   function updateVod(side: VodSide, patch: Partial<VodConfig>) {
     setVods((prev) => ({ ...prev, [side]: { ...prev[side], ...patch } }))
@@ -121,32 +121,11 @@ export default function StreamOverlay() {
     setVodPanelSide(side)
   }
 
-  function handleVodDragStart(side: VodSide, e: React.PointerEvent<HTMLDivElement>) {
-    if (vodPanelSide !== side || !vodCropMode || e.button !== 0 || !vods[side].videoId) return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    dragRef.current = { x: e.clientX, y: e.clientY }
-  }
-
-  const vodLayouts = resolveVodLayouts(vods)
-
-  function handleVodDragMove(side: VodSide, e: React.PointerEvent<HTMLDivElement>) {
-    const start = dragRef.current
-    if (!start) return
-    const frameWidth = VOD_WINDOWS[side].width * vods[side].zoom
-    const frameHeight = (frameWidth * 9) / 16
-    const dx = e.clientX - start.x
-    const dy = e.clientY - start.y
-    dragRef.current = { x: e.clientX, y: e.clientY }
-    updateVod(side, {
-      centerX: clamp(vods[side].centerX - dx / frameWidth, 0, 1),
-      centerY: clamp(vods[side].centerY - dy / frameHeight, 0, 1),
-    })
-  }
-
-  function handleVodWheel(side: VodSide, e: React.WheelEvent<HTMLDivElement>) {
-    if (vodPanelSide !== side || !vodCropMode || !vods[side].videoId) return
-    updateVod(side, { zoom: clamp(vods[side].zoom * Math.pow(1.1, -e.deltaY / 100), MIN_ZOOM, MAX_ZOOM) })
-  }
+  // While picking crop corners, the cropping side shows its whole uncropped video
+  const croppingSide = vodPanelSide && vodCropMode && vods[vodPanelSide].videoId ? vodPanelSide : null
+  const vodLayouts = resolveVodLayouts(
+    croppingSide ? { ...vods, [croppingSide]: { ...vods[croppingSide], ...UNCROPPED_VIEW } } : vods,
+  )
 
   // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
   const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
@@ -1136,16 +1115,68 @@ export default function StreamOverlay() {
           z-index: 12;
         }
 
-        .vod-hitbox.adjusting {
-          z-index: 903;
-          cursor: grab;
-          outline: 2px dashed #ffd700;
-          outline-offset: -2px;
-        }
-
-        .vod-hitbox.adjusting:active {
-          cursor: grabbing;
-        }
+  .vod-crop-selector {
+  position: absolute;
+  z-index: 903;
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  outline: 2px dashed #ffd700;
+  outline-offset: -2px;
+  }
+  
+  .vod-crop-frame, .vod-crop-selection, .vod-crop-result, .vod-crop-corner {
+  position: absolute;
+  pointer-events: none;
+  box-sizing: border-box;
+  }
+  
+  .vod-crop-frame {
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+  }
+  
+  .vod-crop-selection {
+  border: 2px solid #ffd700;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  }
+  
+  .vod-crop-result {
+  border: 1px dashed #ffffff;
+  }
+  
+  .vod-crop-corner {
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  background: #ffd700;
+  border-radius: 50%;
+  }
+  
+  .vod-crop-instructions {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid #ffd700;
+  color: #ffffff;
+  font-size: 11px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+  }
+  
+  .vod-crop-instructions span {
+  color: #8a9a9a;
+  font-size: 9px;
+  }
 
         .vod-frame-hitbox {
           position: absolute;
@@ -1429,12 +1460,25 @@ export default function StreamOverlay() {
         )}
 
         {/* Right-click an empty game window (or the frame around a loaded one) to set up that player's VOD.
-            Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists in crop mode. */}
+            Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
         {(["left", "right"] as const).map((side) => {
           const win = VOD_WINDOWS[side]
           const hasVod = Boolean(vods[side].videoId)
-          const cropping = hasVod && vodPanelSide === side && vodCropMode
-          if (hasVod && !cropping) {
+          if (croppingSide === side) {
+            return (
+              <VodCropSelector
+                key={side}
+                side={side}
+                frame={vodLayouts[side]}
+                onApply={(view) => {
+                  updateVod(side, view)
+                  setVodCropMode(false)
+                }}
+                onCancel={() => setVodCropMode(false)}
+              />
+            )
+          }
+          if (hasVod) {
             const strips = [
               { left: win.left, top: win.top - FRAME_HITBOX, width: win.width, height: FRAME_HITBOX },
               { left: win.left - FRAME_HITBOX, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
@@ -1453,7 +1497,7 @@ export default function StreamOverlay() {
           return (
             <div
               key={side}
-              className={`vod-hitbox${cropping ? " adjusting" : ""}`}
+              className="vod-hitbox"
               style={{
                 left: win.left,
                 top: win.top,
@@ -1461,17 +1505,12 @@ export default function StreamOverlay() {
                 height: win.height,
               }}
               onContextMenu={(e) => openVodPanel(side, e)}
-              onPointerDown={(e) => handleVodDragStart(side, e)}
-              onPointerMove={(e) => handleVodDragMove(side, e)}
-              onPointerUp={() => (dragRef.current = null)}
-              onPointerCancel={() => (dragRef.current = null)}
-              onWheel={(e) => handleVodWheel(side, e)}
               aria-hidden="true"
             />
           )
         })}
 
-        {vodPanelSide && (
+        {vodPanelSide && !croppingSide && (
           <VodPanel
             key={vodPanelSide}
             side={vodPanelSide}

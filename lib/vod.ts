@@ -56,6 +56,37 @@ export function createVodConfig(): VodConfig {
   }
 }
 
+/** A rectangle in video-relative coordinates, 0..1 on each axis. */
+export type VideoRect = { x0: number; y0: number; x1: number; y1: number }
+
+export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, centerX: 0.5, centerY: 0.5 }
+
+/** Zoom and center so the selected area fills the window, trimming whichever axis doesn't match its aspect. */
+export function cropToSelection(side: VodSide, sel: VideoRect) {
+  const win = VOD_WINDOWS[side]
+  const selWidth = Math.abs(sel.x1 - sel.x0)
+  const selHeight = Math.abs(sel.y1 - sel.y0)
+  const zoom = clamp(
+    Math.max(1 / selWidth, win.height / (((win.width * 9) / 16) * selHeight)),
+    MIN_ZOOM,
+    MAX_ZOOM,
+  )
+  return { zoom, centerX: (sel.x0 + sel.x1) / 2, centerY: (sel.y0 + sel.y1) / 2 }
+}
+
+/** The part of the video, in video-relative coordinates, that shows through the window for a given view. */
+export function visibleVideoRect(side: VodSide, view: { zoom: number; centerX: number; centerY: number }): VideoRect {
+  const win = VOD_WINDOWS[side]
+  const halfWidth = 1 / view.zoom / 2
+  const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom) / 2
+  return {
+    x0: view.centerX - halfWidth,
+    y0: view.centerY - halfHeight,
+    x1: view.centerX + halfWidth,
+    y1: view.centerY + halfHeight,
+  }
+}
+
 export type VodFrameLayout = { left: number; top: number; width: number; height: number; onTop: boolean }
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)

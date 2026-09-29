@@ -3,12 +3,9 @@
 import { useEffect, useState, type RefObject } from "react"
 import type { VodPlayerHandle } from "@/components/twitch-vod-player"
 import {
-  clamp,
   createVodConfig,
   DEFAULT_ZOOM,
   formatTime,
-  MAX_ZOOM,
-  MIN_ZOOM,
   parseTime,
   parseTwitchVod,
   VOD_WINDOWS,
@@ -213,27 +210,14 @@ export function VodPanel({
           </div>
 
           <div className="vod-panel-section">
-            <p className="vod-label">Crop</p>
-            <label className="vod-check">
-              <input type="checkbox" checked={cropMode} onChange={(e) => onCropModeChange(e.target.checked)} />
-              Crop mode <span className="vod-hint">drag the video to move, scroll to zoom (pauses playback)</span>
-            </label>
+            <p className="vod-label">
+              Crop <span className="vod-hint">pick top-left, then bottom-right corner</span>
+            </p>
             <div className="vod-row">
-              <button
-                className="vod-btn"
-                aria-label="Zoom out"
-                onClick={() => onChange({ zoom: clamp(config.zoom / 1.1, MIN_ZOOM, MAX_ZOOM) })}
-              >
-                -
+              <button className="vod-btn vod-btn-primary" aria-pressed={cropMode} onClick={() => onCropModeChange(true)}>
+                Select crop area
               </button>
               <span className="vod-value">{Math.round(config.zoom * 100)}%</span>
-              <button
-                className="vod-btn"
-                aria-label="Zoom in"
-                onClick={() => onChange({ zoom: clamp(config.zoom * 1.1, MIN_ZOOM, MAX_ZOOM) })}
-              >
-                +
-              </button>
               <button
                 className="vod-btn"
                 onClick={() => onChange({ zoom: DEFAULT_ZOOM, centerX: 0.5, centerY: 0.5 })}
