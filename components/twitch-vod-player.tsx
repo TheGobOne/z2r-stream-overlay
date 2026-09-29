@@ -235,7 +235,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         style={overscan(layout)}
       />
       {!muted && (
-        <div className="vod-audio-badge" role="img" aria-label={`Listening to ${side === "left" ? "Player 1" : "Player 2"} audio`}>
+        <div className={`vod-audio-badge vod-audio-badge-${side}`} role="img" aria-label={`Listening to ${side === "left" ? "Player 1" : "Player 2"} audio`}>
           <Music aria-hidden="true" />
         </div>
       )}

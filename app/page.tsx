@@ -1130,6 +1130,11 @@ export default function StreamOverlay() {
   pointer-events: none;
   }
   
+  .vod-audio-badge-right {
+  right: auto;
+  left: 6px;
+  }
+
   .vod-audio-badge svg {
   width: 24px;
   height: 24px;
