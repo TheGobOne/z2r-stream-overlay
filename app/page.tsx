@@ -1122,18 +1122,18 @@ export default function StreamOverlay() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 22px;
-          height: 22px;
-          border-radius: 4px;
-          background: rgba(0, 0, 0, 0.7);
-          color: #7ef5ff;
-          pointer-events: none;
-        }
-
-        .vod-audio-badge svg {
-          width: 14px;
-          height: 14px;
-        }
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #000000;
+  pointer-events: none;
+  }
+  
+  .vod-audio-badge svg {
+  width: 24px;
+  height: 24px;
+  }
 
   .vod-crop-selector {
   position: absolute;
