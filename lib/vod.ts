@@ -21,13 +21,14 @@ export const VOD_WINDOWS: Record<
   { left: number; top: number; width: number; height: number; clipPath: string }
 > = {
   // top sits 3px above the art's transparent hole so the video covers the grey shading row
-  // along the bottom of the top brick band
+  // along the bottom of the top brick band. The left window likewise starts 2px early to cover
+  // the dark shading column inside the left brick border.
   left: {
-    left: 36,
+    left: 34,
     top: 33,
-    width: 655,
+    width: 657,
     height: 511,
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 291px 100%, 291px 475px, 0 475px)",
+    clipPath: "polygon(0 0, 100% 0, 100% 100%, 293px 100%, 293px 475px, 0 475px)",
   },
   right: {
     left: 764,
