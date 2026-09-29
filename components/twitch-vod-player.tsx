@@ -74,14 +74,15 @@ function getParentDomains() {
 type Props = {
   side: VodSide
   config: VodConfig
-  interactive: boolean
   onAutoMute: () => void
+  /** Lift this player above the settings panel while it is being edited. */
+  raised?: boolean
 }
 
 const AUTOPLAY_CHECK_MS = 1200
 
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
-  { side, config, interactive, onAutoMute },
+  { side, config, onAutoMute, raised = false },
   ref,
 ) {
   const mountId = `twitch-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -95,10 +96,13 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   onAutoMuteRef.current = onAutoMute
 
   function attemptPlay(player: TwitchPlayer) {
+    const startedAt = player.getCurrentTime()
     player.play()
     window.setTimeout(() => {
-      if (playerRef.current !== player || !player.isPaused() || pendingPlayRef.current === false) return
-      // Browsers block script-started playback with sound inside embedded frames; retry muted
+      if (playerRef.current !== player || !pendingPlayRef.current) return
+      // Twitch's isPaused() can report "playing" while the browser has blocked playback,
+      // so check whether the playhead actually moved before retrying muted.
+      if (player.getCurrentTime() - startedAt > 0.25) return
       player.setMuted(true)
       player.play()
       onAutoMuteRef.current()
@@ -135,7 +139,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
           if (cancelled || readyRef.current) return
           readyRef.current = true
           player.setVolume(latest.current.volume)
-          player.setMuted(latest.current.muted)
+          // Unmuting before playback starts makes browsers block the next play() call
+          if (latest.current.muted) player.setMuted(true)
           if (pendingPlayRef.current) attemptPlay(player)
         }
         player.addEventListener(window.Twitch.Player.READY, markReady)
@@ -197,7 +202,10 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         width: win.width,
         height: win.height,
         clipPath: win.clipPath,
-        pointerEvents: interactive ? "auto" : "none",
+        // Chrome's visibility check (which Twitch uses to allow playback) tests the iframe's
+        // full rect, including the zoomed overflow that's cropped away. The left video's crop
+        // usually spills toward the right window, so it stacks above the right one.
+        zIndex: raised ? 902 : side === "left" ? 14 : 13,
       }}
     >
       <div

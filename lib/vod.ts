@@ -34,6 +34,9 @@ export const VOD_WINDOWS: Record<
   },
 }
 
+// Width of the right-clickable brick strip around each window when a VOD is loaded
+export const FRAME_HITBOX = 30
+
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 6
 // Zoom at which a 16:9 VOD exactly fills the window height
