@@ -75,17 +75,35 @@ type Props = {
   side: VodSide
   config: VodConfig
   interactive: boolean
+  onAutoMute: () => void
 }
 
+const AUTOPLAY_CHECK_MS = 1200
+
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
-  { side, config, interactive },
+  { side, config, interactive, onAutoMute },
   ref,
 ) {
   const mountId = `twitch-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
   const hostRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<TwitchPlayer | null>(null)
+  const readyRef = useRef(false)
+  const pendingPlayRef = useRef(false)
   const latest = useRef(config)
   latest.current = config
+  const onAutoMuteRef = useRef(onAutoMute)
+  onAutoMuteRef.current = onAutoMute
+
+  function attemptPlay(player: TwitchPlayer) {
+    player.play()
+    window.setTimeout(() => {
+      if (playerRef.current !== player || !player.isPaused() || pendingPlayRef.current === false) return
+      // Browsers block script-started playback with sound inside embedded frames; retry muted
+      player.setMuted(true)
+      player.play()
+      onAutoMuteRef.current()
+    }, AUTOPLAY_CHECK_MS)
+  }
 
   const { videoId, loadKey, muted, volume, zoom, centerX, centerY } = config
 
@@ -112,18 +130,25 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
           muted: latest.current.muted,
           parent: getParentDomains(),
         })
-        player.addEventListener(window.Twitch.Player.READY, () => {
-          if (cancelled) return
-          playerRef.current = player
+        playerRef.current = player
+        const markReady = () => {
+          if (cancelled || readyRef.current) return
+          readyRef.current = true
           player.setVolume(latest.current.volume)
           player.setMuted(latest.current.muted)
-        })
+          if (pendingPlayRef.current) attemptPlay(player)
+        }
+        player.addEventListener(window.Twitch.Player.READY, markReady)
+        player.addEventListener("playing", markReady)
+        player.addEventListener("play", markReady)
       })
       .catch((error) => console.error(error))
 
     return () => {
       cancelled = true
       playerRef.current = null
+      readyRef.current = false
+      pendingPlayRef.current = false
       host.replaceChildren()
     }
   }, [videoId, loadKey, mountId])
@@ -137,15 +162,24 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   }, [volume])
 
   useImperativeHandle(ref, () => ({
-    play: () => playerRef.current?.play(),
-    pause: () => playerRef.current?.pause(),
-    seekTo: (seconds) => playerRef.current?.seek(Math.max(0, seconds)),
+    play: () => {
+      pendingPlayRef.current = true
+      const player = playerRef.current
+      if (player && readyRef.current) attemptPlay(player)
+    },
+    pause: () => {
+      pendingPlayRef.current = false
+      if (readyRef.current) playerRef.current?.pause()
+    },
+    seekTo: (seconds) => {
+      if (readyRef.current) playerRef.current?.seek(Math.max(0, seconds))
+    },
     nudge: (seconds) => {
       const player = playerRef.current
-      if (player) player.seek(Math.max(0, player.getCurrentTime() + seconds))
+      if (player && readyRef.current) player.seek(Math.max(0, player.getCurrentTime() + seconds))
     },
-    getCurrentTime: () => playerRef.current?.getCurrentTime() ?? null,
-    isPaused: () => playerRef.current?.isPaused() ?? true,
+    getCurrentTime: () => (readyRef.current ? (playerRef.current?.getCurrentTime() ?? null) : null),
+    isPaused: () => (readyRef.current ? (playerRef.current?.isPaused() ?? true) : true),
   }))
 
   if (!videoId) return null
