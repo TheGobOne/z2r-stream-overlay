@@ -10,6 +10,7 @@ type TwitchPlayer = {
   getCurrentTime(): number
   isPaused(): boolean
   setMuted(muted: boolean): void
+  getMuted(): boolean
   setVolume(volume: number): void
   addEventListener(event: string, callback: () => void): void
 }
@@ -80,6 +81,7 @@ type Props = {
 }
 
 const AUTOPLAY_CHECK_MS = 1200
+const MAX_PLAY_ATTEMPTS = 4
 
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
   { side, config, onAutoMute, raised = false },
@@ -95,17 +97,24 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   const onAutoMuteRef = useRef(onAutoMute)
   onAutoMuteRef.current = onAutoMute
 
-  function attemptPlay(player: TwitchPlayer) {
+  function attemptPlay(player: TwitchPlayer, attempt = 0) {
     const startedAt = player.getCurrentTime()
+    console.log("[v0] attemptPlay", side, "attempt=", attempt, "t=", startedAt, "paused=", player.isPaused())
     player.play()
     window.setTimeout(() => {
+      console.log("[v0] autoplay check", side, "attempt=", attempt, "t=", player.getCurrentTime(), "pending=", pendingPlayRef.current)
       if (playerRef.current !== player || !pendingPlayRef.current) return
       // Twitch's isPaused() can report "playing" while the browser has blocked playback,
-      // so check whether the playhead actually moved before retrying muted.
+      // so check whether the playhead actually moved before retrying.
       if (player.getCurrentTime() - startedAt > 0.25) return
-      player.setMuted(true)
-      player.play()
-      onAutoMuteRef.current()
+      if (attempt >= MAX_PLAY_ATTEMPTS) return
+      if (attempt === 0 && !player.getMuted()) {
+        player.setMuted(true)
+        onAutoMuteRef.current()
+      }
+      // A paused-then-played cycle un-sticks embeds that silently ignored the first play()
+      player.pause()
+      attemptPlay(player, attempt + 1)
     }, AUTOPLAY_CHECK_MS)
   }
 
@@ -168,6 +177,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
 
   useImperativeHandle(ref, () => ({
     play: () => {
+      console.log("[v0] handle.play", side, "ready=", readyRef.current, "player=", !!playerRef.current)
       pendingPlayRef.current = true
       const player = playerRef.current
       if (player && readyRef.current) attemptPlay(player)
