@@ -1,6 +1,7 @@
 "use client"
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react"
+import { Music } from "lucide-react"
 import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide } from "@/lib/vod"
 
 type TwitchPlayer = {
@@ -233,6 +234,11 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         className="vod-frame"
         style={overscan(layout)}
       />
+      {!muted && (
+        <div className="vod-audio-badge" role="img" aria-label={`Listening to ${side === "left" ? "Player 1" : "Player 2"} audio`}>
+          <Music aria-hidden="true" />
+        </div>
+      )}
     </div>
   )
 })

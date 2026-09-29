@@ -1115,6 +1115,26 @@ export default function StreamOverlay() {
           z-index: 12;
         }
 
+        .vod-audio-badge {
+          position: absolute;
+          right: 6px;
+          bottom: 6px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          border-radius: 4px;
+          background: rgba(0, 0, 0, 0.7);
+          color: #7ef5ff;
+          pointer-events: none;
+        }
+
+        .vod-audio-badge svg {
+          width: 14px;
+          height: 14px;
+        }
+
   .vod-crop-selector {
   position: absolute;
   z-index: 903;
@@ -1453,7 +1473,7 @@ export default function StreamOverlay() {
                   Max Rando
                 </label>
               </div>
-              <p className="setup-hint">Right-click a game window to load a Twitch VOD</p>
+              <p className="setup-hint">Right-click a game window to load a Twitch VOD or livestream</p>
               <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
             </div>
           </div>
