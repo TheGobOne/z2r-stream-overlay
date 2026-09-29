@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react"
 import { Music } from "lucide-react"
-import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide } from "@/lib/vod"
+import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
 
 type TwitchPlayer = {
   play(): void
@@ -74,7 +74,12 @@ function getParentDomains() {
 }
 
 type Props = {
-  side: VodSide
+  /** "left"/"right" for the two-runner layout, or any unique key when `win` is given. */
+  side: string
+  /** Window to render into; defaults to the two-runner window for `side`. */
+  win?: WindowRect
+  /** Player name used in the audio badge's accessible label. */
+  label?: string
   config: VodConfig
   layout: VodFrameLayout
   onAutoMute: () => void
@@ -102,7 +107,7 @@ const AUTOPLAY_CHECK_MS = 1200
 const MAX_PLAY_ATTEMPTS = 4
 
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
-  { side, config, layout, onAutoMute, raised = false },
+  { side, win: winProp, label, config, layout, onAutoMute, raised = false },
   ref,
 ) {
   const mountId = `twitch-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -215,7 +220,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
 
   if (!videoId && !channel) return null
 
-  const win = VOD_WINDOWS[side]
+  const win = winProp ?? VOD_WINDOWS[side as VodSide]
+  const playerName = label ?? (side === "right" ? "Player 2" : "Player 1")
 
   return (
     <div
@@ -235,7 +241,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         style={overscan(layout)}
       />
       {!muted && (
-        <div className={`vod-audio-badge vod-audio-badge-${side}`} role="img" aria-label={`Listening to ${side === "left" ? "Player 1" : "Player 2"} audio`}>
+        <div className={`vod-audio-badge vod-audio-badge-${side}`} role="img" aria-label={`Listening to ${playerName} audio`}>
           <Music aria-hidden="true" />
         </div>
       )}

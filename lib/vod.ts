@@ -66,9 +66,10 @@ export type VideoRect = { x0: number; y0: number; x1: number; y1: number }
 
 export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, centerX: 0.5, centerY: 0.5 }
 
+export type WindowRect = { left: number; top: number; width: number; height: number; clipPath?: string }
+
 /** Zoom and center so the selected area fills the window, trimming whichever axis doesn't match its aspect. */
-export function cropToSelection(side: VodSide, sel: VideoRect) {
-  const win = VOD_WINDOWS[side]
+export function cropToSelection(win: WindowRect, sel: VideoRect) {
   const selWidth = Math.abs(sel.x1 - sel.x0)
   const selHeight = Math.abs(sel.y1 - sel.y0)
   const zoom = clamp(
@@ -80,8 +81,7 @@ export function cropToSelection(side: VodSide, sel: VideoRect) {
 }
 
 /** The part of the video, in video-relative coordinates, that shows through the window for a given view. */
-export function visibleVideoRect(side: VodSide, view: { zoom: number; centerX: number; centerY: number }): VideoRect {
-  const win = VOD_WINDOWS[side]
+export function visibleVideoRect(win: WindowRect, view: { zoom: number; centerX: number; centerY: number }): VideoRect {
   const halfWidth = 1 / view.zoom / 2
   const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom) / 2
   return {
@@ -96,12 +96,16 @@ export type VodFrameLayout = { left: number; top: number; width: number; height:
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
 
-function frameFor(side: VodSide, config: VodConfig) {
-  const win = VOD_WINDOWS[side]
+/** Where a 16:9 video frame sits, relative to its window, for a given zoom and center. */
+export function frameInWindow(win: WindowRect, config: Pick<VodConfig, "zoom" | "centerX" | "centerY">) {
   const width = win.width * config.zoom
   const height = (width * 9) / 16
-  const left = win.width / 2 - config.centerX * width
-  const top = win.height / 2 - config.centerY * height
+  return { left: win.width / 2 - config.centerX * width, top: win.height / 2 - config.centerY * height, width, height }
+}
+
+function frameFor(side: VodSide, config: VodConfig) {
+  const win = VOD_WINDOWS[side]
+  const { left, top, width, height } = frameInWindow(win, config)
   const innerOverflow = side === "left" ? left + width - win.width : -left
   return { left, top, width, height, innerOverflow }
 }
