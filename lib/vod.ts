@@ -14,32 +14,27 @@ export type VodConfig = {
   volume: number
 }
 
-const ART_SCALE = 1456 / 2560
-const WINDOW_TOP = 63 * ART_SCALE
-const WINDOW_HEIGHT = (959 - 63) * ART_SCALE
-const NAME_BOX_TOP = 510.5 - WINDOW_TOP
-
 // Transparent game-window holes in the 1456x816 overlay. The clip path cuts out
 // each player's name box, which sits over the bottom corner of the window.
 export const VOD_WINDOWS: Record<
   VodSide,
   { left: number; top: number; width: number; height: number; clipPath: string }
 > = {
-  // Exactly the art's holes (native rows 63-958 of the 2560x1440 art); the top border band
-  // above each hole is the bottom band mirrored
+  // top sits 3px above the art's transparent hole so the video covers the grey shading row
+  // along the bottom of the top brick band
   left: {
     left: 36,
-    top: WINDOW_TOP,
+    top: 33,
     width: 655,
-    height: WINDOW_HEIGHT,
-    clipPath: `polygon(0 0, 100% 0, 100% 100%, 291px 100%, 291px ${NAME_BOX_TOP}px, 0 ${NAME_BOX_TOP}px)`,
+    height: 511,
+    clipPath: "polygon(0 0, 100% 0, 100% 100%, 291px 100%, 291px 477.5px, 0 477.5px)",
   },
   right: {
     left: 764,
-    top: WINDOW_TOP,
+    top: 33,
     width: 655,
-    height: WINDOW_HEIGHT,
-    clipPath: `polygon(0 0, 100% 0, 100% ${NAME_BOX_TOP}px, 363px ${NAME_BOX_TOP}px, 363px 100%, 0 100%)`,
+    height: 511,
+    clipPath: "polygon(0 0, 100% 0, 100% 477.5px, 363px 477.5px, 363px 100%, 0 100%)",
   },
 }
 
@@ -49,7 +44,7 @@ export const FRAME_HITBOX = 30
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 6
 // Zoom at which a 16:9 VOD exactly fills the window height
-export const DEFAULT_ZOOM = Math.round((WINDOW_HEIGHT / ((655 * 9) / 16)) * 100) / 100
+export const DEFAULT_ZOOM = Math.round((511 / ((655 * 9) / 16)) * 100) / 100
 
 export function createVodConfig(): VodConfig {
   return {
