@@ -224,9 +224,12 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: space-evenly;
-          padding: 8px 6px;
-        }
+  justify-content: flex-start;
+  padding: 6px;
+  }
+
+  .quad-tracker > .quad-grid { margin-top: auto; }
+  .quad-tracker > .quad-grid:last-child { margin-bottom: auto; }
 
         .quad-name {
           position: relative;
