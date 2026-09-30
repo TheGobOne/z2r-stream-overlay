@@ -162,15 +162,21 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 10px;
-          padding: 28px 18px;
+          gap: 8px;
+          padding: 20px 10px;
           background: #000000;
           font-family: 'ZeldaII', monospace;
         }
 
+        .quad-side .commentary-input,
+        .quad-side .tracking-input {
+          width: 100%;
+          box-sizing: border-box;
+        }
+
         .quad-side-title {
-          margin: 14px 0 2px;
-          font-size: 16px;
+          margin: 12px 0 2px;
+          font-size: 13px;
           letter-spacing: 1px;
           color: #ffd700;
           text-decoration: underline;
@@ -179,8 +185,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         }
 
         .quad-side .quad-side-input {
-          height: 28px;
-          font-size: 14px;
+          height: 26px;
+          font-size: 12px;
         }
 
         .quad-side .quad-side-timer {
@@ -190,7 +196,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           padding: 0;
           background: none;
           border: none;
-          font-size: 30px;
+          font-size: 20px;
         }
 
         .quad-side-gem {

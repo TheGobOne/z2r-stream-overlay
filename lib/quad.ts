@@ -16,15 +16,15 @@ function brickRect(col: number, row: number, cols: number, rows: number): Window
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
 }
 
-// Player cells fill the left 31 brick columns as a 2x2 grid; the side panel takes the rest.
+// Player cells fill the left 35 brick columns (~85%) as a 2x2 grid; the side panel takes the rest.
 export const QUAD_CELLS: WindowRect[] = [
-  brickRect(1, 1, 14, 10),
-  brickRect(16, 1, 14, 10),
-  brickRect(1, 12, 14, 10),
-  brickRect(16, 12, 14, 10),
+  brickRect(1, 1, 16, 10),
+  brickRect(18, 1, 16, 10),
+  brickRect(1, 12, 16, 10),
+  brickRect(18, 12, 16, 10),
 ]
 
-export const QUAD_PANEL = brickRect(31, 1, 9, 21)
+export const QUAD_PANEL = brickRect(35, 1, 5, 21)
 
 // Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
 // sideways under the tracker and divider without ever reaching the next player's video.
