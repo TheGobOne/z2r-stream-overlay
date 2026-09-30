@@ -1487,7 +1487,6 @@ export default function StreamOverlay() {
                   </button>
                 )}
                 </div>
-                <img className="quad-side-logo" src="/icon.svg" alt="" draggable={false} />
               </>
             }
           />

@@ -178,19 +178,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         .quad-side-info-input {
           width: 100%;
           box-sizing: border-box;
-          padding: 4px 6px;
+          padding: 10px 4px;
+          margin-bottom: 8px;
           resize: none;
           overflow: hidden;
           field-sizing: content;
-          min-height: 2.8em;
-          max-height: 9em;
+          min-height: 5em;
           background: transparent;
-          border: 1px solid rgba(255, 215, 0, 0.35);
+          border: 2px solid rgba(255, 215, 0, 0.45);
           border-radius: 2px;
           color: #ffd700;
           font-family: inherit;
-          font-size: 11px;
-          line-height: 1.4;
+          font-size: 13px;
+          line-height: 1.5;
           letter-spacing: 1px;
           text-align: center;
           text-transform: uppercase;
@@ -205,23 +205,14 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           border-color: #ffd700;
         }
 
-        .quad-side-logo {
-          width: 72%;
-          max-width: 150px;
-          height: auto;
-          margin-top: auto;
-          user-select: none;
-          pointer-events: none;
-        }
-
         .quad-side.quad-side-wide {
           display: grid;
-          grid-template-columns: auto 1fr 1fr;
+          grid-template-columns: 1fr 1fr;
           grid-template-rows: auto auto 1fr;
           grid-template-areas:
-            "logo info info"
-            "logo commentary tracking"
-            "logo status status";
+            "info info"
+            "commentary tracking"
+            "status status";
           align-items: start;
           column-gap: 28px;
           row-gap: 12px;
@@ -241,14 +232,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         }
 
         .quad-side-wide .quad-side-info-input {
-          font-size: 14px;
-        }
-
-        .quad-side-wide .quad-side-logo {
-          grid-area: logo;
-          align-self: center;
-          width: 150px;
-          margin-top: 0;
+          font-size: 26px;
+          min-height: 3.9em;
+          margin-bottom: 0;
         }
 
         .quad-side-wide .quad-side-group {
