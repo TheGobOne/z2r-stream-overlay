@@ -495,11 +495,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
       <div className="quad-bricks" aria-hidden="true" />
       {cells.map((cell, i) => (
-          // Cells start on fractional pixels; reach 1px up so the next brick row's light top edge can't bleed through
+          // Cells start on fractional pixels; reach 1px up and left so neighboring brick highlights can't bleed through
           <div
             key={i}
             className="quad-cell"
-            style={{ ...rect(cell), top: cell.top - 1, height: cell.height + 1 }}
+            style={{ left: cell.left - 1, top: cell.top - 1, width: cell.width + 1, height: cell.height + 1 }}
             aria-hidden="true"
           />
       ))}
