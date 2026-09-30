@@ -1218,6 +1218,10 @@ export default function StreamOverlay() {
   background: #000000;
 }
 
+        body:has(.vod-crop-backdrop) .vod-audio {
+  display: none;
+}
+
         .vod-crop-selector {
   position: absolute;
   z-index: 903;
