@@ -18,8 +18,8 @@ export type VodConfig = {
   volume: number
 }
 
-// Transparent game-window holes in the 1456x816 overlay. The clip path cuts out
-// each player's name box, which sits over the bottom corner of the window.
+// Transparent game-window holes in the 1456x816 overlay. The name boxes sit in the
+// brick row below the windows, so the video fills the whole window.
 export const VOD_WINDOWS: Record<
   VodSide,
   { left: number; top: number; width: number; height: number; clipPath: string }
@@ -31,14 +31,14 @@ export const VOD_WINDOWS: Record<
     top: 33,
     width: 655,
     height: 511,
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 291px 100%, 291px 475px, 0 475px)",
+    clipPath: "none",
   },
   right: {
     left: 764,
     top: 33,
     width: 655,
     height: 511,
-    clipPath: "polygon(0 0, 100% 0, 100% 475px, 363px 475px, 363px 100%, 0 100%)",
+    clipPath: "none",
   },
 }
 
@@ -121,12 +121,26 @@ export type VodFrameLayout = { left: number; top: number; width: number; height:
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
 
+/**
+ * A saved crop is re-derived from its selection so crops made under older rules (such as the
+ * letterboxed fit) always render with the current fill behavior for this window.
+ */
+export function resolveView(win: WindowRect, config: View & { crop?: VideoRect | null }, fill = true): View {
+  return config.crop ? cropToSelection(win, config.crop, fill) : config
+}
+
 /** Where the (possibly vertically stretched) video frame sits, relative to its window. */
-export function frameInWindow(win: WindowRect, config: View) {
+export function frameInWindow(win: WindowRect, config: View & { crop?: VideoRect | null }, fill = true) {
+  config = resolveView(win, config, fill)
   const width = win.width * config.zoom
   const height = ((width * 9) / 16) * (config.stretchY ?? 1)
   return { left: win.width / 2 - config.centerX * width, top: win.height / 2 - config.centerY * height, width, height }
 }
+
+// While picking a crop, the player temporarily grows to the largest 16:9 area of the 1456x816 stage
+const FOCUS_WIDTH = (816 * 16) / 9
+export const CROP_FOCUS_WINDOW: WindowRect = { left: (1456 - FOCUS_WIDTH) / 2, top: 0, width: FOCUS_WIDTH, height: 816 }
+export const CROP_FOCUS_LAYOUT: VodFrameLayout = { ...frameInWindow(CROP_FOCUS_WINDOW, UNCROPPED_VIEW), onTop: true }
 
 function frameFor(side: VodSide, config: VodConfig) {
   const win = VOD_WINDOWS[side]

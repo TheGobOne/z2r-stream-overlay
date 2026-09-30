@@ -6,7 +6,7 @@ import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
-import { createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -51,13 +51,14 @@ const ITEMS = [
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
-  const [leftFontSize, setLeftFontSize] = useState(20)
-  const [rightFontSize, setRightFontSize] = useState(20)
+  const [leftFontSize, setLeftFontSize] = useState(18)
+  const [rightFontSize, setRightFontSize] = useState(18)
   const [gemCount, setGemCount] = useState<number | null>(null)
   const [gemPopupOpen, setGemPopupOpen] = useState(false)
   const [commentator1, setCommentator1] = useState("")
   const [commentator2, setCommentator2] = useState("")
   const [tracking, setTracking] = useState("")
+  const [raceInfo, setRaceInfo] = useState("")
 
   const [setupOpen, setSetupOpen] = useState(true)
   const [commentatorCount, setCommentatorCount] = useState<1 | 2>(2)
@@ -316,11 +317,10 @@ export default function StreamOverlay() {
   }
 
   function calculateFontSize(text: string): number {
-    if (text.length === 0) return 20
-    if (text.length <= 6) return 20
-    if (text.length <= 10) return 18
-    if (text.length <= 14) return 14
-    return 10
+    if (text.length <= 6) return 18
+    if (text.length <= 10) return 16
+    if (text.length <= 14) return 12
+    return 9
   }
 
   function handleLeftTextChange(value: string) {
@@ -421,30 +421,51 @@ export default function StreamOverlay() {
           user-select: none;
           display: block;
           mix-blend-mode: screen;
+          /* Hide the art's tall name frames above the brick row; the brick-height boxes below replace them */
+          clip-path: path(evenodd, 'M0 0H1456V816H0Z M37 508H330V544H37Z M1125 508H1418V544H1125Z');
         }
 
-        /* Left box */
-        .text-box-left {
-          position: absolute;
-          left: 42px;
-          top: 516px;
-          width: 284px;
-          height: 62px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        /* Right box */
+        .text-box-left,
         .text-box-right {
           position: absolute;
-          right: 42px;
-          top: 516px;
-          width: 284px;
-          height: 62px;
+          top: 544px;
+          width: 288px;
+          height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
+          background: #000;
+          box-shadow:
+            inset 0 0 0 1px #fff,
+            inset 0 0 0 4px #2038ef,
+            inset 0 0 0 5px #fff;
+        }
+
+        .text-box-left::before,
+        .text-box-right::before {
+          content: "";
+          position: absolute;
+          inset: 1px;
+          pointer-events: none;
+          background:
+            linear-gradient(#db2800, #db2800) left top / 5px 5px no-repeat,
+            linear-gradient(#db2800, #db2800) right top / 5px 5px no-repeat,
+            linear-gradient(#db2800, #db2800) left bottom / 5px 5px no-repeat,
+            linear-gradient(#db2800, #db2800) right bottom / 5px 5px no-repeat;
+        }
+
+        .text-box-left {
+          left: 38px;
+        }
+
+        .text-box-right {
+          right: 39px;
+        }
+
+        .text-box-left .zelda-input,
+        .text-box-right .zelda-input {
+          line-height: 36px;
+          top: -4px;
         }
 
         .zelda-input {
@@ -453,7 +474,7 @@ export default function StreamOverlay() {
           background: transparent;
           border: none;
           outline: none;
-          color: #ffffff;
+          color: #7ef5ff;
           font-family: 'ZeldaII', monospace;
           font-size: var(--zelda-font-size, 20px);
           text-align: center;
@@ -1132,24 +1153,65 @@ export default function StreamOverlay() {
           z-index: 12;
         }
 
-        .vod-audio-badge {
+        .vod-audio {
           position: absolute;
           right: 6px;
           bottom: 6px;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 6px;
+        }
+
+        .vod-audio-right {
+          right: auto;
+          left: 6px;
+          align-items: flex-start;
+        }
+
+        .vod-audio-badge {
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
   width: 36px;
   height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: 6px;
   background: #ffffff;
   color: #000000;
-  pointer-events: none;
+  cursor: pointer;
   }
-  
-  .vod-audio-badge-right {
-  right: auto;
-  left: 6px;
+
+  .vod-audio-badge:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+  }
+
+  .vod-volume-pop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid #20c0b0;
+  border-radius: 6px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: var(--font-pixel, monospace);
+  font-size: 11px;
+  }
+
+  .vod-volume-pop input[type="range"] {
+  width: 120px;
+  accent-color: #20c0b0;
+  cursor: pointer;
+  }
+
+  .vod-volume-value {
+  min-width: 3ch;
+  text-align: right;
   }
 
   .vod-audio-badge svg {
@@ -1157,7 +1219,41 @@ export default function StreamOverlay() {
   height: 24px;
   }
 
-  .vod-crop-selector {
+  .vod-audio-badge-muted::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 30px;
+  background: #000000;
+  box-shadow: 0 0 0 1.5px #ffffff;
+  transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .vod-audio-badge-muted {
+  opacity: 0;
+  transition: opacity 120ms ease;
+  }
+
+  .vod-window:hover .vod-audio-badge-muted,
+  .vod-audio:focus-within .vod-audio-badge-muted,
+  .vod-audio-badge-muted[aria-expanded="true"] {
+  opacity: 1;
+  }
+
+        .vod-crop-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 901;
+  background: #000000;
+}
+
+        body:has(.vod-crop-backdrop) .vod-audio {
+  display: none;
+}
+
+        .vod-crop-selector {
   position: absolute;
   z-index: 903;
   overflow: hidden;
@@ -1412,7 +1508,19 @@ export default function StreamOverlay() {
             onSidePanelContextMenu={reopenSetup}
             sidePanel={
               <>
-                <div className="quad-side-group">
+                <div className="quad-side-group quad-side-info">
+                <textarea
+                  className="quad-side-info-input"
+                  value={raceInfo}
+                  onChange={(e) => setRaceInfo(e.target.value)}
+                  placeholder="RACE INFO"
+                  aria-label="Race info"
+                  rows={2}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                </div>
+                <div className="quad-side-group quad-side-commentary">
                 <p className="quad-side-title">Commentary</p>
                 <input
                   type="text"
@@ -1437,7 +1545,7 @@ export default function StreamOverlay() {
                   />
                 )}
                 </div>
-                <div className="quad-side-group">
+                <div className="quad-side-group quad-side-tracking">
                 <p className="quad-side-title">Tracking</p>
                 <input
                   type="text"
@@ -1486,9 +1594,18 @@ export default function StreamOverlay() {
             key={side}
             ref={vodRefs[side]}
             side={side}
+              win={croppingSide === side ? CROP_FOCUS_WINDOW : undefined}
+              raised={croppingSide === side}
               config={viewVods[side]}
-              layout={vodLayouts[side]}
-            onAutoMute={() => updateVod(side, { muted: true })}
+              layout={croppingSide === side ? CROP_FOCUS_LAYOUT : vodLayouts[side]}
+              onAutoMute={() => updateVod(side, { muted: true })}
+              onSelectAudio={() =>
+                setVods((prev) => ({
+                  left: { ...prev.left, muted: side !== "left" },
+                  right: { ...prev.right, muted: side !== "right" },
+                }))
+              }
+              onVolumeChange={(volume) => updateVod(side, { volume })}
           />
         ))}
 
@@ -1611,8 +1728,9 @@ export default function StreamOverlay() {
             return (
               <VodCropSelector
                 key={side}
-                win={win}
-                frame={vodLayouts[side]}
+                win={CROP_FOCUS_WINDOW}
+                frame={CROP_FOCUS_LAYOUT}
+                target={win}
                 onApply={(view) => {
                   updateVod(side, view)
                   setVodCropMode(false)

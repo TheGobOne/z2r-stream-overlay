@@ -20,6 +20,8 @@ type Props = {
   frame: VodFrameLayout
   onApply: (patch: Pick<VodConfig, "zoom" | "centerX" | "centerY" | "crop">) => void
   onCancel: () => void
+  /** The player's real window the crop is saved for, when selecting in an enlarged `win`. */
+  target?: WindowRect
   /** Stretch the selection to fill the window; otherwise keep its aspect with black bars. */
   fill?: boolean
 }
@@ -29,7 +31,8 @@ const DRAG_THRESHOLD_PX = 6
 const INSTRUCTIONS_GAP = 6
 const INSTRUCTIONS_CLEARANCE = 48
 
-export function VodCropSelector({ win, frame, onApply, onCancel, fill = true }: Props) {
+export function VodCropSelector({ win, frame, onApply, onCancel, target, fill = true }: Props) {
+  const cropWin = target ?? win
   const [corner, setCorner] = useState<Point | null>(null)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [downAt, setDownAt] = useState<{ x: number; y: number } | null>(null)
@@ -54,7 +57,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel, fill = true }: 
   function finish(a: Point, b: Point) {
     const selection = { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }
     if (selection.x1 - selection.x0 < MIN_SELECTION || selection.y1 - selection.y0 < MIN_SELECTION) return false
-    onApply(cropToSelection(win, selection, fill))
+    onApply(cropToSelection(cropWin, selection, fill))
     return true
   }
 
@@ -90,7 +93,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel, fill = true }: 
       : null
   const hasArea =
     selection && selection.x1 - selection.x0 >= MIN_SELECTION && selection.y1 - selection.y0 >= MIN_SELECTION
-  const result = hasArea ? visibleVideoRect(win, cropToSelection(win, selection, fill)) : null
+  const result = hasArea ? visibleVideoRect(cropWin, cropToSelection(cropWin, selection, fill)) : null
 
   const toPx = (r: VideoRect) => ({
     left: frame.left + r.x0 * frame.width,
@@ -109,6 +112,16 @@ export function VodCropSelector({ win, frame, onApply, onCancel, fill = true }: 
 
   return (
     <>
+    {target && (
+      <div
+        className="vod-crop-backdrop"
+        aria-hidden="true"
+        onContextMenu={(e) => {
+          e.preventDefault()
+          onCancel()
+        }}
+      />
+    )}
     <div
       className="vod-crop-selector"
       style={{ left: win.left, top: win.top, width: win.width, height: win.height }}

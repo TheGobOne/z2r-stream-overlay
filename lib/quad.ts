@@ -15,20 +15,22 @@ function brickRect(col: number, row: number, cols: number, rows: number): Window
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
 }
 
+export type PanelStyle = "column" | "wide" | "bar"
+
 export type GridLayout = {
   count: number
   cells: WindowRect[]
   windows: WindowRect[]
   panel: WindowRect
-  /** The side panel lays its sections out in a row instead of a column. */
-  panelWide: boolean
+  /** column: tall side strip; wide: a quadrant with grouped sections; bar: one thin row along the bottom. */
+  panelStyle: PanelStyle
   /** Stretch crops to fill each window; when false, crops keep their aspect with black bars. */
   stretchCrop?: boolean
   dock: WindowRect
   defaultZoom: number
 }
 
-function buildLayout(cells: WindowRect[], panel: WindowRect, panelWide: boolean): GridLayout {
+function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelStyle): GridLayout {
   // Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
   // sideways under the tracker and divider without ever reaching the next player's video.
   const windows = cells.map((cell) => ({
@@ -42,7 +44,7 @@ function buildLayout(cells: WindowRect[], panel: WindowRect, panelWide: boolean)
     cells,
     windows,
     panel,
-    panelWide,
+    panelStyle,
     // The settings panel is centered over the top row, at the same size as the two-runner panel
     dock: {
       left: (cells[0].left + cells[1].left + cells[1].width - 655) / 2,
@@ -55,32 +57,29 @@ function buildLayout(cells: WindowRect[], panel: WindowRect, panelWide: boolean)
   }
 }
 
-// Player cells fill the left 35 brick columns (~85%) as a 2x2 grid; the side panel takes the rest.
+// A 2x2 grid of players split by a full-height panel column in the middle, with one-brick borders throughout.
 export const QUAD_LAYOUT = buildLayout(
-  [brickRect(1, 1, 16, 10), brickRect(18, 1, 16, 10), brickRect(1, 12, 16, 10), brickRect(18, 12, 16, 10)],
-  brickRect(35, 1, 5, 21),
-  false,
+  [brickRect(1, 1, 16, 10), brickRect(24, 1, 16, 10), brickRect(1, 12, 16, 10), brickRect(24, 12, 16, 10)],
+  brickRect(18, 1, 5, 21),
+  "column",
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
-export const TRIO_LAYOUT: GridLayout = {
-  ...buildLayout(
-    [brickRect(1, 1, 19, 10), brickRect(21, 1, 19, 10), brickRect(1, 12, 19, 10)],
-    brickRect(21, 12, 19, 10),
-    true,
-  ),
-  stretchCrop: false,
-}
+export const TRIO_LAYOUT = buildLayout(
+  [brickRect(1, 1, 18, 10), brickRect(22, 1, 18, 10), brickRect(1, 12, 18, 10)],
+  brickRect(22, 12, 18, 10),
+  "wide",
+)
 
 /**
  * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away. A frame
  * may spill over bricks and trackers freely, but when it would reach another loaded player's
  * window it is pushed back toward its own outer edge, along whichever axis needs the least shift.
  */
-export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[]): VodFrameLayout[] {
+export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], fill = true): VodFrameLayout[] {
   return configs.map((config, i) => {
     const own = windows[i]
-    const frame = frameInWindow(own, config)
+    const frame = frameInWindow(own, config, fill)
     let left = own.left + frame.left
     let top = own.top + frame.top
     const { width, height } = frame

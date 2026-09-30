@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type Re
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
-import { createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
+import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
 import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 
 type TrackerIcon = { id: string; src: string; alt: string }
@@ -75,7 +75,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   },
   ref,
 ) {
-  const { count, cells, windows, panel, panelWide, dock, defaultZoom } = layout
+  const { count, cells, windows, panel, panelStyle, dock, defaultZoom } = layout
   const [names, setNames] = useState(() => Array<string>(count).fill(""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
     Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
@@ -126,7 +126,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
   const croppingIndex = panelIndex !== null && cropMode && hasSource(vods[panelIndex]) ? panelIndex : null
   const viewVods = vods.map((config, i) => (i === croppingIndex ? { ...config, ...UNCROPPED_VIEW } : config))
-  const layouts = resolveQuadLayouts(windows, viewVods)
+  const layouts = resolveQuadLayouts(windows, viewVods, layout.stretchCrop ?? true)
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
 
   // With a crop, the black bar right of the picture joins the tracker column, so center the tracker in that space
@@ -175,14 +175,79 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: contents;
         }
 
+        .quad-side:not(.quad-side-wide):not(.quad-side-bar) {
+          justify-content: space-evenly;
+          gap: 0;
+        }
+
+        .quad-side:not(.quad-side-wide):not(.quad-side-bar) .quad-side-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .quad-side-info-input {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 10px 4px;
+          margin-bottom: 8px;
+          resize: none;
+          overflow: hidden;
+          field-sizing: content;
+          min-height: 5em;
+          background: transparent;
+          border: 2px solid rgba(255, 215, 0, 0.45);
+          border-radius: 2px;
+          color: #ffd700;
+          font-family: inherit;
+          font-size: 13px;
+          line-height: 1.5;
+          letter-spacing: 1px;
+          text-align: center;
+          text-transform: uppercase;
+          outline: none;
+        }
+
+        .quad-side-info-input::placeholder {
+          color: rgba(255, 215, 0, 0.4);
+        }
+
+        .quad-side-info-input:focus {
+          border-color: #ffd700;
+        }
+
         .quad-side.quad-side-wide {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          grid-template-rows: auto 1fr;
+          grid-template-rows: auto auto 1fr;
+          grid-template-areas:
+            "info info"
+            "commentary tracking"
+            "status status";
           align-items: start;
           column-gap: 28px;
           row-gap: 12px;
           padding: 16px 28px 20px;
+        }
+
+        .quad-side-wide .quad-side-info {
+          grid-area: info;
+        }
+
+        .quad-side-wide .quad-side-commentary {
+          grid-area: commentary;
+        }
+
+        .quad-side-wide .quad-side-tracking {
+          grid-area: tracking;
+        }
+
+        .quad-side-wide .quad-side-info-input {
+          font-size: 26px;
+          min-height: 3.9em;
+          margin-bottom: 0;
         }
 
         .quad-side-wide .quad-side-group {
@@ -193,7 +258,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         }
 
         .quad-side-wide .quad-side-status {
-          grid-column: 1 / -1;
+          grid-area: status;
           flex-direction: row;
           justify-content: center;
           align-self: center;
@@ -230,6 +295,84 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           box-sizing: border-box;
         }
 
+        .quad-side.quad-side-bar {
+          flex-direction: row;
+          align-items: center;
+          gap: 24px;
+          padding: 0 16px;
+        }
+
+        .quad-side-bar .quad-side-group {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .quad-side-bar .quad-side-info {
+          flex: 1.4;
+        }
+
+        .quad-side-bar .quad-side-commentary {
+          flex: 1.6;
+        }
+
+        .single-com .quad-side-bar .quad-side-commentary {
+          justify-content: center;
+        }
+
+        .single-com .quad-side.quad-side-bar .quad-side-commentary .commentary-input {
+          flex: 0 1 180px;
+        }
+
+        .quad-side-bar .quad-side-tracking {
+          flex: 1;
+        }
+
+        .quad-side-bar .quad-side-status {
+          flex: none;
+          gap: 16px;
+        }
+
+        .quad-side-bar .quad-side-info-input {
+          field-sizing: fixed;
+          min-height: 0;
+          height: 26px;
+          margin: 0;
+          padding: 0 8px;
+          font-size: 13px;
+          line-height: 22px;
+          white-space: nowrap;
+        }
+
+        .quad-side-bar .quad-side-title {
+          flex: none;
+          margin: 0;
+        }
+
+        .quad-side.quad-side-bar .commentary-input,
+        .quad-side.quad-side-bar .tracking-input {
+          flex: 1;
+          width: auto;
+          min-width: 0;
+        }
+
+        .quad-side.quad-side-bar .quad-side-timer {
+          margin-top: 0;
+          font-size: 24px;
+        }
+
+        .quad-side-bar .quad-side-gem {
+          margin-top: 0;
+          font-size: 18px;
+        }
+
+        .quad-side-bar .quad-side-gem img {
+          width: 26px;
+          height: 26px;
+        }
+
         .quad-side-title {
           margin: 12px 0 2px;
           font-size: 13px;
@@ -259,7 +402,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-top: auto;
+          margin-top: 16px;
           padding: 0;
           background: none;
           border: none;
@@ -352,11 +495,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
       <div className="quad-bricks" aria-hidden="true" />
       {cells.map((cell, i) => (
-          // Cells start on fractional pixels; reach 1px up so the next brick row's light top edge can't bleed through
+          // Cells start on fractional pixels; reach 1px up and left so neighboring brick highlights can't bleed through
           <div
             key={i}
             className="quad-cell"
-            style={{ ...rect(cell), top: cell.top - 1, height: cell.height + 1 }}
+            style={{ left: cell.left - 1, top: cell.top - 1, width: cell.width + 1, height: cell.height + 1 }}
             aria-hidden="true"
           />
       ))}
@@ -366,11 +509,14 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           key={i}
           ref={playerRefs[i]}
           side={`quad-${i}`}
-          win={windows[i]}
+          win={i === croppingIndex ? CROP_FOCUS_WINDOW : windows[i]}
+          raised={i === croppingIndex}
           label={labelFor(i)}
           config={viewVods[i]}
-          layout={layouts[i]}
-          onAutoMute={() => updateVod(i, { muted: true })}
+          layout={i === croppingIndex ? CROP_FOCUS_LAYOUT : layouts[i]}
+              onAutoMute={() => updateVod(i, { muted: true })}
+              onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
+              onVolumeChange={(volume) => updateVod(i, { volume })}
         />
       ))}
 
@@ -472,8 +618,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           return (
             <VodCropSelector
               key={i}
-              win={win}
-                frame={layouts[i]}
+              win={CROP_FOCUS_WINDOW}
+                frame={CROP_FOCUS_LAYOUT}
+                target={win}
                 fill={layout.stretchCrop ?? true}
                 onApply={(view) => {
                 updateVod(i, view)
@@ -517,7 +664,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       )}
 
       <div
-        className={`quad-side${panelWide ? " quad-side-wide" : ""}`}
+        className={`quad-side${panelStyle === "column" ? "" : ` quad-side-${panelStyle}`}`}
         // Reach 1px up and left so neighboring brick highlights can't bleed through fractional edges
         style={{ left: panel.left - 1, top: panel.top - 1, width: panel.width + 1, height: panel.height + 1 }}
         onContextMenu={onSidePanelContextMenu}
