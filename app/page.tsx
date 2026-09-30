@@ -5,7 +5,7 @@ import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-p
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
-import { createVodConfig, FRAME_HITBOX, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -1213,11 +1213,6 @@ export default function StreamOverlay() {
   font-size: 9px;
   }
 
-        .vod-frame-hitbox {
-          position: absolute;
-          z-index: 5;
-        }
-
         .vod-panel {
           position: absolute;
           z-index: 900;
@@ -1612,22 +1607,7 @@ export default function StreamOverlay() {
               />
             )
           }
-          if (hasVod) {
-            const strips = [
-              { left: win.left, top: win.top - FRAME_HITBOX, width: win.width, height: FRAME_HITBOX },
-              { left: win.left - FRAME_HITBOX, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
-              { left: win.left + win.width, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
-            ]
-            return strips.map((strip, i) => (
-              <div
-                key={`${side}-${i}`}
-                className="vod-frame-hitbox"
-                style={strip}
-                onContextMenu={(e) => openVodPanel(side, e)}
-                aria-hidden="true"
-              />
-            ))
-          }
+          if (hasVod) return null
           return (
             <div
               key={side}
@@ -1736,7 +1716,12 @@ export default function StreamOverlay() {
 
         {runnerCount === 2 && (<>
         {/* Left editable text box */}
-        <div className="text-box-left">
+          <div
+            className="text-box-left"
+            onContextMenu={(e) => {
+              if (hasSource(vods.left)) openVodPanel("left", e)
+            }}
+          >
           <input
             type="text"
             className="zelda-input"
@@ -1750,7 +1735,12 @@ export default function StreamOverlay() {
         </div>
 
         {/* Right editable text box */}
-        <div className="text-box-right">
+          <div
+            className="text-box-right"
+            onContextMenu={(e) => {
+              if (hasSource(vods.right)) openVodPanel("right", e)
+            }}
+          >
           <input
             type="text"
             className="zelda-input"

@@ -43,7 +43,6 @@ type Props = {
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
-const FRAME_STRIP = Math.floor(BRICK_H / 2)
 // The first row of items uses number/code badges; the rest use letter badges
 const NUMBER_BADGE_ITEMS = 8
 
@@ -315,7 +314,12 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             height: cell.height,
           }}
         >
-          <div className="quad-name">
+          <div
+            className="quad-name"
+            onContextMenu={(e) => {
+              if (hasSource(vods[i])) openPanel(i, e)
+            }}
+          >
             <input
               type="text"
               className="zelda-input"
@@ -403,22 +407,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             />
           )
         }
-        if (hasSource(vods[i])) {
-          const strips = [
-            { left: win.left, top: win.top - FRAME_STRIP, width: win.width, height: FRAME_STRIP },
-            { left: win.left, top: win.top + win.height, width: win.width, height: FRAME_STRIP },
-            { left: win.left - FRAME_STRIP, top: win.top, width: FRAME_STRIP, height: win.height },
-          ]
-          return strips.map((strip, s) => (
-            <div
-              key={`${i}-${s}`}
-              className="vod-frame-hitbox"
-              style={strip}
-              onContextMenu={(e) => openPanel(i, e)}
-              aria-hidden="true"
-            />
-          ))
-        }
+        if (hasSource(vods[i])) return null
         return (
           <div
             key={i}
