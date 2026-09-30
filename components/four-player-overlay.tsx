@@ -131,6 +131,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   )
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
 
+  // With a crop, the black bar right of the picture joins the tracker column, so center the tracker in that space
+  const trackerLeft = (i: number) => {
+    const cell = cells[i]
+    const cellRight = cell.left + cell.width
+    const fallback = cellRight - QUAD_TRACKER_WIDTH
+    const crop = vods[i].crop
+    if (!crop || !hasSource(vods[i]) || i === croppingIndex) return fallback
+    const layout = layouts[i]
+    const cropRight = Math.min(windows[i].width, Math.max(0, layout.left + crop.x1 * layout.width))
+    const spaceLeft = windows[i].left + cropRight
+    return Math.min(fallback, spaceLeft + (cellRight - spaceLeft - QUAD_TRACKER_WIDTH) / 2)
+  }
+
   return (
     <>
       <style>{`
@@ -272,6 +285,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           align-items: center;
   justify-content: flex-start;
   padding: 6px;
+  z-index: 15;
   }
 
   .quad-tracker > .quad-grid { margin-top: auto; }
@@ -367,7 +381,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           key={i}
           className="quad-tracker"
           style={{
-            left: cell.left + cell.width - QUAD_TRACKER_WIDTH,
+            left: trackerLeft(i),
             top: cell.top,
             width: QUAD_TRACKER_WIDTH,
             height: cell.height,
