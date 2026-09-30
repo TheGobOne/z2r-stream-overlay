@@ -6,7 +6,7 @@ import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
-import { createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -1211,7 +1211,14 @@ export default function StreamOverlay() {
   transform: translate(-50%, -50%) rotate(45deg);
   }
 
-  .vod-crop-selector {
+        .vod-crop-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 901;
+  background: #000000;
+}
+
+        .vod-crop-selector {
   position: absolute;
   z-index: 903;
   overflow: hidden;
@@ -1552,8 +1559,10 @@ export default function StreamOverlay() {
             key={side}
             ref={vodRefs[side]}
             side={side}
+              win={croppingSide === side ? CROP_FOCUS_WINDOW : undefined}
+              raised={croppingSide === side}
               config={viewVods[side]}
-              layout={vodLayouts[side]}
+              layout={croppingSide === side ? CROP_FOCUS_LAYOUT : vodLayouts[side]}
               onAutoMute={() => updateVod(side, { muted: true })}
               onSelectAudio={() =>
                 setVods((prev) => ({
@@ -1684,8 +1693,9 @@ export default function StreamOverlay() {
             return (
               <VodCropSelector
                 key={side}
-                win={win}
-                frame={vodLayouts[side]}
+                win={CROP_FOCUS_WINDOW}
+                frame={CROP_FOCUS_LAYOUT}
+                target={win}
                 onApply={(view) => {
                   updateVod(side, view)
                   setVodCropMode(false)

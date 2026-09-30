@@ -4,7 +4,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type Re
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
-import { createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
+import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
 import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 
 type TrackerIcon = { id: string; src: string; alt: string }
@@ -509,10 +509,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           key={i}
           ref={playerRefs[i]}
           side={`quad-${i}`}
-          win={windows[i]}
+          win={i === croppingIndex ? CROP_FOCUS_WINDOW : windows[i]}
+          raised={i === croppingIndex}
           label={labelFor(i)}
           config={viewVods[i]}
-          layout={layouts[i]}
+          layout={i === croppingIndex ? CROP_FOCUS_LAYOUT : layouts[i]}
               onAutoMute={() => updateVod(i, { muted: true })}
               onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
               onVolumeChange={(volume) => updateVod(i, { volume })}
@@ -617,8 +618,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           return (
             <VodCropSelector
               key={i}
-              win={win}
-                frame={layouts[i]}
+              win={CROP_FOCUS_WINDOW}
+                frame={CROP_FOCUS_LAYOUT}
+                target={win}
                 fill={layout.stretchCrop ?? true}
                 onApply={(view) => {
                 updateVod(i, view)
