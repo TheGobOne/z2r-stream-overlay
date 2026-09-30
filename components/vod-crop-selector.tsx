@@ -4,18 +4,17 @@ import { useEffect, useState } from "react"
 import {
   clamp,
   cropToSelection,
-  VOD_WINDOWS,
   visibleVideoRect,
   type VideoRect,
   type VodConfig,
   type VodFrameLayout,
-  type VodSide,
+  type WindowRect,
 } from "@/lib/vod"
 
 type Point = { x: number; y: number }
 
 type Props = {
-  side: VodSide
+  win: WindowRect
   /** Layout of the uncropped video while selecting */
   frame: VodFrameLayout
   onApply: (patch: Pick<VodConfig, "zoom" | "centerX" | "centerY">) => void
@@ -25,8 +24,7 @@ type Props = {
 const MIN_SELECTION = 0.02
 const DRAG_THRESHOLD_PX = 6
 
-export function VodCropSelector({ side, frame, onApply, onCancel }: Props) {
-  const win = VOD_WINDOWS[side]
+export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
   const [corner, setCorner] = useState<Point | null>(null)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [downAt, setDownAt] = useState<{ x: number; y: number } | null>(null)
@@ -51,7 +49,7 @@ export function VodCropSelector({ side, frame, onApply, onCancel }: Props) {
   function finish(a: Point, b: Point) {
     const selection = { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }
     if (selection.x1 - selection.x0 < MIN_SELECTION || selection.y1 - selection.y0 < MIN_SELECTION) return false
-    onApply(cropToSelection(side, selection))
+    onApply(cropToSelection(win, selection))
     return true
   }
 
@@ -87,7 +85,7 @@ export function VodCropSelector({ side, frame, onApply, onCancel }: Props) {
       : null
   const hasArea =
     selection && selection.x1 - selection.x0 >= MIN_SELECTION && selection.y1 - selection.y0 >= MIN_SELECTION
-  const result = hasArea ? visibleVideoRect(side, cropToSelection(side, selection)) : null
+  const result = hasArea ? visibleVideoRect(win, cropToSelection(win, selection)) : null
 
   const toPx = (r: VideoRect) => ({
     left: frame.left + r.x0 * frame.width,

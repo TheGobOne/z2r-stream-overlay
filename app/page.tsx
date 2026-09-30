@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
-import { createVodConfig, FRAME_HITBOX, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
+import { createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -62,8 +63,14 @@ export default function StreamOverlay() {
   const [isMaxRando, setIsMaxRando] = useState(false)
   const [draftCommentatorCount, setDraftCommentatorCount] = useState<1 | 2>(2)
   const [draftMaxRando, setDraftMaxRando] = useState(false)
+  const [runnerCount, setRunnerCount] = useState<2 | 4>(2)
+  const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 4>(2)
+  const visibleBosses = isMaxRando ? BOSSES : BOSSES.filter((boss) => boss.id !== "thunderbird")
+  const quadRef = useRef<QuadOverlayHandle>(null)
 
   function confirmSetup() {
+    if (draftRunnerCount !== runnerCount) closeVodPanel()
+    setRunnerCount(draftRunnerCount)
     setCommentatorCount(draftCommentatorCount)
     setIsMaxRando(draftMaxRando)
     if (draftCommentatorCount === 1) setCommentator2("")
@@ -74,6 +81,7 @@ export default function StreamOverlay() {
     e.preventDefault()
     setDraftCommentatorCount(commentatorCount)
     setDraftMaxRando(isMaxRando)
+    setDraftRunnerCount(runnerCount)
     setSetupOpen(true)
   }
 
@@ -155,7 +163,10 @@ export default function StreamOverlay() {
     const next = timerPhase === 0 ? 1 : timerPhase === 1 ? 2 : 0
     setTimerPhase(next)
     if (linkVodsToTimer) {
-      if (next === 1) playBothVods()
+      if (runnerCount === 4) {
+        if (next === 1) quadRef.current?.playAll()
+        else quadRef.current?.pauseAll()
+      } else if (next === 1) playBothVods()
       else pauseBothVods()
     }
   }
@@ -1122,18 +1133,23 @@ export default function StreamOverlay() {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 22px;
-          height: 22px;
-          border-radius: 4px;
-          background: rgba(0, 0, 0, 0.7);
-          color: #7ef5ff;
-          pointer-events: none;
-        }
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #000000;
+  pointer-events: none;
+  }
+  
+  .vod-audio-badge-right {
+  right: auto;
+  left: 6px;
+  }
 
-        .vod-audio-badge svg {
-          width: 14px;
-          height: 14px;
-        }
+  .vod-audio-badge svg {
+  width: 24px;
+  height: 24px;
+  }
 
   .vod-crop-selector {
   position: absolute;
@@ -1198,18 +1214,13 @@ export default function StreamOverlay() {
   font-size: 9px;
   }
 
-        .vod-frame-hitbox {
-          position: absolute;
-          z-index: 5;
-        }
-
         .vod-panel {
           position: absolute;
           z-index: 900;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
           padding: 18px 22px;
           background: #0a0a0a;
           border: 3px solid #2ec4b6;
@@ -1267,6 +1278,8 @@ export default function StreamOverlay() {
         .vod-hint {
           margin-left: 8px;
           color: #8a9a9a;
+          font-size: 9px;
+          line-height: 1.4;
           letter-spacing: 1px;
         }
 
@@ -1375,6 +1388,85 @@ export default function StreamOverlay() {
       `}</style>
 
       <div className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}>
+        {runnerCount === 4 && (
+          <FourPlayerOverlay
+            ref={quadRef}
+            bosses={visibleBosses}
+            items={ITEMS}
+            bossBadges={leftBossBadge}
+            bossBadgeLabels={BOSS_BADGES}
+            itemBadges={leftItemBadge}
+            onBossContextMenu={(id) => cycleBadge(setLeftBossBadge, id)}
+            onClearBossBadge={clearBossBadge}
+            onItemContextMenu={(e, id, type) => openItemMenu(e, "left", id, type)}
+            onClearItemBadge={clearItemBadge}
+            linkToTimer={linkVodsToTimer}
+            onLinkToTimerChange={setLinkVodsToTimer}
+            onSidePanelContextMenu={reopenSetup}
+            sidePanel={
+              <>
+                <p className="quad-side-title">Commentary</p>
+                <input
+                  type="text"
+                  className="commentary-input quad-side-input"
+                  value={commentator1}
+                  onChange={(e) => setCommentator1(e.target.value)}
+                  placeholder="COM 1"
+                  aria-label="Commentator 1"
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                {commentatorCount === 2 && (
+                  <input
+                    type="text"
+                    className="commentary-input quad-side-input"
+                    value={commentator2}
+                    onChange={(e) => setCommentator2(e.target.value)}
+                    placeholder="COM 2"
+                    aria-label="Commentator 2"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                )}
+                <p className="quad-side-title">Tracking</p>
+                <input
+                  type="text"
+                  className="tracking-input quad-side-input"
+                  value={tracking}
+                  onChange={(e) => setTracking(e.target.value)}
+                  placeholder="TRACKING"
+                  aria-label="Tracking"
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  className={`timer-display quad-side-timer${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
+                  onClick={handleTimerClick}
+                  onContextMenu={(e) => {
+                    e.stopPropagation()
+                    handleTimerRightClick(e)
+                  }}
+                  title="Click: start/pause/reset | Right-click: edit start time"
+                >
+                  {formatTimer(timerMs)}
+                </button>
+                {isMaxRando && (
+                  <button type="button" className="quad-side-gem" onClick={() => setGemPopupOpen(true)} aria-label="Set gem count">
+                    <img
+                      src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
+                      alt=""
+                      draggable={false}
+                    />
+                    {gemCount !== null && <span>{gemCount}</span>}
+                  </button>
+                )}
+              </>
+            }
+          />
+        )}
+
+        {runnerCount === 2 && (<>
         {/* Twitch VODs render above the overlay art, clipped to the game windows */}
         {(["left", "right"] as const).map((side) => (
           <TwitchVodPlayer
@@ -1389,7 +1481,7 @@ export default function StreamOverlay() {
 
         {/* Background overlay image */}
         <img
-          src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/New%20Z2R%20Overlay-sLdN1Aj0x737pKVaQsZhaZE040esK9.png"
+          src="/overlays/z2r-overlay-flush.png"
           alt="Zelda II Randomizer Stream Overlay"
           className="overlay-bg"
           draggable={false}
@@ -1416,6 +1508,7 @@ export default function StreamOverlay() {
         {isMaxRando && gemCount !== null && (
           <span className="gem-count">{gemCount}</span>
         )}
+        </>)}
 
         {/* Gem count popup */}
         {gemPopupOpen && (
@@ -1448,7 +1541,23 @@ export default function StreamOverlay() {
               onKeyDown={(e) => e.key === "Enter" && confirmSetup()}
             >
               <div className="setup-section">
-                <p id="setup-title" className="gem-modal-title">How many commentators?</p>
+                <p id="setup-title" className="gem-modal-title">How many runners?</p>
+                <div className="gem-modal-options" role="radiogroup" aria-label="Number of runners">
+                  {([2, 4] as const).map((n) => (
+                    <button
+                      key={n}
+                      role="radio"
+                      aria-checked={draftRunnerCount === n}
+                      className={`gem-modal-opt${draftRunnerCount === n ? " selected" : ""}`}
+                      onClick={() => setDraftRunnerCount(n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="setup-section">
+                <p className="gem-modal-title">How many commentators?</p>
                 <div className="gem-modal-options" role="radiogroup" aria-label="Number of commentators">
                   {([1, 2] as const).map((n) => (
                     <button
@@ -1479,6 +1588,7 @@ export default function StreamOverlay() {
           </div>
         )}
 
+        {runnerCount === 2 && (<>
         {/* Right-click an empty game window (or the frame around a loaded one) to set up that player's VOD.
             Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
         {(["left", "right"] as const).map((side) => {
@@ -1488,7 +1598,7 @@ export default function StreamOverlay() {
             return (
               <VodCropSelector
                 key={side}
-                side={side}
+                win={win}
                 frame={vodLayouts[side]}
                 onApply={(view) => {
                   updateVod(side, view)
@@ -1498,22 +1608,7 @@ export default function StreamOverlay() {
               />
             )
           }
-          if (hasVod) {
-            const strips = [
-              { left: win.left, top: win.top - FRAME_HITBOX, width: win.width, height: FRAME_HITBOX },
-              { left: win.left - FRAME_HITBOX, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
-              { left: win.left + win.width, top: win.top - FRAME_HITBOX, width: FRAME_HITBOX, height: win.height + FRAME_HITBOX },
-            ]
-            return strips.map((strip, i) => (
-              <div
-                key={`${side}-${i}`}
-                className="vod-frame-hitbox"
-                style={strip}
-                onContextMenu={(e) => openVodPanel(side, e)}
-                aria-hidden="true"
-              />
-            ))
-          }
+          if (hasVod) return null
           return (
             <div
               key={side}
@@ -1599,6 +1694,7 @@ export default function StreamOverlay() {
         >
           {formatTimer(timerMs)}
         </div>
+        </>)}
 
         {/* Timer edit popup */}
         {timerEditOpen && (
@@ -1619,8 +1715,14 @@ export default function StreamOverlay() {
           </div>
         )}
 
+        {runnerCount === 2 && (<>
         {/* Left editable text box */}
-        <div className="text-box-left">
+          <div
+            className="text-box-left"
+            onContextMenu={(e) => {
+              if (hasSource(vods.left)) openVodPanel("left", e)
+            }}
+          >
           <input
             type="text"
             className="zelda-input"
@@ -1634,7 +1736,12 @@ export default function StreamOverlay() {
         </div>
 
         {/* Right editable text box */}
-        <div className="text-box-right">
+          <div
+            className="text-box-right"
+            onContextMenu={(e) => {
+              if (hasSource(vods.right)) openVodPanel("right", e)
+            }}
+          >
           <input
             type="text"
             className="zelda-input"
@@ -1649,7 +1756,7 @@ export default function StreamOverlay() {
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
-          {BOSSES.map((boss) => (
+          {visibleBosses.map((boss) => (
             <button
               key={boss.id}
               className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
@@ -1669,7 +1776,7 @@ export default function StreamOverlay() {
 
         {/* Boss tracker — right */}
         <div className="boss-row-right" role="group" aria-label="Player 2 boss tracker">
-          {BOSSES.map((boss) => (
+          {visibleBosses.map((boss) => (
             <button
               key={`right-${boss.id}`}
               className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
@@ -1794,6 +1901,7 @@ export default function StreamOverlay() {
             </button>
           ))}
         </div>
+        </>)}
       </div>
 
       {/* Item badge context menu */}

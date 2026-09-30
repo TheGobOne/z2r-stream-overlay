@@ -12,10 +12,18 @@ import {
   VOD_WINDOWS,
   type VodConfig,
   type VodSide,
+  type WindowRect,
 } from "@/lib/vod"
 
 type Props = {
-  side: VodSide
+  /** "left"/"right" for the two-runner layout, or any unique key when `dock` is given. */
+  side: string
+  /** Where the panel sits; defaults to covering the two-runner window for `side`. */
+  dock?: WindowRect
+  /** Zoom used by Reset and Remove; defaults to filling the two-runner window. */
+  defaultZoom?: number
+  /** Word for the group play/pause buttons, e.g. "both" or "all". */
+  groupLabel?: string
   playerLabel: string
   config: VodConfig
   onChange: (patch: Partial<VodConfig>) => void
@@ -33,6 +41,9 @@ const NUDGES = [-10, -1, 1, 10]
 
 export function VodPanel({
   side,
+  dock: dockProp,
+  defaultZoom = DEFAULT_ZOOM,
+  groupLabel = "both",
   playerLabel,
   config,
   onChange,
@@ -113,7 +124,7 @@ export function VodPanel({
 
   function removeVod() {
     const fresh = createVodConfig()
-    onChange({ ...fresh, loadKey: config.loadKey + 1 })
+    onChange({ ...fresh, zoom: defaultZoom, loadKey: config.loadKey + 1 })
     setUrlDraft("")
     setStartDraft("")
   }
@@ -121,7 +132,7 @@ export function VodPanel({
   const hasVod = hasSource(config)
   const isLive = hasVod && !config.videoId
   const ready = hasVod && currentTime !== null
-  const dock = VOD_WINDOWS[side]
+  const dock = dockProp ?? VOD_WINDOWS[side as VodSide]
 
   return (
     <div
@@ -256,7 +267,7 @@ export function VodPanel({
               <span className="vod-value">{Math.round(config.zoom * 100)}%</span>
               <button
                 className="vod-btn"
-                onClick={() => onChange({ zoom: DEFAULT_ZOOM, centerX: 0.5, centerY: 0.5 })}
+                onClick={() => onChange({ zoom: defaultZoom, centerX: 0.5, centerY: 0.5 })}
               >
                 Reset
               </button>
@@ -289,10 +300,10 @@ export function VodPanel({
 
       <div className="vod-panel-footer">
         <button className="vod-btn" onClick={onPlayBoth}>
-          Play both
+          Play {groupLabel}
         </button>
         <button className="vod-btn" onClick={onPauseBoth}>
-          Pause both
+          Pause {groupLabel}
         </button>
         <label className="vod-check">
           <input type="checkbox" checked={linkToTimer} onChange={(e) => onLinkToTimerChange(e.target.checked)} />
