@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react"
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
 import { Music } from "lucide-react"
 import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
 
@@ -83,6 +83,9 @@ type Props = {
   config: VodConfig
   layout: VodFrameLayout
   onAutoMute: () => void
+  /** Make this runner the only one with audio. */
+  onSelectAudio: () => void
+  onVolumeChange: (volume: number) => void
   /** Lift this player above the settings panel while it is being edited. */
   raised?: boolean
 }
@@ -114,7 +117,7 @@ const AUTOPLAY_CHECK_MS = 1200
 const MAX_PLAY_ATTEMPTS = 4
 
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
-  { side, win: winProp, label, config, layout, onAutoMute, raised = false },
+  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false },
   ref,
 ) {
   const mountId = `twitch-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -204,6 +207,25 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
     playerRef.current?.setVolume(volume)
   }, [volume])
 
+  const [volumeOpen, setVolumeOpen] = useState(false)
+  const audioRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!volumeOpen) return
+    const close = (e: PointerEvent) => {
+      if (!audioRef.current?.contains(e.target as Node)) setVolumeOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVolumeOpen(false)
+    }
+    document.addEventListener("pointerdown", close)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", close)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [volumeOpen])
+
   useImperativeHandle(ref, () => ({
     play: () => {
       pendingPlayRef.current = true
@@ -259,11 +281,37 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
           }}
         />
       )}
-      {!muted && (
-        <div className={`vod-audio-badge vod-audio-badge-${side}`} role="img" aria-label={`Listening to ${playerName} audio`}>
+      <div ref={audioRef} className={`vod-audio vod-audio-${side}`}>
+        {volumeOpen && (
+          <div className="vod-volume-pop">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={volume}
+              aria-label={`${playerName} volume`}
+              onChange={(e) => onVolumeChange(Number(e.target.value))}
+            />
+            <span className="vod-volume-value">{Math.round(volume * 100)}</span>
+          </div>
+        )}
+        <button
+          type="button"
+          className={`vod-audio-badge${muted ? " vod-audio-badge-muted" : ""}`}
+          aria-label={muted ? `Switch to ${playerName} audio` : `Listening to ${playerName} audio`}
+          aria-expanded={volumeOpen}
+          title="Click: listen to this runner. Right-click: volume"
+          onClick={() => onSelectAudio()}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setVolumeOpen((open) => !open)
+          }}
+        >
           <Music aria-hidden="true" />
-        </div>
-      )}
+        </button>
+      </div>
     </div>
   )
 })

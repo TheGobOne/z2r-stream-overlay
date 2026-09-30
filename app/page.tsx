@@ -1133,29 +1133,82 @@ export default function StreamOverlay() {
           z-index: 12;
         }
 
-        .vod-audio-badge {
+        .vod-audio {
           position: absolute;
           right: 6px;
           bottom: 6px;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 6px;
+        }
+
+        .vod-audio-right {
+          right: auto;
+          left: 6px;
+          align-items: flex-start;
+        }
+
+        .vod-audio-badge {
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
   width: 36px;
   height: 36px;
+  padding: 0;
+  border: 0;
   border-radius: 6px;
   background: #ffffff;
   color: #000000;
-  pointer-events: none;
+  cursor: pointer;
   }
-  
-  .vod-audio-badge-right {
-  right: auto;
-  left: 6px;
+
+  .vod-audio-badge:focus-visible {
+  outline: 2px solid #ffd700;
+  outline-offset: 2px;
+  }
+
+  .vod-volume-pop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 2px solid #20c0b0;
+  border-radius: 6px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: var(--font-pixel, monospace);
+  font-size: 11px;
+  }
+
+  .vod-volume-pop input[type="range"] {
+  width: 120px;
+  accent-color: #20c0b0;
+  cursor: pointer;
+  }
+
+  .vod-volume-value {
+  min-width: 3ch;
+  text-align: right;
   }
 
   .vod-audio-badge svg {
   width: 24px;
   height: 24px;
+  }
+
+  .vod-audio-badge-muted::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 30px;
+  background: #000000;
+  box-shadow: 0 0 0 1.5px #ffffff;
+  transform: translate(-50%, -50%) rotate(45deg);
   }
 
   .vod-crop-selector {
@@ -1501,7 +1554,14 @@ export default function StreamOverlay() {
             side={side}
               config={viewVods[side]}
               layout={vodLayouts[side]}
-            onAutoMute={() => updateVod(side, { muted: true })}
+              onAutoMute={() => updateVod(side, { muted: true })}
+              onSelectAudio={() =>
+                setVods((prev) => ({
+                  left: { ...prev.left, muted: side !== "left" },
+                  right: { ...prev.right, muted: side !== "right" },
+                }))
+              }
+              onVolumeChange={(volume) => updateVod(side, { volume })}
           />
         ))}
 

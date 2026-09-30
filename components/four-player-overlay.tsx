@@ -513,7 +513,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           label={labelFor(i)}
           config={viewVods[i]}
           layout={layouts[i]}
-          onAutoMute={() => updateVod(i, { muted: true })}
+              onAutoMute={() => updateVod(i, { muted: true })}
+              onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
+              onVolumeChange={(volume) => updateVod(i, { volume })}
         />
       ))}
 
