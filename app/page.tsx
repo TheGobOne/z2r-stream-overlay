@@ -1192,8 +1192,7 @@ export default function StreamOverlay() {
   
   .vod-crop-instructions {
   position: absolute;
-  left: 50%;
-  top: 8px;
+  z-index: 904;
   transform: translateX(-50%);
   margin: 0;
   padding: 6px 10px;

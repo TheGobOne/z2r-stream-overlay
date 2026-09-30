@@ -10,6 +10,7 @@ import {
   type VodFrameLayout,
   type WindowRect,
 } from "@/lib/vod"
+import { STAGE_HEIGHT } from "@/lib/quad"
 
 type Point = { x: number; y: number }
 
@@ -23,6 +24,8 @@ type Props = {
 
 const MIN_SELECTION = 0.02
 const DRAG_THRESHOLD_PX = 6
+const INSTRUCTIONS_GAP = 6
+const INSTRUCTIONS_CLEARANCE = 48
 
 export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
   const [corner, setCorner] = useState<Point | null>(null)
@@ -94,7 +97,16 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
     height: (r.y1 - r.y0) * frame.height,
   })
 
+  const spaceBelow = STAGE_HEIGHT - (win.top + win.height)
+  const instructionsStyle: React.CSSProperties =
+    spaceBelow >= INSTRUCTIONS_CLEARANCE
+      ? { left: win.left + win.width / 2, top: win.top + win.height + INSTRUCTIONS_GAP }
+      : win.top >= INSTRUCTIONS_CLEARANCE
+        ? { left: win.left + win.width / 2, bottom: STAGE_HEIGHT - win.top + INSTRUCTIONS_GAP }
+        : { left: win.left + win.width / 2, bottom: STAGE_HEIGHT - (win.top + win.height) + INSTRUCTIONS_GAP }
+
   return (
+    <>
     <div
       className="vod-crop-selector"
       style={{ left: win.left, top: win.top, width: win.width, height: win.height }}
@@ -112,10 +124,11 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
       {selection && <div className="vod-crop-selection" style={toPx(selection)} />}
       {result && <div className="vod-crop-result" style={toPx(result)} />}
       {corner && <div className="vod-crop-corner" style={{ left: frame.left + corner.x * frame.width, top: frame.top + corner.y * frame.height }} />}
-      <p className="vod-crop-instructions">
-        {corner ? "Click the bottom-right corner" : "Click the top-left corner (or drag a box)"}
-        <span>{"Esc or right-click to cancel"}</span>
-      </p>
     </div>
+    <p className="vod-crop-instructions" style={instructionsStyle} role="status">
+      {corner ? "Click the bottom-right corner" : "Click the top-left corner (or drag a box)"}
+      <span>{"Esc or right-click to cancel"}</span>
+    </p>
+    </>
   )
 }
