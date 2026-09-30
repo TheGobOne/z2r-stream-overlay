@@ -294,7 +294,13 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
       <div className="quad-bricks" aria-hidden="true" />
       {QUAD_CELLS.map((cell, i) => (
-        <div key={i} className="quad-cell" style={rect(cell)} aria-hidden="true" />
+          // Cells start on fractional pixels; reach 1px up so the next brick row's light top edge can't bleed through
+          <div
+            key={i}
+            className="quad-cell"
+            style={{ ...rect(cell), top: cell.top - 1, height: cell.height + 1 }}
+            aria-hidden="true"
+          />
       ))}
 
       {vods.map((config, i) => (
