@@ -1490,7 +1490,7 @@ export default function StreamOverlay() {
         {/* Background overlay image */}
         <img
           src="/overlays/z2r-overlay-flush.png"
-          alt="Zelda II Randomizer Stream Overlay"
+          alt="Zelda II Randomizer Restream Overlay"
           className="overlay-bg"
           draggable={false}
         />
