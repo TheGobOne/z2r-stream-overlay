@@ -65,14 +65,11 @@ export const QUAD_LAYOUT = buildLayout(
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
-export const TRIO_LAYOUT: GridLayout = {
-  ...buildLayout(
-    [brickRect(1, 1, 18, 10), brickRect(22, 1, 18, 10), brickRect(1, 12, 18, 10)],
-    brickRect(22, 12, 18, 10),
-    "wide",
-  ),
-  stretchCrop: false,
-}
+export const TRIO_LAYOUT = buildLayout(
+  [brickRect(1, 1, 18, 10), brickRect(22, 1, 18, 10), brickRect(1, 12, 18, 10)],
+  brickRect(22, 12, 18, 10),
+  "wide",
+)
 
 /**
  * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away. A frame
