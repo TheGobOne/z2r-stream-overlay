@@ -9,52 +9,72 @@ export const BRICK_ROWS = 23
 export const BRICK_W = STAGE_WIDTH / BRICK_COLS
 export const BRICK_H = STAGE_HEIGHT / BRICK_ROWS
 
-export const QUAD_COUNT = 4
 export const QUAD_TRACKER_WIDTH = 150
 
 function brickRect(col: number, row: number, cols: number, rows: number): WindowRect {
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
 }
 
-// Player cells fill the left 35 brick columns (~85%) as a 2x2 grid; the side panel takes the rest.
-export const QUAD_CELLS: WindowRect[] = [
-  brickRect(1, 1, 16, 10),
-  brickRect(18, 1, 16, 10),
-  brickRect(1, 12, 16, 10),
-  brickRect(18, 12, 16, 10),
-]
-
-export const QUAD_PANEL = brickRect(35, 1, 5, 21)
-
-// Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
-// sideways under the tracker and divider without ever reaching the next player's video.
-export const QUAD_WINDOWS: WindowRect[] = QUAD_CELLS.map((cell) => ({
-  left: cell.left,
-  top: cell.top,
-  width: cell.width - QUAD_TRACKER_WIDTH,
-  height: cell.height,
-}))
-
-// Zoom at which a 16:9 video exactly fills a quad window's height
-export const QUAD_DEFAULT_ZOOM =
-  Math.round((QUAD_WINDOWS[0].height / ((QUAD_WINDOWS[0].width * 9) / 16)) * 100) / 100
-
-// The settings panel is centered over the player grid, at the same size as the two-runner panel
-export const QUAD_PANEL_DOCK: WindowRect = {
-  left: (QUAD_CELLS[0].left + QUAD_CELLS[1].left + QUAD_CELLS[1].width - 655) / 2,
-  top: (STAGE_HEIGHT - 511) / 2,
-  width: 655,
-  height: 511,
+export type GridLayout = {
+  count: number
+  cells: WindowRect[]
+  windows: WindowRect[]
+  panel: WindowRect
+  /** The side panel lays its sections out in a row instead of a column. */
+  panelWide: boolean
+  dock: WindowRect
+  defaultZoom: number
 }
+
+function buildLayout(cells: WindowRect[], panel: WindowRect, panelWide: boolean): GridLayout {
+  // Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
+  // sideways under the tracker and divider without ever reaching the next player's video.
+  const windows = cells.map((cell) => ({
+    left: cell.left,
+    top: cell.top,
+    width: cell.width - QUAD_TRACKER_WIDTH,
+    height: cell.height,
+  }))
+  return {
+    count: cells.length,
+    cells,
+    windows,
+    panel,
+    panelWide,
+    // The settings panel is centered over the top row, at the same size as the two-runner panel
+    dock: {
+      left: (cells[0].left + cells[1].left + cells[1].width - 655) / 2,
+      top: (STAGE_HEIGHT - 511) / 2,
+      width: 655,
+      height: 511,
+    },
+    // Zoom at which a 16:9 video exactly fills the window's height
+    defaultZoom: Math.round((windows[0].height / ((windows[0].width * 9) / 16)) * 100) / 100,
+  }
+}
+
+// Player cells fill the left 35 brick columns (~85%) as a 2x2 grid; the side panel takes the rest.
+export const QUAD_LAYOUT = buildLayout(
+  [brickRect(1, 1, 16, 10), brickRect(18, 1, 16, 10), brickRect(1, 12, 16, 10), brickRect(18, 12, 16, 10)],
+  brickRect(35, 1, 5, 21),
+  false,
+)
+
+// Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
+export const TRIO_LAYOUT = buildLayout(
+  [brickRect(1, 1, 19, 10), brickRect(21, 1, 19, 10), brickRect(1, 12, 19, 10)],
+  brickRect(21, 12, 19, 10),
+  true,
+)
 
 /**
  * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away. A frame
  * may spill over bricks and trackers freely, but when it would reach another loaded player's
  * window it is pushed back toward its own outer edge, along whichever axis needs the least shift.
  */
-export function resolveQuadLayouts(configs: VodConfig[]): VodFrameLayout[] {
+export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[]): VodFrameLayout[] {
   return configs.map((config, i) => {
-    const own = QUAD_WINDOWS[i]
+    const own = windows[i]
     const frame = frameInWindow(own, config)
     let left = own.left + frame.left
     let top = own.top + frame.top
@@ -63,7 +83,7 @@ export function resolveQuadLayouts(configs: VodConfig[]): VodFrameLayout[] {
     if (hasSource(config)) {
       configs.forEach((other, j) => {
         if (j === i || !hasSource(other)) return
-        const win = QUAD_WINDOWS[j]
+        const win = windows[j]
         const overlapsX = left < win.left + win.width && left + width > win.left
         const overlapsY = top < win.top + win.height && top + height > win.top
         if (!overlapsX || !overlapsY) return

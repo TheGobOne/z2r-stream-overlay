@@ -5,6 +5,7 @@ import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-p
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
+import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
 import { createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
@@ -63,8 +64,8 @@ export default function StreamOverlay() {
   const [isMaxRando, setIsMaxRando] = useState(false)
   const [draftCommentatorCount, setDraftCommentatorCount] = useState<1 | 2>(2)
   const [draftMaxRando, setDraftMaxRando] = useState(false)
-  const [runnerCount, setRunnerCount] = useState<2 | 4>(2)
-  const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 4>(2)
+  const [runnerCount, setRunnerCount] = useState<2 | 3 | 4>(2)
+  const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 3 | 4>(2)
   const visibleBosses = isMaxRando ? BOSSES : BOSSES.filter((boss) => boss.id !== "thunderbird")
   const quadRef = useRef<QuadOverlayHandle>(null)
 
@@ -163,7 +164,7 @@ export default function StreamOverlay() {
     const next = timerPhase === 0 ? 1 : timerPhase === 1 ? 2 : 0
     setTimerPhase(next)
     if (linkVodsToTimer) {
-      if (runnerCount === 4) {
+      if (runnerCount !== 2) {
         if (next === 1) quadRef.current?.playAll()
         else quadRef.current?.pauseAll()
       } else if (next === 1) playBothVods()
@@ -1388,9 +1389,11 @@ export default function StreamOverlay() {
       `}</style>
 
       <div className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}>
-        {runnerCount === 4 && (
+        {runnerCount !== 2 && (
           <FourPlayerOverlay
+            key={runnerCount}
             ref={quadRef}
+            layout={runnerCount === 3 ? TRIO_LAYOUT : QUAD_LAYOUT}
             bosses={visibleBosses}
             items={ITEMS}
             bossBadges={leftBossBadge}
@@ -1405,6 +1408,7 @@ export default function StreamOverlay() {
             onSidePanelContextMenu={reopenSetup}
             sidePanel={
               <>
+                <div className="quad-side-group">
                 <p className="quad-side-title">Commentary</p>
                 <input
                   type="text"
@@ -1428,6 +1432,8 @@ export default function StreamOverlay() {
                     autoComplete="off"
                   />
                 )}
+                </div>
+                <div className="quad-side-group">
                 <p className="quad-side-title">Tracking</p>
                 <input
                   type="text"
@@ -1439,6 +1445,8 @@ export default function StreamOverlay() {
                   spellCheck={false}
                   autoComplete="off"
                 />
+                </div>
+                <div className="quad-side-group quad-side-status">
                 <button
                   type="button"
                   className={`timer-display quad-side-timer${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
@@ -1461,6 +1469,7 @@ export default function StreamOverlay() {
                     {gemCount !== null && <span>{gemCount}</span>}
                   </button>
                 )}
+                </div>
               </>
             }
           />
@@ -1543,7 +1552,7 @@ export default function StreamOverlay() {
               <div className="setup-section">
                 <p id="setup-title" className="gem-modal-title">How many runners?</p>
                 <div className="gem-modal-options" role="radiogroup" aria-label="Number of runners">
-                  {([2, 4] as const).map((n) => (
+                  {([2, 3, 4] as const).map((n) => (
                     <button
                       key={n}
                       role="radio"

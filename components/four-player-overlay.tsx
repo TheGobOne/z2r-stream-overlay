@@ -5,18 +5,7 @@ import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-p
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
-import {
-  BRICK_H,
-  BRICK_W,
-  QUAD_CELLS,
-  QUAD_COUNT,
-  QUAD_DEFAULT_ZOOM,
-  QUAD_PANEL,
-  QUAD_PANEL_DOCK,
-  QUAD_TRACKER_WIDTH,
-  QUAD_WINDOWS,
-  resolveQuadLayouts,
-} from "@/lib/quad"
+import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 
 type TrackerIcon = { id: string; src: string; alt: string }
 
@@ -26,6 +15,7 @@ export type QuadOverlayHandle = {
 }
 
 type Props = {
+  layout: GridLayout
   bosses: TrackerIcon[]
   items: TrackerIcon[]
   bossBadges: Record<string, number>
@@ -68,6 +58,7 @@ function toggleIn(sets: Set<string>[], index: number, id: string) {
 
 export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function FourPlayerOverlay(
   {
+    layout,
     bosses,
     items,
     bossBadges,
@@ -84,16 +75,17 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   },
   ref,
 ) {
-  const [names, setNames] = useState(() => Array<string>(QUAD_COUNT).fill(""))
+  const { count, cells, windows, panel, panelWide, dock, defaultZoom } = layout
+  const [names, setNames] = useState(() => Array<string>(count).fill(""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
-    Array.from({ length: QUAD_COUNT }, () => ({ ...createVodConfig(), zoom: QUAD_DEFAULT_ZOOM })),
+    Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
   )
   // Ids in these sets are greyed out; clicking an icon lights it up
   const [notCollected, setNotCollected] = useState(() =>
-    Array.from({ length: QUAD_COUNT }, () => new Set(items.map((item) => item.id))),
+    Array.from({ length: count }, () => new Set(items.map((item) => item.id))),
   )
   const [notDefeated, setNotDefeated] = useState(() =>
-    Array.from({ length: QUAD_COUNT }, () => new Set(bosses.map((boss) => boss.id))),
+    Array.from({ length: count }, () => new Set(bosses.map((boss) => boss.id))),
   )
   const [panelIndex, setPanelIndex] = useState<number | null>(null)
   const [cropMode, setCropMode] = useState(false)
@@ -102,7 +94,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const ref1 = useRef<VodPlayerHandle>(null)
   const ref2 = useRef<VodPlayerHandle>(null)
   const ref3 = useRef<VodPlayerHandle>(null)
-  const playerRefs = [ref0, ref1, ref2, ref3]
+  const playerRefs = [ref0, ref1, ref2, ref3].slice(0, count)
 
   function updateVod(index: number, patch: Partial<VodConfig>) {
     setVods((prev) => prev.map((config, i) => (i === index ? { ...config, ...patch } : config)))
@@ -134,6 +126,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
   const croppingIndex = panelIndex !== null && cropMode && hasSource(vods[panelIndex]) ? panelIndex : null
   const layouts = resolveQuadLayouts(
+    windows,
     vods.map((config, i) => (i === croppingIndex ? { ...config, ...UNCROPPED_VIEW } : config)),
   )
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
@@ -165,6 +158,59 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           padding: 20px 10px;
           background: #000000;
           font-family: 'ZeldaII', monospace;
+        }
+
+        .quad-side-group {
+          display: contents;
+        }
+
+        .quad-side.quad-side-wide {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: auto 1fr;
+          align-items: start;
+          column-gap: 28px;
+          row-gap: 12px;
+          padding: 16px 28px 20px;
+        }
+
+        .quad-side-wide .quad-side-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .quad-side-wide .quad-side-status {
+          grid-column: 1 / -1;
+          flex-direction: row;
+          justify-content: center;
+          align-self: center;
+          gap: 48px;
+        }
+
+        .quad-side-wide .quad-side-title {
+          font-size: 16px;
+        }
+
+        .quad-side.quad-side-wide .quad-side-input {
+          height: 32px;
+          font-size: 15px;
+        }
+
+        .quad-side.quad-side-wide .quad-side-timer {
+          margin-top: 0;
+          font-size: 36px;
+        }
+
+        .quad-side-wide .quad-side-gem {
+          margin-top: 0;
+          font-size: 28px;
+        }
+
+        .quad-side-wide .quad-side-gem img {
+          width: 52px;
+          height: 52px;
         }
 
         .quad-side .commentary-input,
@@ -293,7 +339,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       `}</style>
 
       <div className="quad-bricks" aria-hidden="true" />
-      {QUAD_CELLS.map((cell, i) => (
+      {cells.map((cell, i) => (
           // Cells start on fractional pixels; reach 1px up so the next brick row's light top edge can't bleed through
           <div
             key={i}
@@ -308,7 +354,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           key={i}
           ref={playerRefs[i]}
           side={`quad-${i}`}
-          win={QUAD_WINDOWS[i]}
+          win={windows[i]}
           label={labelFor(i)}
           config={config}
           layout={layouts[i]}
@@ -316,7 +362,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         />
       ))}
 
-      {QUAD_CELLS.map((cell, i) => (
+      {cells.map((cell, i) => (
         <div
           key={i}
           className="quad-tracker"
@@ -409,7 +455,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
       {/* Right-click an empty game window (or the bricks around a loaded one) to set up that player's VOD.
           Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
-      {QUAD_WINDOWS.map((win, i) => {
+      {windows.map((win, i) => {
         if (croppingIndex === i) {
           return (
             <VodCropSelector
@@ -440,8 +486,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         <VodPanel
           key={panelIndex}
           side={`quad-${panelIndex}`}
-          dock={QUAD_PANEL_DOCK}
-          defaultZoom={QUAD_DEFAULT_ZOOM}
+          dock={dock}
+          defaultZoom={defaultZoom}
           groupLabel="all"
           playerLabel={labelFor(panelIndex)}
           config={vods[panelIndex]}
@@ -458,8 +504,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       )}
 
       <div
-        className="quad-side"
-        style={{ ...rect(QUAD_PANEL), left: QUAD_PANEL.left - 1, width: QUAD_PANEL.width + 1 }}
+        className={`quad-side${panelWide ? " quad-side-wide" : ""}`}
+        // Reach 1px up and left so neighboring brick highlights can't bleed through fractional edges
+        style={{ left: panel.left - 1, top: panel.top - 1, width: panel.width + 1, height: panel.height + 1 }}
         onContextMenu={onSidePanelContextMenu}
       >
         {sidePanel}
