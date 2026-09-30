@@ -58,6 +58,7 @@ export default function StreamOverlay() {
   const [commentator1, setCommentator1] = useState("")
   const [commentator2, setCommentator2] = useState("")
   const [tracking, setTracking] = useState("")
+  const [raceInfo, setRaceInfo] = useState("")
 
   const [setupOpen, setSetupOpen] = useState(true)
   const [commentatorCount, setCommentatorCount] = useState<1 | 2>(2)
@@ -1412,7 +1413,19 @@ export default function StreamOverlay() {
             onSidePanelContextMenu={reopenSetup}
             sidePanel={
               <>
-                <div className="quad-side-group">
+                <div className="quad-side-group quad-side-info">
+                <textarea
+                  className="quad-side-info-input"
+                  value={raceInfo}
+                  onChange={(e) => setRaceInfo(e.target.value)}
+                  placeholder="RACE INFO"
+                  aria-label="Race info"
+                  rows={2}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                </div>
+                <div className="quad-side-group quad-side-commentary">
                 <p className="quad-side-title">Commentary</p>
                 <input
                   type="text"
@@ -1437,7 +1450,7 @@ export default function StreamOverlay() {
                   />
                 )}
                 </div>
-                <div className="quad-side-group">
+                <div className="quad-side-group quad-side-tracking">
                 <p className="quad-side-title">Tracking</p>
                 <input
                   type="text"
@@ -1474,6 +1487,7 @@ export default function StreamOverlay() {
                   </button>
                 )}
                 </div>
+                <img className="quad-side-logo" src="/icon.svg" alt="" draggable={false} />
               </>
             }
           />

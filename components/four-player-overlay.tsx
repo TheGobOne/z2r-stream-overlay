@@ -175,14 +175,80 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: contents;
         }
 
+        .quad-side-info-input {
+          width: 100%;
+          box-sizing: border-box;
+          padding: 4px 6px;
+          resize: none;
+          overflow: hidden;
+          field-sizing: content;
+          min-height: 2.8em;
+          max-height: 9em;
+          background: transparent;
+          border: 1px solid rgba(255, 215, 0, 0.35);
+          border-radius: 2px;
+          color: #ffd700;
+          font-family: inherit;
+          font-size: 11px;
+          line-height: 1.4;
+          letter-spacing: 1px;
+          text-align: center;
+          text-transform: uppercase;
+          outline: none;
+        }
+
+        .quad-side-info-input::placeholder {
+          color: rgba(255, 215, 0, 0.4);
+        }
+
+        .quad-side-info-input:focus {
+          border-color: #ffd700;
+        }
+
+        .quad-side-logo {
+          width: 72%;
+          max-width: 150px;
+          height: auto;
+          margin-top: auto;
+          user-select: none;
+          pointer-events: none;
+        }
+
         .quad-side.quad-side-wide {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          grid-template-rows: auto 1fr;
+          grid-template-columns: auto 1fr 1fr;
+          grid-template-rows: auto auto 1fr;
+          grid-template-areas:
+            "logo info info"
+            "logo commentary tracking"
+            "logo status status";
           align-items: start;
           column-gap: 28px;
           row-gap: 12px;
           padding: 16px 28px 20px;
+        }
+
+        .quad-side-wide .quad-side-info {
+          grid-area: info;
+        }
+
+        .quad-side-wide .quad-side-commentary {
+          grid-area: commentary;
+        }
+
+        .quad-side-wide .quad-side-tracking {
+          grid-area: tracking;
+        }
+
+        .quad-side-wide .quad-side-info-input {
+          font-size: 14px;
+        }
+
+        .quad-side-wide .quad-side-logo {
+          grid-area: logo;
+          align-self: center;
+          width: 150px;
+          margin-top: 0;
         }
 
         .quad-side-wide .quad-side-group {
@@ -193,7 +259,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         }
 
         .quad-side-wide .quad-side-status {
-          grid-column: 1 / -1;
+          grid-area: status;
           flex-direction: row;
           justify-content: center;
           align-self: center;
@@ -259,7 +325,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-top: auto;
+          margin-top: 16px;
           padding: 0;
           background: none;
           border: none;
