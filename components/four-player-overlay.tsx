@@ -457,7 +457,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         />
       )}
 
-      <div className="quad-side" style={rect(QUAD_PANEL)} onContextMenu={onSidePanelContextMenu}>
+      <div
+        className="quad-side"
+        style={{ ...rect(QUAD_PANEL), left: QUAD_PANEL.left - 1, width: QUAD_PANEL.width + 1 }}
+        onContextMenu={onSidePanelContextMenu}
+      >
         {sidePanel}
       </div>
     </>
