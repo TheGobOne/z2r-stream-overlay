@@ -91,15 +91,19 @@ type Props = {
 // so the frame is grown a few pixels past the window (keeping aspect) and clipped away.
 const EDGE_OVERSCAN_PX = 3
 
-function overscan(layout: VodFrameLayout) {
+// Twitch letterboxes inside a non-16:9 iframe, so the iframe stays 16:9 and a scaleY transform
+// stretches it to the layout's height.
+function overscan(layout: VodFrameLayout, stretchY: number): React.CSSProperties {
   const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
   const width = layout.width * scale
   const height = layout.height * scale
   return {
     width,
-    height,
+    height: height / stretchY,
     left: layout.left - (width - layout.width) / 2,
     top: layout.top - (height - layout.height) / 2,
+    transform: stretchY === 1 ? undefined : `scaleY(${stretchY})`,
+    transformOrigin: "top left",
   }
 }
 
@@ -238,7 +242,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       <div
         ref={hostRef}
         className="vod-frame"
-        style={overscan(layout)}
+        style={overscan(layout, config.stretchY ?? 1)}
       />
       {!muted && (
         <div className={`vod-audio-badge vod-audio-badge-${side}`} role="img" aria-label={`Listening to ${playerName} audio`}>
