@@ -76,10 +76,10 @@ export const TRIO_LAYOUT = buildLayout(
  * may spill over bricks and trackers freely, but when it would reach another loaded player's
  * window it is pushed back toward its own outer edge, along whichever axis needs the least shift.
  */
-export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[]): VodFrameLayout[] {
+export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], fill = true): VodFrameLayout[] {
   return configs.map((config, i) => {
     const own = windows[i]
-    const frame = frameInWindow(own, config)
+    const frame = frameInWindow(own, config, fill)
     let left = own.left + frame.left
     let top = own.top + frame.top
     const { width, height } = frame

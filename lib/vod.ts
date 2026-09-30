@@ -121,8 +121,17 @@ export type VodFrameLayout = { left: number; top: number; width: number; height:
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
 
+/**
+ * A saved crop is re-derived from its selection so crops made under older rules (such as the
+ * letterboxed fit) always render with the current fill behavior for this window.
+ */
+export function resolveView(win: WindowRect, config: View & { crop?: VideoRect | null }, fill = true): View {
+  return config.crop ? cropToSelection(win, config.crop, fill) : config
+}
+
 /** Where the (possibly vertically stretched) video frame sits, relative to its window. */
-export function frameInWindow(win: WindowRect, config: View) {
+export function frameInWindow(win: WindowRect, config: View & { crop?: VideoRect | null }, fill = true) {
+  config = resolveView(win, config, fill)
   const width = win.width * config.zoom
   const height = ((width * 9) / 16) * (config.stretchY ?? 1)
   return { left: win.width / 2 - config.centerX * width, top: win.height / 2 - config.centerY * height, width, height }

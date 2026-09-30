@@ -126,7 +126,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
   const croppingIndex = panelIndex !== null && cropMode && hasSource(vods[panelIndex]) ? panelIndex : null
   const viewVods = vods.map((config, i) => (i === croppingIndex ? { ...config, ...UNCROPPED_VIEW } : config))
-  const layouts = resolveQuadLayouts(windows, viewVods)
+  const layouts = resolveQuadLayouts(windows, viewVods, layout.stretchCrop ?? true)
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
 
   // With a crop, the black bar right of the picture joins the tracker column, so center the tracker in that space

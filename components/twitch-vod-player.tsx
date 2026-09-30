@@ -274,10 +274,13 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
           className="vod-crop-mask"
           aria-hidden="true"
           style={{
-            left: layout.left + config.crop.x0 * layout.width,
-            top: layout.top + config.crop.y0 * layout.height,
-            width: (config.crop.x1 - config.crop.x0) * layout.width,
-            height: (config.crop.y1 - config.crop.y0) * layout.height,
+                // Anchored to the window center rather than the frame: the frame can be nudged
+                // sideways to avoid covering the other Twitch embed, and the mask must not follow.
+                left: "50%",
+                top: "50%",
+                width: (config.crop.x1 - config.crop.x0) * layout.width,
+                height: (config.crop.y1 - config.crop.y0) * layout.height,
+                transform: "translate(-50%, -50%)",
           }}
         />
       )}
