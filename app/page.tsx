@@ -132,9 +132,8 @@ export default function StreamOverlay() {
 
   // While picking crop corners, the cropping side shows its whole uncropped video
   const croppingSide = vodPanelSide && vodCropMode && hasSource(vods[vodPanelSide]) ? vodPanelSide : null
-  const vodLayouts = resolveVodLayouts(
-    croppingSide ? { ...vods, [croppingSide]: { ...vods[croppingSide], ...UNCROPPED_VIEW } } : vods,
-  )
+  const viewVods = croppingSide ? { ...vods, [croppingSide]: { ...vods[croppingSide], ...UNCROPPED_VIEW } } : vods
+  const vodLayouts = resolveVodLayouts(viewVods)
 
   // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
   const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
@@ -1487,8 +1486,8 @@ export default function StreamOverlay() {
             key={side}
             ref={vodRefs[side]}
             side={side}
-            config={vods[side]}
-            layout={vodLayouts[side]}
+              config={viewVods[side]}
+              layout={vodLayouts[side]}
             onAutoMute={() => updateVod(side, { muted: true })}
           />
         ))}
