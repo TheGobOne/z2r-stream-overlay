@@ -466,7 +466,6 @@ export default function StreamOverlay() {
         .text-box-right .zelda-input {
           line-height: 36px;
           top: -4px;
-          color: #7ef5ff;
         }
 
         .zelda-input {
@@ -475,7 +474,7 @@ export default function StreamOverlay() {
           background: transparent;
           border: none;
           outline: none;
-          color: #ffffff;
+          color: #7ef5ff;
           font-family: 'ZeldaII', monospace;
           font-size: var(--zelda-font-size, 20px);
           text-align: center;
