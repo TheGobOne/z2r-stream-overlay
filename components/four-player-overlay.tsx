@@ -75,7 +75,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   },
   ref,
 ) {
-  const { count, cells, windows, panel, panelWide, dock, defaultZoom } = layout
+  const { count, cells, windows, panel, panelStyle, dock, defaultZoom } = layout
   const [names, setNames] = useState(() => Array<string>(count).fill(""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
     Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
@@ -280,6 +280,76 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         .quad-side .tracking-input {
           width: 100%;
           box-sizing: border-box;
+        }
+
+        .quad-side.quad-side-bar {
+          flex-direction: row;
+          align-items: center;
+          gap: 24px;
+          padding: 0 16px;
+        }
+
+        .quad-side-bar .quad-side-group {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .quad-side-bar .quad-side-info {
+          flex: 1.4;
+        }
+
+        .quad-side-bar .quad-side-commentary {
+          flex: 1.6;
+        }
+
+        .quad-side-bar .quad-side-tracking {
+          flex: 1;
+        }
+
+        .quad-side-bar .quad-side-status {
+          flex: none;
+          gap: 16px;
+        }
+
+        .quad-side-bar .quad-side-info-input {
+          field-sizing: fixed;
+          min-height: 0;
+          height: 26px;
+          margin: 0;
+          padding: 0 8px;
+          font-size: 13px;
+          line-height: 22px;
+          white-space: nowrap;
+        }
+
+        .quad-side-bar .quad-side-title {
+          flex: none;
+          margin: 0;
+        }
+
+        .quad-side.quad-side-bar .commentary-input,
+        .quad-side.quad-side-bar .tracking-input {
+          flex: 1;
+          width: auto;
+          min-width: 0;
+        }
+
+        .quad-side.quad-side-bar .quad-side-timer {
+          margin-top: 0;
+          font-size: 24px;
+        }
+
+        .quad-side-bar .quad-side-gem {
+          margin-top: 0;
+          font-size: 18px;
+        }
+
+        .quad-side-bar .quad-side-gem img {
+          width: 26px;
+          height: 26px;
         }
 
         .quad-side-title {
@@ -569,7 +639,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       )}
 
       <div
-        className={`quad-side${panelWide ? " quad-side-wide" : ""}`}
+        className={`quad-side${panelStyle === "column" ? "" : ` quad-side-${panelStyle}`}`}
         // Reach 1px up and left so neighboring brick highlights can't bleed through fractional edges
         style={{ left: panel.left - 1, top: panel.top - 1, width: panel.width + 1, height: panel.height + 1 }}
         onContextMenu={onSidePanelContextMenu}
