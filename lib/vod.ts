@@ -66,12 +66,16 @@ export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, centerX: 0.5, centerY: 0.5 }
 
 export type WindowRect = { left: number; top: number; width: number; height: number; clipPath?: string }
 
-/** Zoom and center so the selected area fills the window, trimming whichever axis doesn't match its aspect. */
+/**
+ * Zoom and center so the whole selected area fits inside the window. When the selection's aspect
+ * doesn't match the window's, extra video shows on the mismatched axis rather than any of the
+ * selection being cut off.
+ */
 export function cropToSelection(win: WindowRect, sel: VideoRect) {
   const selWidth = Math.abs(sel.x1 - sel.x0)
   const selHeight = Math.abs(sel.y1 - sel.y0)
   const zoom = clamp(
-    Math.max(1 / selWidth, win.height / (((win.width * 9) / 16) * selHeight)),
+    Math.min(1 / selWidth, win.height / (((win.width * 9) / 16) * selHeight)),
     MIN_ZOOM,
     MAX_ZOOM,
   )
