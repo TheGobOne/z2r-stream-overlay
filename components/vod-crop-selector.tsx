@@ -18,7 +18,7 @@ type Props = {
   win: WindowRect
   /** Layout of the uncropped video while selecting */
   frame: VodFrameLayout
-  onApply: (patch: Pick<VodConfig, "zoom" | "stretchY" | "centerX" | "centerY">) => void
+  onApply: (patch: Pick<VodConfig, "zoom" | "centerX" | "centerY" | "crop">) => void
   onCancel: () => void
 }
 

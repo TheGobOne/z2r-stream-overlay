@@ -1122,6 +1122,12 @@ export default function StreamOverlay() {
           position: absolute;
         }
 
+        .vod-crop-mask {
+          position: absolute;
+          box-shadow: 0 0 0 4000px #000000;
+          pointer-events: none;
+        }
+
         .vod-hitbox {
           position: absolute;
           z-index: 12;
