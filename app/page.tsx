@@ -1211,6 +1211,17 @@ export default function StreamOverlay() {
   transform: translate(-50%, -50%) rotate(45deg);
   }
 
+  .vod-audio-badge-muted {
+  opacity: 0;
+  transition: opacity 120ms ease;
+  }
+
+  .vod-window:hover .vod-audio-badge-muted,
+  .vod-audio:focus-within .vod-audio-badge-muted,
+  .vod-audio-badge-muted[aria-expanded="true"] {
+  opacity: 1;
+  }
+
         .vod-crop-backdrop {
   position: absolute;
   inset: 0;
