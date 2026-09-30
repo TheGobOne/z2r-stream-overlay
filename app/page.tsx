@@ -422,30 +422,51 @@ export default function StreamOverlay() {
           user-select: none;
           display: block;
           mix-blend-mode: screen;
+          /* Hide the art's tall name frames above the brick row; the brick-height boxes below replace them */
+          clip-path: path(evenodd, 'M0 0H1456V816H0Z M37 508H330V544H37Z M1125 508H1418V544H1125Z');
         }
 
-        /* Left box */
-        .text-box-left {
-          position: absolute;
-          left: 42px;
-          top: 516px;
-          width: 284px;
-          height: 62px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        /* Right box */
+        .text-box-left,
         .text-box-right {
           position: absolute;
-          right: 42px;
-          top: 516px;
-          width: 284px;
-          height: 62px;
+          top: 544px;
+          width: 288px;
+          height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
+          background: #000;
+          box-shadow:
+            inset 0 0 0 1px #fff,
+            inset 0 0 0 4px #2038ef,
+            inset 0 0 0 5px #fff;
+        }
+
+        .text-box-left::before,
+        .text-box-right::before {
+          content: "";
+          position: absolute;
+          inset: 1px;
+          pointer-events: none;
+          background:
+            linear-gradient(#db2800, #db2800) left top / 5px 5px no-repeat,
+            linear-gradient(#db2800, #db2800) right top / 5px 5px no-repeat,
+            linear-gradient(#db2800, #db2800) left bottom / 5px 5px no-repeat,
+            linear-gradient(#db2800, #db2800) right bottom / 5px 5px no-repeat;
+        }
+
+        .text-box-left {
+          left: 38px;
+        }
+
+        .text-box-right {
+          right: 39px;
+        }
+
+        .text-box-left .zelda-input,
+        .text-box-right .zelda-input {
+          line-height: 36px;
+          top: -5px;
         }
 
         .zelda-input {

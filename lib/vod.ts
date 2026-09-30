@@ -18,8 +18,8 @@ export type VodConfig = {
   volume: number
 }
 
-// Transparent game-window holes in the 1456x816 overlay. The clip path cuts out
-// each player's name box, which sits over the bottom corner of the window.
+// Transparent game-window holes in the 1456x816 overlay. The name boxes sit in the
+// brick row below the windows, so the video fills the whole window.
 export const VOD_WINDOWS: Record<
   VodSide,
   { left: number; top: number; width: number; height: number; clipPath: string }
@@ -31,14 +31,14 @@ export const VOD_WINDOWS: Record<
     top: 33,
     width: 655,
     height: 511,
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 291px 100%, 291px 475px, 0 475px)",
+    clipPath: "none",
   },
   right: {
     left: 764,
     top: 33,
     width: 655,
     height: 511,
-    clipPath: "polygon(0 0, 100% 0, 100% 475px, 363px 475px, 363px 100%, 0 100%)",
+    clipPath: "none",
   },
 }
 
