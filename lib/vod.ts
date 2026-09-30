@@ -8,8 +8,12 @@ export type VodConfig = {
   startSeconds: number
   loadKey: number
   zoom: number
+  /** Vertical scale on top of zoom, so a crop stretches to fill the window exactly. */
+  stretchY?: number
   centerX: number
   centerY: number
+  /** The selected crop area; everything outside it is blacked out. */
+  crop?: VideoRect | null
   muted: boolean
   volume: number
 }
@@ -62,26 +66,49 @@ export function createVodConfig(): VodConfig {
 /** A rectangle in video-relative coordinates, 0..1 on each axis. */
 export type VideoRect = { x0: number; y0: number; x1: number; y1: number }
 
-export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, centerX: 0.5, centerY: 0.5 }
+export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, stretchY: 1, centerX: 0.5, centerY: 0.5, crop: null }
 
 export type WindowRect = { left: number; top: number; width: number; height: number; clipPath?: string }
 
-/** Zoom and center so the selected area fills the window, trimming whichever axis doesn't match its aspect. */
-export function cropToSelection(win: WindowRect, sel: VideoRect) {
-  const selWidth = Math.abs(sel.x1 - sel.x0)
-  const selHeight = Math.abs(sel.y1 - sel.y0)
-  const zoom = clamp(
-    Math.max(1 / selWidth, win.height / (((win.width * 9) / 16) * selHeight)),
-    MIN_ZOOM,
-    MAX_ZOOM,
+type View = { zoom: number; stretchY?: number; centerX: number; centerY: number }
+
+const MIN_STRETCH = 0.1
+const MAX_STRETCH = 10
+
+/**
+ * With `fill`, zoom and stretch so the selected area exactly fills the window: the selection's
+ * width sets the zoom and a vertical stretch makes its height match the window's. Without it,
+ * the selection keeps its aspect ratio, fits inside the window centered, and the crop mask
+ * blacks out the leftover bars.
+ */
+export function cropToSelection(win: WindowRect, sel: VideoRect, fill = true) {
+  const crop = {
+    x0: clamp(Math.min(sel.x0, sel.x1), 0, 1),
+    y0: clamp(Math.min(sel.y0, sel.y1), 0, 1),
+    x1: clamp(Math.max(sel.x0, sel.x1), 0, 1),
+    y1: clamp(Math.max(sel.y0, sel.y1), 0, 1),
+  }
+  if (!fill) {
+    const fitZoom = Math.min(
+      1 / (crop.x1 - crop.x0),
+      win.height / (((win.width * 9) / 16) * (crop.y1 - crop.y0)),
+    )
+    const zoom = clamp(fitZoom, MIN_ZOOM, MAX_ZOOM)
+    return { zoom, stretchY: 1, centerX: (crop.x0 + crop.x1) / 2, centerY: (crop.y0 + crop.y1) / 2, crop }
+  }
+  const zoom = clamp(1 / (crop.x1 - crop.x0), MIN_ZOOM, MAX_ZOOM)
+  const stretchY = clamp(
+    win.height / (((win.width * zoom * 9) / 16) * (crop.y1 - crop.y0)),
+    MIN_STRETCH,
+    MAX_STRETCH,
   )
-  return { zoom, centerX: (sel.x0 + sel.x1) / 2, centerY: (sel.y0 + sel.y1) / 2 }
+  return { zoom, stretchY, centerX: (crop.x0 + crop.x1) / 2, centerY: (crop.y0 + crop.y1) / 2, crop }
 }
 
 /** The part of the video, in video-relative coordinates, that shows through the window for a given view. */
-export function visibleVideoRect(win: WindowRect, view: { zoom: number; centerX: number; centerY: number }): VideoRect {
+export function visibleVideoRect(win: WindowRect, view: View): VideoRect {
   const halfWidth = 1 / view.zoom / 2
-  const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom) / 2
+  const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom * (view.stretchY ?? 1)) / 2
   return {
     x0: view.centerX - halfWidth,
     y0: view.centerY - halfHeight,
@@ -94,10 +121,10 @@ export type VodFrameLayout = { left: number; top: number; width: number; height:
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
 
-/** Where a 16:9 video frame sits, relative to its window, for a given zoom and center. */
-export function frameInWindow(win: WindowRect, config: Pick<VodConfig, "zoom" | "centerX" | "centerY">) {
+/** Where the (possibly vertically stretched) video frame sits, relative to its window. */
+export function frameInWindow(win: WindowRect, config: View) {
   const width = win.width * config.zoom
-  const height = (width * 9) / 16
+  const height = ((width * 9) / 16) * (config.stretchY ?? 1)
   return { left: win.width / 2 - config.centerX * width, top: win.height / 2 - config.centerY * height, width, height }
 }
 

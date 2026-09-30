@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Z2R Stream Overlay',
-  description: 'Zelda II Randomizer Stream Overlay',
+  title: 'Z2R Restream Overlay',
+  description: 'Zelda II Randomizer Restream Overlay',
   generator: 'v0.app',
   icons: {
     icon: [

@@ -91,15 +91,22 @@ type Props = {
 // so the frame is grown a few pixels past the window (keeping aspect) and clipped away.
 const EDGE_OVERSCAN_PX = 3
 
-function overscan(layout: VodFrameLayout) {
+// Twitch letterboxes inside a non-16:9 iframe, so the iframe stays 16:9 and a scaleY
+// transform stretches it to a cropped layout's height.
+function overscan(layout: VodFrameLayout): React.CSSProperties {
   const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
   const width = layout.width * scale
   const height = layout.height * scale
+  const naturalHeight = (width * 9) / 16
+  const stretchY = height / naturalHeight
+  const stretched = Math.abs(stretchY - 1) > 0.001
   return {
     width,
-    height,
+    height: stretched ? naturalHeight : height,
     left: layout.left - (width - layout.width) / 2,
     top: layout.top - (height - layout.height) / 2,
+    transform: stretched ? `scaleY(${stretchY})` : undefined,
+    transformOrigin: "top left",
   }
 }
 
@@ -240,6 +247,18 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         className="vod-frame"
         style={overscan(layout)}
       />
+      {config.crop && (
+        <div
+          className="vod-crop-mask"
+          aria-hidden="true"
+          style={{
+            left: layout.left + config.crop.x0 * layout.width,
+            top: layout.top + config.crop.y0 * layout.height,
+            width: (config.crop.x1 - config.crop.x0) * layout.width,
+            height: (config.crop.y1 - config.crop.y0) * layout.height,
+          }}
+        />
+      )}
       {!muted && (
         <div className={`vod-audio-badge vod-audio-badge-${side}`} role="img" aria-label={`Listening to ${playerName} audio`}>
           <Music aria-hidden="true" />

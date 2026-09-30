@@ -10,6 +10,7 @@ import {
   type VodFrameLayout,
   type WindowRect,
 } from "@/lib/vod"
+import { STAGE_HEIGHT } from "@/lib/quad"
 
 type Point = { x: number; y: number }
 
@@ -17,14 +18,18 @@ type Props = {
   win: WindowRect
   /** Layout of the uncropped video while selecting */
   frame: VodFrameLayout
-  onApply: (patch: Pick<VodConfig, "zoom" | "centerX" | "centerY">) => void
+  onApply: (patch: Pick<VodConfig, "zoom" | "centerX" | "centerY" | "crop">) => void
   onCancel: () => void
+  /** Stretch the selection to fill the window; otherwise keep its aspect with black bars. */
+  fill?: boolean
 }
 
 const MIN_SELECTION = 0.02
 const DRAG_THRESHOLD_PX = 6
+const INSTRUCTIONS_GAP = 6
+const INSTRUCTIONS_CLEARANCE = 48
 
-export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
+export function VodCropSelector({ win, frame, onApply, onCancel, fill = true }: Props) {
   const [corner, setCorner] = useState<Point | null>(null)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [downAt, setDownAt] = useState<{ x: number; y: number } | null>(null)
@@ -49,7 +54,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
   function finish(a: Point, b: Point) {
     const selection = { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }
     if (selection.x1 - selection.x0 < MIN_SELECTION || selection.y1 - selection.y0 < MIN_SELECTION) return false
-    onApply(cropToSelection(win, selection))
+    onApply(cropToSelection(win, selection, fill))
     return true
   }
 
@@ -85,7 +90,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
       : null
   const hasArea =
     selection && selection.x1 - selection.x0 >= MIN_SELECTION && selection.y1 - selection.y0 >= MIN_SELECTION
-  const result = hasArea ? visibleVideoRect(win, cropToSelection(win, selection)) : null
+  const result = hasArea ? visibleVideoRect(win, cropToSelection(win, selection, fill)) : null
 
   const toPx = (r: VideoRect) => ({
     left: frame.left + r.x0 * frame.width,
@@ -94,7 +99,16 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
     height: (r.y1 - r.y0) * frame.height,
   })
 
+  const spaceBelow = STAGE_HEIGHT - (win.top + win.height)
+  const instructionsStyle: React.CSSProperties =
+    spaceBelow >= INSTRUCTIONS_CLEARANCE
+      ? { left: win.left + win.width / 2, top: win.top + win.height + INSTRUCTIONS_GAP }
+      : win.top >= INSTRUCTIONS_CLEARANCE
+        ? { left: win.left + win.width / 2, bottom: STAGE_HEIGHT - win.top + INSTRUCTIONS_GAP }
+        : { left: win.left + win.width / 2, bottom: STAGE_HEIGHT - (win.top + win.height) + INSTRUCTIONS_GAP }
+
   return (
+    <>
     <div
       className="vod-crop-selector"
       style={{ left: win.left, top: win.top, width: win.width, height: win.height }}
@@ -112,10 +126,11 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
       {selection && <div className="vod-crop-selection" style={toPx(selection)} />}
       {result && <div className="vod-crop-result" style={toPx(result)} />}
       {corner && <div className="vod-crop-corner" style={{ left: frame.left + corner.x * frame.width, top: frame.top + corner.y * frame.height }} />}
-      <p className="vod-crop-instructions">
-        {corner ? "Click the bottom-right corner" : "Click the top-left corner (or drag a box)"}
-        <span>{"Esc or right-click to cancel"}</span>
-      </p>
     </div>
+    <p className="vod-crop-instructions" style={instructionsStyle} role="status">
+      {corner ? "Click the bottom-right corner" : "Click the top-left corner (or drag a box)"}
+      <span>{"Esc or right-click to cancel"}</span>
+    </p>
+    </>
   )
 }
