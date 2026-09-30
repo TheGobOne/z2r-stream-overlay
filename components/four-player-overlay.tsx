@@ -305,6 +305,14 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           flex: 1.6;
         }
 
+        .single-com .quad-side-bar .quad-side-commentary {
+          justify-content: center;
+        }
+
+        .single-com .quad-side.quad-side-bar .quad-side-commentary .commentary-input {
+          flex: 0 1 180px;
+        }
+
         .quad-side-bar .quad-side-tracking {
           flex: 1;
         }
