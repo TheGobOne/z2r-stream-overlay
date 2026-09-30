@@ -175,6 +175,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           display: contents;
         }
 
+        .quad-side:not(.quad-side-wide):not(.quad-side-bar) {
+          justify-content: space-evenly;
+          gap: 0;
+        }
+
+        .quad-side:not(.quad-side-wide):not(.quad-side-bar) .quad-side-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
         .quad-side-info-input {
           width: 100%;
           box-sizing: border-box;
