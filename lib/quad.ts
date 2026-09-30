@@ -59,7 +59,7 @@ function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelSt
 
 // Player cells span the full width as a 2x2 grid; the panel is a single brick-tall bar along the bottom.
 export const QUAD_LAYOUT = buildLayout(
-  [brickRect(1, 1, 19, 9), brickRect(21, 1, 19, 9), brickRect(1, 11, 19, 9), brickRect(21, 11, 19, 9)],
+  [brickRect(1, 1, 18, 9), brickRect(22, 1, 18, 9), brickRect(1, 11, 18, 9), brickRect(22, 11, 18, 9)],
   brickRect(1, 21, 39, 1),
   "bar",
 )
@@ -67,8 +67,8 @@ export const QUAD_LAYOUT = buildLayout(
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
 export const TRIO_LAYOUT: GridLayout = {
   ...buildLayout(
-    [brickRect(1, 1, 19, 10), brickRect(21, 1, 19, 10), brickRect(1, 12, 19, 10)],
-    brickRect(21, 12, 19, 10),
+    [brickRect(1, 1, 18, 10), brickRect(22, 1, 18, 10), brickRect(1, 12, 18, 10)],
+    brickRect(22, 12, 18, 10),
     "wide",
   ),
   stretchCrop: false,
