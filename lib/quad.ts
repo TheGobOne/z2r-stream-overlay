@@ -22,6 +22,8 @@ export type GridLayout = {
   panel: WindowRect
   /** The side panel lays its sections out in a row instead of a column. */
   panelWide: boolean
+  /** Stretch crops to fill each window; when false, crops keep their aspect with black bars. */
+  stretchCrop?: boolean
   dock: WindowRect
   defaultZoom: number
 }
@@ -61,11 +63,14 @@ export const QUAD_LAYOUT = buildLayout(
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
-export const TRIO_LAYOUT = buildLayout(
-  [brickRect(1, 1, 19, 10), brickRect(21, 1, 19, 10), brickRect(1, 12, 19, 10)],
-  brickRect(21, 12, 19, 10),
-  true,
-)
+export const TRIO_LAYOUT: GridLayout = {
+  ...buildLayout(
+    [brickRect(1, 1, 19, 10), brickRect(21, 1, 19, 10), brickRect(1, 12, 19, 10)],
+    brickRect(21, 12, 19, 10),
+    true,
+  ),
+  stretchCrop: false,
+}
 
 /**
  * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away. A frame

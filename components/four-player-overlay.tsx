@@ -473,8 +473,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             <VodCropSelector
               key={i}
               win={win}
-              frame={layouts[i]}
-              onApply={(view) => {
+                frame={layouts[i]}
+                fill={layout.stretchCrop ?? true}
+                onApply={(view) => {
                 updateVod(i, view)
                 setCropMode(false)
               }}

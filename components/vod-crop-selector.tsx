@@ -20,6 +20,8 @@ type Props = {
   frame: VodFrameLayout
   onApply: (patch: Pick<VodConfig, "zoom" | "centerX" | "centerY" | "crop">) => void
   onCancel: () => void
+  /** Stretch the selection to fill the window; otherwise keep its aspect with black bars. */
+  fill?: boolean
 }
 
 const MIN_SELECTION = 0.02
@@ -27,7 +29,7 @@ const DRAG_THRESHOLD_PX = 6
 const INSTRUCTIONS_GAP = 6
 const INSTRUCTIONS_CLEARANCE = 48
 
-export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
+export function VodCropSelector({ win, frame, onApply, onCancel, fill = true }: Props) {
   const [corner, setCorner] = useState<Point | null>(null)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [downAt, setDownAt] = useState<{ x: number; y: number } | null>(null)
@@ -52,7 +54,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
   function finish(a: Point, b: Point) {
     const selection = { x0: Math.min(a.x, b.x), y0: Math.min(a.y, b.y), x1: Math.max(a.x, b.x), y1: Math.max(a.y, b.y) }
     if (selection.x1 - selection.x0 < MIN_SELECTION || selection.y1 - selection.y0 < MIN_SELECTION) return false
-    onApply(cropToSelection(win, selection))
+    onApply(cropToSelection(win, selection, fill))
     return true
   }
 
@@ -88,7 +90,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel }: Props) {
       : null
   const hasArea =
     selection && selection.x1 - selection.x0 >= MIN_SELECTION && selection.y1 - selection.y0 >= MIN_SELECTION
-  const result = hasArea ? visibleVideoRect(win, cropToSelection(win, selection)) : null
+  const result = hasArea ? visibleVideoRect(win, cropToSelection(win, selection, fill)) : null
 
   const toPx = (r: VideoRect) => ({
     left: frame.left + r.x0 * frame.width,

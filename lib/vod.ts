@@ -76,15 +76,25 @@ const MIN_STRETCH = 0.1
 const MAX_STRETCH = 10
 
 /**
- * Zoom and stretch so the selected area exactly fills the window: the selection's width sets
- * the zoom and a vertical stretch makes its height match the window's.
+ * With `fill`, zoom and stretch so the selected area exactly fills the window: the selection's
+ * width sets the zoom and a vertical stretch makes its height match the window's. Without it,
+ * the selection keeps its aspect ratio, fits inside the window centered, and the crop mask
+ * blacks out the leftover bars.
  */
-export function cropToSelection(win: WindowRect, sel: VideoRect) {
+export function cropToSelection(win: WindowRect, sel: VideoRect, fill = true) {
   const crop = {
     x0: clamp(Math.min(sel.x0, sel.x1), 0, 1),
     y0: clamp(Math.min(sel.y0, sel.y1), 0, 1),
     x1: clamp(Math.max(sel.x0, sel.x1), 0, 1),
     y1: clamp(Math.max(sel.y0, sel.y1), 0, 1),
+  }
+  if (!fill) {
+    const fitZoom = Math.min(
+      1 / (crop.x1 - crop.x0),
+      win.height / (((win.width * 9) / 16) * (crop.y1 - crop.y0)),
+    )
+    const zoom = clamp(fitZoom, MIN_ZOOM, MAX_ZOOM)
+    return { zoom, stretchY: 1, centerX: (crop.x0 + crop.x1) / 2, centerY: (crop.y0 + crop.y1) / 2, crop }
   }
   const zoom = clamp(1 / (crop.x1 - crop.x0), MIN_ZOOM, MAX_ZOOM)
   const stretchY = clamp(
