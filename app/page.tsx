@@ -51,8 +51,8 @@ const ITEMS = [
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
-  const [leftFontSize, setLeftFontSize] = useState(20)
-  const [rightFontSize, setRightFontSize] = useState(20)
+  const [leftFontSize, setLeftFontSize] = useState(18)
+  const [rightFontSize, setRightFontSize] = useState(18)
   const [gemCount, setGemCount] = useState<number | null>(null)
   const [gemPopupOpen, setGemPopupOpen] = useState(false)
   const [commentator1, setCommentator1] = useState("")
@@ -317,11 +317,10 @@ export default function StreamOverlay() {
   }
 
   function calculateFontSize(text: string): number {
-    if (text.length === 0) return 20
-    if (text.length <= 6) return 20
-    if (text.length <= 10) return 18
-    if (text.length <= 14) return 14
-    return 10
+    if (text.length <= 6) return 18
+    if (text.length <= 10) return 16
+    if (text.length <= 14) return 12
+    return 9
   }
 
   function handleLeftTextChange(value: string) {
