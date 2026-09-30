@@ -65,6 +65,7 @@ export default function StreamOverlay() {
   const [draftMaxRando, setDraftMaxRando] = useState(false)
   const [runnerCount, setRunnerCount] = useState<2 | 4>(2)
   const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 4>(2)
+  const visibleBosses = isMaxRando ? BOSSES : BOSSES.filter((boss) => boss.id !== "thunderbird")
   const quadRef = useRef<QuadOverlayHandle>(null)
 
   function confirmSetup() {
@@ -1390,7 +1391,7 @@ export default function StreamOverlay() {
         {runnerCount === 4 && (
           <FourPlayerOverlay
             ref={quadRef}
-            bosses={BOSSES}
+            bosses={visibleBosses}
             items={ITEMS}
             bossBadges={leftBossBadge}
             bossBadgeLabels={BOSS_BADGES}
@@ -1755,7 +1756,7 @@ export default function StreamOverlay() {
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
-          {BOSSES.map((boss) => (
+          {visibleBosses.map((boss) => (
             <button
               key={boss.id}
               className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
@@ -1775,7 +1776,7 @@ export default function StreamOverlay() {
 
         {/* Boss tracker — right */}
         <div className="boss-row-right" role="group" aria-label="Player 2 boss tracker">
-          {BOSSES.map((boss) => (
+          {visibleBosses.map((boss) => (
             <button
               key={`right-${boss.id}`}
               className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
