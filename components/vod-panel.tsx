@@ -267,7 +267,7 @@ export function VodPanel({
               <span className="vod-value">{Math.round(config.zoom * 100)}%</span>
               <button
                 className="vod-btn"
-                onClick={() => onChange({ zoom: defaultZoom, centerX: 0.5, centerY: 0.5, crop: null })}
+                onClick={() => onChange({ zoom: defaultZoom, stretchY: 1, centerX: 0.5, centerY: 0.5, crop: null })}
               >
                 Reset
               </button>

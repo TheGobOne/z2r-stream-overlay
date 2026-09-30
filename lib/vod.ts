@@ -8,6 +8,8 @@ export type VodConfig = {
   startSeconds: number
   loadKey: number
   zoom: number
+  /** Vertical scale on top of zoom, so a crop stretches to fill the window exactly. */
+  stretchY?: number
   centerX: number
   centerY: number
   /** The selected crop area; everything outside it is blacked out. */
@@ -64,13 +66,18 @@ export function createVodConfig(): VodConfig {
 /** A rectangle in video-relative coordinates, 0..1 on each axis. */
 export type VideoRect = { x0: number; y0: number; x1: number; y1: number }
 
-export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, centerX: 0.5, centerY: 0.5, crop: null }
+export const UNCROPPED_VIEW = { zoom: MIN_ZOOM, stretchY: 1, centerX: 0.5, centerY: 0.5, crop: null }
 
 export type WindowRect = { left: number; top: number; width: number; height: number; clipPath?: string }
 
+type View = { zoom: number; stretchY?: number; centerX: number; centerY: number }
+
+const MIN_STRETCH = 0.1
+const MAX_STRETCH = 10
+
 /**
- * Zoom and center so the whole selected area fits inside the window, centered. When the
- * selection's aspect doesn't match the window's, the leftover space is blacked out.
+ * Zoom and stretch so the selected area exactly fills the window: the selection's width sets
+ * the zoom and a vertical stretch makes its height match the window's.
  */
 export function cropToSelection(win: WindowRect, sel: VideoRect) {
   const crop = {
@@ -79,18 +86,19 @@ export function cropToSelection(win: WindowRect, sel: VideoRect) {
     x1: clamp(Math.max(sel.x0, sel.x1), 0, 1),
     y1: clamp(Math.max(sel.y0, sel.y1), 0, 1),
   }
-  const zoom = clamp(
-    Math.min(1 / (crop.x1 - crop.x0), win.height / (((win.width * 9) / 16) * (crop.y1 - crop.y0))),
-    MIN_ZOOM,
-    MAX_ZOOM,
+  const zoom = clamp(1 / (crop.x1 - crop.x0), MIN_ZOOM, MAX_ZOOM)
+  const stretchY = clamp(
+    win.height / (((win.width * zoom * 9) / 16) * (crop.y1 - crop.y0)),
+    MIN_STRETCH,
+    MAX_STRETCH,
   )
-  return { zoom, centerX: (crop.x0 + crop.x1) / 2, centerY: (crop.y0 + crop.y1) / 2, crop }
+  return { zoom, stretchY, centerX: (crop.x0 + crop.x1) / 2, centerY: (crop.y0 + crop.y1) / 2, crop }
 }
 
 /** The part of the video, in video-relative coordinates, that shows through the window for a given view. */
-export function visibleVideoRect(win: WindowRect, view: { zoom: number; centerX: number; centerY: number }): VideoRect {
+export function visibleVideoRect(win: WindowRect, view: View): VideoRect {
   const halfWidth = 1 / view.zoom / 2
-  const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom) / 2
+  const halfHeight = win.height / (((win.width * 9) / 16) * view.zoom * (view.stretchY ?? 1)) / 2
   return {
     x0: view.centerX - halfWidth,
     y0: view.centerY - halfHeight,
@@ -103,10 +111,10 @@ export type VodFrameLayout = { left: number; top: number; width: number; height:
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
 
-/** Where a 16:9 video frame sits, relative to its window, for a given zoom and center. */
-export function frameInWindow(win: WindowRect, config: Pick<VodConfig, "zoom" | "centerX" | "centerY">) {
+/** Where the (possibly vertically stretched) video frame sits, relative to its window. */
+export function frameInWindow(win: WindowRect, config: View) {
   const width = win.width * config.zoom
-  const height = (width * 9) / 16
+  const height = ((width * 9) / 16) * (config.stretchY ?? 1)
   return { left: win.width / 2 - config.centerX * width, top: win.height / 2 - config.centerY * height, width, height }
 }
 
