@@ -465,7 +465,8 @@ export default function StreamOverlay() {
         .text-box-left .zelda-input,
         .text-box-right .zelda-input {
           line-height: 36px;
-          top: -5px;
+          top: -4px;
+          color: #7ef5ff;
         }
 
         .zelda-input {
