@@ -10,21 +10,25 @@ export const BRICK_W = STAGE_WIDTH / BRICK_COLS
 export const BRICK_H = STAGE_HEIGHT / BRICK_ROWS
 
 export const QUAD_COUNT = 4
-export const QUAD_TRACKER_WIDTH = 150
 
 function brickRect(col: number, row: number, cols: number, rows: number): WindowRect {
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
 }
 
-// Player cells fill the left 31 brick columns as a 2x2 grid; the side panel takes the rest.
+// Player cells fill the top 19 brick rows (~80%) as a 2x2 grid; the info bar spans the bottom.
 export const QUAD_CELLS: WindowRect[] = [
-  brickRect(1, 1, 14, 10),
-  brickRect(16, 1, 14, 10),
-  brickRect(1, 12, 14, 10),
-  brickRect(16, 12, 14, 10),
+  brickRect(1, 1, 19, 8),
+  brickRect(21, 1, 19, 8),
+  brickRect(1, 10, 19, 8),
+  brickRect(21, 10, 19, 8),
 ]
 
-export const QUAD_PANEL = brickRect(31, 1, 9, 21)
+export const QUAD_PANEL = brickRect(1, 19, 39, 3)
+
+// The tracker takes whatever width is left after a full-height 16:9 video
+export const QUAD_TRACKER_WIDTH = Math.floor(
+  QUAD_CELLS[0].width - (QUAD_CELLS[0].height * 16) / 9,
+)
 
 // Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
 // sideways under the tracker and divider without ever reaching the next player's video.
@@ -41,8 +45,8 @@ export const QUAD_DEFAULT_ZOOM =
 
 // The settings panel is centered over the player grid, at the same size as the two-runner panel
 export const QUAD_PANEL_DOCK: WindowRect = {
-  left: (QUAD_CELLS[0].left + QUAD_CELLS[1].left + QUAD_CELLS[1].width - 655) / 2,
-  top: (STAGE_HEIGHT - 511) / 2,
+  left: (STAGE_WIDTH - 655) / 2,
+  top: (QUAD_CELLS[0].top + QUAD_CELLS[2].top + QUAD_CELLS[2].height - 511) / 2,
   width: 655,
   height: 511,
 }

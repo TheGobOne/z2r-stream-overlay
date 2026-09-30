@@ -160,16 +160,34 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           position: absolute;
           box-sizing: border-box;
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
           align-items: center;
-          gap: 10px;
-          padding: 28px 18px;
+          justify-content: space-evenly;
+          gap: 32px;
+          padding: 8px 24px;
           background: #000000;
           font-family: 'ZeldaII', monospace;
         }
 
+        .quad-side-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .quad-side-row {
+          display: flex;
+          gap: 12px;
+        }
+
+        .quad-side-row .quad-side-input {
+          width: 220px;
+        }
+
         .quad-side-title {
-          margin: 14px 0 2px;
+          margin: 0;
           font-size: 16px;
           letter-spacing: 1px;
           color: #ffd700;
@@ -186,18 +204,17 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         .quad-side .quad-side-timer {
           position: static;
           transform: none;
-          margin-top: 24px;
+          margin: 0;
           padding: 0;
           background: none;
           border: none;
-          font-size: 30px;
+          font-size: 36px;
         }
 
         .quad-side-gem {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-top: auto;
           padding: 0;
           background: none;
           border: none;
@@ -260,18 +277,18 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           flex-wrap: wrap;
           justify-content: center;
           gap: 3px;
-          width: ${4 * 30 + 3 * 3}px;
+          width: ${5 * 28 + 4 * 3}px;
         }
 
         .quad-grid > button {
-          width: 30px;
-          height: 30px;
+          width: 28px;
+          height: 28px;
         }
 
         .quad-tracker .boss-btn img,
         .quad-tracker .item-btn img {
-          width: 30px;
-          height: 30px;
+          width: 28px;
+          height: 28px;
         }
 
         .quad-tracker .boss-badge,

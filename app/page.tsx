@@ -1409,40 +1409,48 @@ export default function StreamOverlay() {
             onSidePanelContextMenu={reopenSetup}
             sidePanel={
               <>
-                <p className="quad-side-title">Commentary</p>
-                <input
-                  type="text"
-                  className="commentary-input quad-side-input"
-                  value={commentator1}
-                  onChange={(e) => setCommentator1(e.target.value)}
-                  placeholder="COM 1"
-                  aria-label="Commentator 1"
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-                {commentatorCount === 2 && (
-                  <input
-                    type="text"
-                    className="commentary-input quad-side-input"
-                    value={commentator2}
-                    onChange={(e) => setCommentator2(e.target.value)}
-                    placeholder="COM 2"
-                    aria-label="Commentator 2"
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                )}
-                <p className="quad-side-title">Tracking</p>
-                <input
-                  type="text"
-                  className="tracking-input quad-side-input"
-                  value={tracking}
-                  onChange={(e) => setTracking(e.target.value)}
-                  placeholder="TRACKING"
-                  aria-label="Tracking"
-                  spellCheck={false}
-                  autoComplete="off"
-                />
+                <div className="quad-side-group">
+                  <p className="quad-side-title">Commentary</p>
+                  <div className="quad-side-row">
+                    <input
+                      type="text"
+                      className="commentary-input quad-side-input"
+                      value={commentator1}
+                      onChange={(e) => setCommentator1(e.target.value)}
+                      placeholder="COM 1"
+                      aria-label="Commentator 1"
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    {commentatorCount === 2 && (
+                      <input
+                        type="text"
+                        className="commentary-input quad-side-input"
+                        value={commentator2}
+                        onChange={(e) => setCommentator2(e.target.value)}
+                        placeholder="COM 2"
+                        aria-label="Commentator 2"
+                        spellCheck={false}
+                        autoComplete="off"
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="quad-side-group">
+                  <p className="quad-side-title">Tracking</p>
+                  <div className="quad-side-row">
+                    <input
+                      type="text"
+                      className="tracking-input quad-side-input"
+                      value={tracking}
+                      onChange={(e) => setTracking(e.target.value)}
+                      placeholder="TRACKING"
+                      aria-label="Tracking"
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
                 <button
                   type="button"
                   className={`timer-display quad-side-timer${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
