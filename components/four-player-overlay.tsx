@@ -271,6 +271,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           width: ${4 * 30 + 3 * 3}px;
         }
 
+        .quad-grid.quad-grid-3 {
+          width: ${3 * 30 + 2 * 3}px;
+        }
+
         .quad-grid > button {
           width: 30px;
           height: 30px;
@@ -336,7 +340,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             />
           </div>
 
-          <div className="quad-grid" role="group" aria-label={`${labelFor(i)} boss tracker`}>
+          <div
+                className={`quad-grid${bosses.some((boss) => boss.id === "thunderbird") ? "" : " quad-grid-3"}`}
+                role="group"
+                aria-label={`${labelFor(i)} boss tracker`}
+              >
             {bosses.map((boss) => {
               const off = notDefeated[i].has(boss.id)
               const badge = bossBadges[boss.id]
