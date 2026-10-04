@@ -215,7 +215,13 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
       if (playerRef.current !== player || !pendingPlayRef.current) return
       // Autoplay can be reported as "playing" while the browser has actually blocked it,
       // so check whether the playhead actually moved before retrying.
-      if (player.getCurrentTime() - startedAt > 0.25) return
+      if (player.getCurrentTime() - startedAt > 0.25) {
+        // Now that playback is confirmed rolling, it's safe to sync the real mute
+        // state — unmuting before/while starting playback is what makes browsers
+        // (and Twitch's embed in particular) block the play() call outright.
+        player.setMuted(latest.current.muted)
+        return
+      }
       if (attempt >= MAX_PLAY_ATTEMPTS) return
       if (attempt === 0 && !player.getMuted()) {
         player.setMuted(true)
@@ -245,9 +251,16 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
       if (cancelled || readyRef.current) return
       readyRef.current = true
       player.setVolume(latest.current.volume)
-      // Unmuting before playback starts makes browsers block the next play() call
-      if (latest.current.muted) player.setMuted(true)
-      if (pendingPlayRef.current) attemptPlay(player)
+      if (pendingPlayRef.current) {
+        attemptPlay(player)
+      } else {
+        // Twitch is always constructed with autoplay on (muted) to dodge its
+        // unreliable postMessage-driven play() call; stop it here if nothing
+        // actually asked to play yet. Safe to sync the real mute state too,
+        // since nothing is playing.
+        player.pause()
+        player.setMuted(latest.current.muted)
+      }
     }
 
     if (platform === "youtube") {
@@ -283,8 +296,12 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
             ...(videoId
               ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
               : { channel }),
-            autoplay: false,
-            muted: latest.current.muted,
+            // Twitch's postMessage-driven play() call is unreliable once the embed has
+            // loaded unmuted/paused; starting muted+autoplay here is the only combination
+            // Twitch's own autoplay policy reliably honors. markReady() stops it again
+            // immediately if nothing actually asked to play yet.
+            autoplay: true,
+            muted: true,
             parent: getParentDomains(),
           })
           const wrapped = wrapTwitch(player)
