@@ -172,6 +172,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
             ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
             : { channel }),
           autoplay: false,
+          controls: false,
           muted: latest.current.muted,
           parent: getParentDomains(),
         })
@@ -269,6 +270,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         className="vod-frame"
         style={overscan(layout)}
       />
+      {/* Keeps the mouse out of the embed so it never shows its hover overlay */}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0 }} />
       {config.crop && (
         <div
           className="vod-crop-mask"

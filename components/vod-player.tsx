@@ -157,6 +157,9 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
             mute: latest.current.muted ? 1 : 0,
             start: Math.floor(latest.current.startSeconds),
             playsinline: 1,
+            controls: 0,
+            disablekb: 1,
+            iv_load_policy: 3,
             modestbranding: 1,
             rel: 0,
           },
@@ -257,6 +260,8 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
       }}
     >
       <div ref={hostRef} className="vod-frame" style={overscan(layout)} />
+      {/* Keeps the mouse out of the embed so it never shows its hover title/dim overlay */}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0 }} />
       {config.crop && (
         <div
           className="vod-crop-mask"
