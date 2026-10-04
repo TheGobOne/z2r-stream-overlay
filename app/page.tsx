@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
+import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
@@ -1134,7 +1134,7 @@ export default function StreamOverlay() {
           background: #000000;
           /* Twitch pauses embeds that are covered by any other element (even empty ones like
              .transparent-overlay-* and .vod-hitbox), so the video sits above everything that
-             overlaps it. The per-side z-index is set inline by TwitchVodPlayer. */
+             overlaps it. The per-side z-index is set inline by VodPlayer. */
           z-index: 13;
         }
 
@@ -1588,9 +1588,9 @@ export default function StreamOverlay() {
         )}
 
         {runnerCount === 2 && (<>
-        {/* Twitch VODs render above the overlay art, clipped to the game windows */}
+        {/* VODs render above the overlay art, clipped to the game windows */}
         {(["left", "right"] as const).map((side) => (
-          <TwitchVodPlayer
+          <VodPlayer
             key={side}
             ref={vodRefs[side]}
             side={side}
@@ -1712,7 +1712,7 @@ export default function StreamOverlay() {
                   Max Rando
                 </label>
               </div>
-              <p className="setup-hint">Right-click a game window to load a Twitch VOD or livestream</p>
+              <p className="setup-hint">Right-click a game window to load a Twitch or YouTube VOD, or a Twitch livestream</p>
               <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
             </div>
           </div>

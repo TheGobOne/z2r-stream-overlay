@@ -1,14 +1,14 @@
 "use client"
 
 import { useEffect, useState, type RefObject } from "react"
-import type { VodPlayerHandle } from "@/components/twitch-vod-player"
+import type { VodPlayerHandle } from "@/components/vod-player"
 import {
   createVodConfig,
   DEFAULT_ZOOM,
   formatTime,
   hasSource,
   parseTime,
-  parseTwitchSource,
+  parseVodSource,
   VOD_WINDOWS,
   type VodConfig,
   type VodSide,
@@ -77,9 +77,9 @@ export function VodPanel({
   }, [onClose])
 
   function loadVod() {
-    const parsed = parseTwitchSource(urlDraft)
+    const parsed = parseVodSource(urlDraft)
     if (!parsed) {
-      setError("Paste a twitch.tv/videos/... or twitch.tv/channel link")
+      setError("Paste a Twitch VOD/channel link or a YouTube video link")
       return
     }
     if (parsed.kind === "live") {
@@ -87,6 +87,7 @@ export function VodPanel({
       setStartDraft("")
       onChange({
         url: urlDraft.trim(),
+        platform: parsed.platform,
         videoId: null,
         channel: parsed.channel,
         startSeconds: 0,
@@ -104,6 +105,7 @@ export function VodPanel({
     setStartDraft(formatTime(startSeconds))
     onChange({
       url: urlDraft.trim(),
+      platform: parsed.platform,
       videoId: parsed.videoId,
       channel: null,
       startSeconds,
@@ -153,7 +155,7 @@ export function VodPanel({
 
       <div className="vod-panel-section">
         <label className="vod-label" htmlFor={`vod-url-${side}`}>
-          Twitch VOD or channel link
+          Twitch or YouTube link
         </label>
         <input
           id={`vod-url-${side}`}
@@ -161,7 +163,7 @@ export function VodPanel({
           value={urlDraft}
           onChange={(e) => setUrlDraft(e.target.value)}
           onKeyDown={onEnter}
-          placeholder="twitch.tv/videos/123456789 or twitch.tv/channel"
+          placeholder="twitch.tv/videos/123, youtube.com/watch?v=..., or twitch.tv/channel"
           spellCheck={false}
           autoComplete="off"
           autoFocus
@@ -292,7 +294,8 @@ export function VodPanel({
               <span className="vod-value">{Math.round(config.volume * 100)}%</span>
             </div>
             <p className="vod-hint">
-              Twitch controls work directly on the video. Right-click the frame around it to reopen this panel.
+              The video&apos;s own controls work directly on it. Right-click the frame around it to reopen this
+              panel.
             </p>
           </div>
         </>

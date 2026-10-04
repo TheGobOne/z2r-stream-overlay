@@ -1,7 +1,7 @@
 "use client"
 
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react"
-import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
+import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
@@ -505,7 +505,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       ))}
 
       {vods.map((config, i) => (
-        <TwitchVodPlayer
+        <VodPlayer
           key={i}
           ref={playerRefs[i]}
           side={`quad-${i}`}
