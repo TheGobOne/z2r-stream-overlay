@@ -1,9 +1,12 @@
 export type VodSide = "left" | "right"
 
+export type VodPlatform = "twitch" | "youtube"
+
 export type VodConfig = {
   url: string
+  platform: VodPlatform
   videoId: string | null
-  /** Set instead of videoId when showing a live channel. */
+  /** Set instead of videoId when showing a live Twitch channel. */
   channel: string | null
   startSeconds: number
   loadKey: number
@@ -51,6 +54,7 @@ export const DEFAULT_ZOOM = Math.round((511 / ((655 * 9) / 16)) * 100) / 100
 export function createVodConfig(): VodConfig {
   return {
     url: "",
+    platform: "twitch",
     videoId: null,
     channel: null,
     startSeconds: 0,
@@ -216,14 +220,60 @@ export function parseTwitchSource(input: string): TwitchSource | null {
       return { kind: "vod", videoId, startSeconds: t ? parseTime(t) : null }
     }
 
-    const channel = url.searchParams.get("channel") ?? url.pathname.split("/").filter(Boolean)[0]
-    if (channel && CHANNEL_NAME.test(channel) && !RESERVED_PATHS.has(channel.toLowerCase())) {
-      return { kind: "live", channel: channel.toLowerCase() }
+    const liveChannel = url.searchParams.get("channel") ?? url.pathname.split("/").filter(Boolean)[0]
+    if (liveChannel && CHANNEL_NAME.test(liveChannel) && !RESERVED_PATHS.has(liveChannel.toLowerCase())) {
+      return { kind: "live", channel: liveChannel.toLowerCase() }
     }
     return null
   } catch {
     return null
   }
+}
+
+export type YouTubeSource = { kind: "vod"; videoId: string; startSeconds: number | null }
+
+const YOUTUBE_VIDEO_ID = /^[a-zA-Z0-9_-]{10,12}$/
+
+/**
+ * Accepts a youtube.com/watch?v=..., youtu.be/..., youtube.com/live/..., youtube.com/embed/...,
+ * or youtube.com/shorts/... URL (optionally with ?t=1h2m3s or ?t=123).
+ */
+export function parseYouTubeSource(input: string): YouTubeSource | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  try {
+    const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`)
+    const host = url.hostname.replace(/^www\./, "").replace(/^m\./, "")
+    let videoId: string | null = null
+    if (host === "youtu.be") {
+      videoId = url.pathname.split("/").filter(Boolean)[0] ?? null
+    } else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+      videoId = url.searchParams.get("v") ?? url.pathname.match(/\/(?:embed|live|shorts)\/([^/?]+)/)?.[1] ?? null
+    } else {
+      return null
+    }
+    if (!videoId || !YOUTUBE_VIDEO_ID.test(videoId)) return null
+
+    const t = url.searchParams.get("t") ?? url.searchParams.get("start")
+    return { kind: "vod", videoId, startSeconds: t ? parseTime(t) : null }
+  } catch {
+    return null
+  }
+}
+
+export type VodSource =
+  | { platform: "twitch"; kind: "vod"; videoId: string; startSeconds: number | null }
+  | { platform: "twitch"; kind: "live"; channel: string }
+  | { platform: "youtube"; kind: "vod"; videoId: string; startSeconds: number | null }
+
+/** Tries Twitch first (VOD, channel, or bare id), then YouTube (VOD links only). */
+export function parseVodSource(input: string): VodSource | null {
+  const twitch = parseTwitchSource(input)
+  if (twitch) return { platform: "twitch", ...twitch }
+  const youtube = parseYouTubeSource(input)
+  if (youtube) return { platform: "youtube", ...youtube }
+  return null
 }
 
 /** Parses "1:02:03", "62:03", "1h2m3s", or "3723" into seconds. */
