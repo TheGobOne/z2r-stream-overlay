@@ -517,6 +517,13 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               onAutoMute={() => updateVod(i, { muted: true })}
               onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
               onVolumeChange={(volume) => updateVod(i, { volume })}
+              onStuck={() => {
+                // Twitch's embed can wedge itself so play() is accepted but the playhead
+                // never moves; the only reliable fix is a fresh iframe, which reliably
+                // autoplays from the same (frozen, so no time is lost) position.
+                setVods((prev) => prev.map((c, j) => (j === i ? { ...c, loadKey: c.loadKey + 1 } : c)))
+                window.setTimeout(() => playerRefs[i].current?.play(), 300)
+              }}
         />
       ))}
 

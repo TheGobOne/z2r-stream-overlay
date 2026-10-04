@@ -166,6 +166,8 @@ type Props = {
   onVolumeChange: (volume: number) => void
   /** Lift this player above the settings panel while it is being edited. */
   raised?: boolean
+  /** Called when play() was requested but the embed never actually started rolling. */
+  onStuck?: () => void
 }
 
 // Both embeds draw a thin edge, and fractional offsets leave a sub-pixel seam, so the frame
@@ -195,7 +197,7 @@ const AUTOPLAY_CHECK_MS = 1200
 const MAX_PLAY_ATTEMPTS = 4
 
 export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
-  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false },
+  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false, onStuck },
   ref,
 ) {
   const mountId = `vod-player-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -207,22 +209,31 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
   latest.current = config
   const onAutoMuteRef = useRef(onAutoMute)
   onAutoMuteRef.current = onAutoMute
+  const onStuckRef = useRef(onStuck)
+  onStuckRef.current = onStuck
 
   function attemptPlay(player: NormalizedPlayer, attempt = 0) {
     const startedAt = player.getCurrentTime()
     player.play()
     window.setTimeout(() => {
       if (playerRef.current !== player || !pendingPlayRef.current) return
+      const now = player.getCurrentTime()
       // Autoplay can be reported as "playing" while the browser has actually blocked it,
       // so check whether the playhead actually moved before retrying.
-      if (player.getCurrentTime() - startedAt > 0.25) {
+      if (now - startedAt > 0.25) {
         // Now that playback is confirmed rolling, it's safe to sync the real mute
         // state — unmuting before/while starting playback is what makes browsers
         // (and Twitch's embed in particular) block the play() call outright.
         player.setMuted(latest.current.muted)
         return
       }
-      if (attempt >= MAX_PLAY_ATTEMPTS) return
+      if (attempt >= MAX_PLAY_ATTEMPTS) {
+        // Twitch's embed can wedge itself into a state where play() is accepted but the
+        // playhead never moves again, no matter how many times it's called. The only
+        // reliable recovery is tearing the iframe down and letting a fresh one autoplay.
+        onStuckRef.current?.()
+        return
+      }
       if (attempt === 0 && !player.getMuted()) {
         player.setMuted(true)
         onAutoMuteRef.current()
@@ -253,13 +264,14 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
       player.setVolume(latest.current.volume)
       if (pendingPlayRef.current) {
         attemptPlay(player)
-      } else {
-        // Twitch is always constructed with autoplay on (muted) to dodge its
-        // unreliable postMessage-driven play() call; stop it here if nothing
-        // actually asked to play yet. Safe to sync the real mute state too,
-        // since nothing is playing.
-        player.pause()
+      } else if (platform === "youtube") {
+        // YouTube is constructed with autoplay off, so nothing to undo here.
         player.setMuted(latest.current.muted)
+      } else {
+        // Twitch is constructed with autoplay on (muted) to dodge its unreliable
+        // postMessage-driven play() call. Deliberately don't call pause() or
+        // setMuted() here: an explicit pause()-then-resume cycle is what can wedge
+        // Twitch's play() permanently, not the mute state itself.
       }
     }
 
