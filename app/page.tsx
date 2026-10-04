@@ -1170,26 +1170,7 @@ export default function StreamOverlay() {
           align-items: flex-start;
         }
 
-        .vod-audio-outside {
-  right: auto;
-  bottom: auto;
-  z-index: 12;
-  }
-  
-  .vod-audio-outside .vod-volume-pop {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  }
-  
-  .vod-audio-outside-left .vod-volume-pop {
-  left: 0;
-  }
-  
-  .vod-audio-outside-right .vod-volume-pop {
-  right: 0;
-  }
-  
-  .vod-audio-badge {
+        .vod-audio-badge {
           position: relative;
           display: flex;
           align-items: center;
@@ -1256,8 +1237,6 @@ export default function StreamOverlay() {
   }
 
   .vod-window:hover .vod-audio-badge-muted,
-  .vod-window:hover + .vod-audio-outside .vod-audio-badge-muted,
-  .vod-audio-outside:hover .vod-audio-badge-muted,
   .vod-audio:focus-within .vod-audio-badge-muted,
   .vod-audio-badge-muted[aria-expanded="true"] {
   opacity: 1;
