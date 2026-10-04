@@ -2,24 +2,10 @@
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
 import { Music } from "lucide-react"
-import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
+import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
+import { VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
 
-type TwitchPlayer = {
-  play(): void
-  pause(): void
-  seek(seconds: number): void
-  getCurrentTime(): number
-  isPaused(): boolean
-  setMuted(muted: boolean): void
-  getMuted(): boolean
-  setVolume(volume: number): void
-  addEventListener(event: string, callback: () => void): void
-}
-
-type TwitchPlayerConstructor = {
-  new (elementId: string, options: Record<string, unknown>): TwitchPlayer
-  READY: string
-}
+export type { VodPlayerHandle }
 
 type YouTubePlayer = {
   playVideo(): void
@@ -37,84 +23,16 @@ type YouTubePlayerConstructor = new (elementId: string, options: Record<string, 
 
 declare global {
   interface Window {
-    Twitch?: { Player: TwitchPlayerConstructor }
     YT?: { Player: YouTubePlayerConstructor }
     onYouTubeIframeAPIReady?: () => void
   }
 }
 
-export type VodPlayerHandle = {
-  play(): void
-  pause(): void
-  seekTo(seconds: number): void
-  nudge(seconds: number): void
-  getCurrentTime(): number | null
-  isPaused(): boolean
-}
-
-/** Normalizes Twitch's and YouTube's differing player APIs to one shape the rest of this component drives. */
-type NormalizedPlayer = {
-  play(): void
-  pause(): void
-  seek(seconds: number): void
-  getCurrentTime(): number
-  isPlaying(): boolean
-  setMuted(muted: boolean): void
-  getMuted(): boolean
-  /** 0..1 */
-  setVolume(volume: number): void
-}
-
-function wrapTwitch(player: TwitchPlayer): NormalizedPlayer {
-  return {
-    play: () => player.play(),
-    pause: () => player.pause(),
-    seek: (seconds) => player.seek(seconds),
-    getCurrentTime: () => player.getCurrentTime(),
-    isPlaying: () => !player.isPaused(),
-    setMuted: (muted) => player.setMuted(muted),
-    getMuted: () => player.getMuted(),
-    setVolume: (volume) => player.setVolume(volume),
-  }
-}
-
-function wrapYouTube(player: YouTubePlayer): NormalizedPlayer {
-  return {
-    play: () => player.playVideo(),
-    pause: () => player.pauseVideo(),
-    seek: (seconds) => player.seekTo(seconds, true),
-    getCurrentTime: () => player.getCurrentTime(),
-    // 1 = playing, 3 = buffering (still counts as attempting to play)
-    isPlaying: () => [1, 3].includes(player.getPlayerState()),
-    setMuted: (muted) => (muted ? player.mute() : player.unMute()),
-    getMuted: () => player.isMuted(),
-    setVolume: (volume) => player.setVolume(Math.round(volume * 100)),
-  }
-}
-
-let twitchEmbedScript: Promise<void> | null = null
-
-function loadTwitchEmbed() {
-  if (window.Twitch?.Player) return Promise.resolve()
-  twitchEmbedScript ??= new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script")
-    script.src = "https://player.twitch.tv/js/embed/v1.js"
-    script.async = true
-    script.onload = () => resolve()
-    script.onerror = () => {
-      twitchEmbedScript = null
-      reject(new Error("Failed to load the Twitch embed script"))
-    }
-    document.head.appendChild(script)
-  })
-  return twitchEmbedScript
-}
-
-let youtubeEmbedScript: Promise<void> | null = null
+let embedScript: Promise<void> | null = null
 
 function loadYouTubeEmbed() {
   if (window.YT?.Player) return Promise.resolve()
-  youtubeEmbedScript ??= new Promise<void>((resolve, reject) => {
+  embedScript ??= new Promise<void>((resolve, reject) => {
     const previousReady = window.onYouTubeIframeAPIReady
     window.onYouTubeIframeAPIReady = () => {
       previousReady?.()
@@ -124,31 +42,12 @@ function loadYouTubeEmbed() {
     script.src = "https://www.youtube.com/iframe_api"
     script.async = true
     script.onerror = () => {
-      youtubeEmbedScript = null
+      embedScript = null
       reject(new Error("Failed to load the YouTube embed script"))
     }
     document.head.appendChild(script)
   })
-  return youtubeEmbedScript
-}
-
-// Twitch refuses to play unless every embedding domain is listed as a parent,
-// which includes the v0 preview frame and any page that iframes the overlay.
-function getParentDomains() {
-  const hosts = new Set<string>([window.location.hostname])
-  const ancestors = window.location.ancestorOrigins
-  if (ancestors) {
-    for (let i = 0; i < ancestors.length; i++) {
-      try {
-        hosts.add(new URL(ancestors[i]).hostname)
-      } catch {}
-    }
-  } else if (document.referrer) {
-    try {
-      hosts.add(new URL(document.referrer).hostname)
-    } catch {}
-  }
-  return [...hosts]
+  return embedScript
 }
 
 type Props = {
@@ -166,15 +65,20 @@ type Props = {
   onVolumeChange: (volume: number) => void
   /** Lift this player above the settings panel while it is being edited. */
   raised?: boolean
-  /** Called when play() was requested but the embed never actually started rolling. */
-  onStuck?: () => void
 }
 
-// Both embeds draw a thin edge, and fractional offsets leave a sub-pixel seam, so the frame
-// is grown a few pixels past the window (keeping aspect) and clipped away.
+/**
+ * Twitch keeps its original, proven player untouched; YouTube gets its own so changes
+ * for one provider can never affect how the other starts playback.
+ */
+export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(props, ref) {
+  if (props.config.platform === "youtube") return <YouTubeVodPlayer key="youtube" ref={ref} {...props} />
+  return <TwitchVodPlayer key="twitch" ref={ref} {...props} />
+})
+
 const EDGE_OVERSCAN_PX = 3
 
-// Both providers letterbox inside a non-16:9 iframe, so the iframe stays 16:9 and a scaleY
+// YouTube letterboxes inside a non-16:9 iframe, so the iframe stays 16:9 and a scaleY
 // transform stretches it to a cropped layout's height.
 function overscan(layout: VodFrameLayout): React.CSSProperties {
   const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
@@ -195,61 +99,44 @@ function overscan(layout: VodFrameLayout): React.CSSProperties {
 
 const AUTOPLAY_CHECK_MS = 1200
 const MAX_PLAY_ATTEMPTS = 4
+const YT_PLAYING = 1
+const YT_BUFFERING = 3
 
-export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
-  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false, onStuck },
+const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodPlayer(
+  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false },
   ref,
 ) {
-  const mountId = `vod-player-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
+  const mountId = `youtube-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
   const hostRef = useRef<HTMLDivElement>(null)
-  const playerRef = useRef<NormalizedPlayer | null>(null)
+  const playerRef = useRef<YouTubePlayer | null>(null)
   const readyRef = useRef(false)
   const pendingPlayRef = useRef(false)
   const latest = useRef(config)
   latest.current = config
   const onAutoMuteRef = useRef(onAutoMute)
   onAutoMuteRef.current = onAutoMute
-  const onStuckRef = useRef(onStuck)
-  onStuckRef.current = onStuck
 
-  function attemptPlay(player: NormalizedPlayer, attempt = 0) {
+  function attemptPlay(player: YouTubePlayer, attempt = 0) {
     const startedAt = player.getCurrentTime()
-    player.play()
+    player.playVideo()
     window.setTimeout(() => {
       if (playerRef.current !== player || !pendingPlayRef.current) return
-      const now = player.getCurrentTime()
-      // Autoplay can be reported as "playing" while the browser has actually blocked it,
-      // so check whether the playhead actually moved before retrying.
-      if (now - startedAt > 0.25) {
-        // Now that playback is confirmed rolling, it's safe to sync the real mute
-        // state — unmuting before/while starting playback is what makes browsers
-        // (and Twitch's embed in particular) block the play() call outright.
-        player.setMuted(latest.current.muted)
-        return
-      }
-      if (attempt >= MAX_PLAY_ATTEMPTS) {
-        // Twitch's embed can wedge itself into a state where play() is accepted but the
-        // playhead never moves again, no matter how many times it's called. The only
-        // reliable recovery is tearing the iframe down and letting a fresh one autoplay.
-        onStuckRef.current?.()
-        return
-      }
-      if (attempt === 0 && !player.getMuted()) {
-        player.setMuted(true)
+      if (player.getCurrentTime() - startedAt > 0.25) return
+      if (attempt >= MAX_PLAY_ATTEMPTS) return
+      // Browsers block unmuted autoplay without a gesture; muted playback is always allowed.
+      if (attempt === 0 && !player.isMuted()) {
+        player.mute()
         onAutoMuteRef.current()
       }
-      // A paused-then-played cycle un-sticks embeds that silently ignored the first play()
-      player.pause()
       attemptPlay(player, attempt + 1)
     }, AUTOPLAY_CHECK_MS)
   }
 
-  const { platform, videoId, channel, loadKey, muted, volume } = config
-  const isLive = !videoId && Boolean(channel)
+  const { videoId, loadKey, muted, volume } = config
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || (!videoId && !channel)) return
+    if (!host || !videoId) return
     let cancelled = false
 
     const mount = document.createElement("div")
@@ -258,73 +145,34 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
     mount.style.height = "100%"
     host.replaceChildren(mount)
 
-    function markReady(player: NormalizedPlayer) {
-      if (cancelled || readyRef.current) return
-      readyRef.current = true
-      player.setVolume(latest.current.volume)
-      if (pendingPlayRef.current) {
-        attemptPlay(player)
-      } else if (platform === "youtube") {
-        // YouTube is constructed with autoplay off, so nothing to undo here.
-        player.setMuted(latest.current.muted)
-      } else {
-        // Twitch is constructed with autoplay on (muted) to dodge its unreliable
-        // postMessage-driven play() call. Deliberately don't call pause() or
-        // setMuted() here: an explicit pause()-then-resume cycle is what can wedge
-        // Twitch's play() permanently, not the mute state itself.
-      }
-    }
-
-    if (platform === "youtube") {
-      loadYouTubeEmbed()
-        .then(() => {
-          if (cancelled || !window.YT || !videoId) return
-          const ytPlayer = new window.YT.Player(mountId, {
-            width: "100%",
-            height: "100%",
-            videoId,
-            playerVars: {
-              autoplay: 0,
-              mute: latest.current.muted ? 1 : 0,
-              start: Math.floor(latest.current.startSeconds),
-              playsinline: 1,
-              modestbranding: 1,
-              rel: 0,
+    loadYouTubeEmbed()
+      .then(() => {
+        if (cancelled || !window.YT) return
+        const player = new window.YT.Player(mountId, {
+          width: "100%",
+          height: "100%",
+          videoId,
+          playerVars: {
+            autoplay: 0,
+            mute: latest.current.muted ? 1 : 0,
+            start: Math.floor(latest.current.startSeconds),
+            playsinline: 1,
+            modestbranding: 1,
+            rel: 0,
+          },
+          events: {
+            onReady: () => {
+              if (cancelled) return
+              readyRef.current = true
+              player.setVolume(Math.round(latest.current.volume * 100))
+              if (latest.current.muted) player.mute()
+              if (pendingPlayRef.current) attemptPlay(player)
             },
-            events: {
-              onReady: () => markReady(wrapYouTube(ytPlayer)),
-            },
-          })
-          playerRef.current = wrapYouTube(ytPlayer)
+          },
         })
-        .catch((error) => console.error(error))
-    } else {
-      loadTwitchEmbed()
-        .then(() => {
-          if (cancelled || !window.Twitch) return
-          const player = new window.Twitch.Player(mountId, {
-            width: "100%",
-            height: "100%",
-            ...(videoId
-              ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
-              : { channel }),
-            // Twitch's postMessage-driven play() call is unreliable once the embed has
-            // loaded unmuted/paused; starting muted+autoplay here is the only combination
-            // Twitch's own autoplay policy reliably honors. markReady() stops it again
-            // immediately if nothing actually asked to play yet.
-            autoplay: true,
-            muted: true,
-            parent: getParentDomains(),
-          })
-          const wrapped = wrapTwitch(player)
-          playerRef.current = wrapped
-          const onPlayerReady = () => markReady(wrapped)
-          player.addEventListener(window.Twitch!.Player.READY, onPlayerReady)
-          player.addEventListener("playing", onPlayerReady)
-          player.addEventListener("play", onPlayerReady)
-        })
-        .catch((error) => console.error(error))
-    }
+        playerRef.current = player
+      })
+      .catch((error) => console.error(error))
 
     return () => {
       cancelled = true
@@ -333,14 +181,17 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
       pendingPlayRef.current = false
       host.replaceChildren()
     }
-  }, [platform, videoId, channel, loadKey, mountId])
+  }, [videoId, loadKey, mountId])
 
   useEffect(() => {
-    playerRef.current?.setMuted(muted)
+    const player = playerRef.current
+    if (!player || !readyRef.current) return
+    if (muted) player.mute()
+    else player.unMute()
   }, [muted])
 
   useEffect(() => {
-    playerRef.current?.setVolume(volume)
+    if (readyRef.current) playerRef.current?.setVolume(Math.round(volume * 100))
   }, [volume])
 
   const [volumeOpen, setVolumeOpen] = useState(false)
@@ -370,20 +221,25 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
     },
     pause: () => {
       pendingPlayRef.current = false
-      if (readyRef.current) playerRef.current?.pause()
+      if (readyRef.current) playerRef.current?.pauseVideo()
     },
     seekTo: (seconds) => {
-      if (readyRef.current && !isLive) playerRef.current?.seek(Math.max(0, seconds))
+      if (readyRef.current) playerRef.current?.seekTo(Math.max(0, seconds), true)
     },
     nudge: (seconds) => {
       const player = playerRef.current
-      if (player && readyRef.current && !isLive) player.seek(Math.max(0, player.getCurrentTime() + seconds))
+      if (player && readyRef.current) player.seekTo(Math.max(0, player.getCurrentTime() + seconds), true)
     },
     getCurrentTime: () => (readyRef.current ? (playerRef.current?.getCurrentTime() ?? null) : null),
-    isPaused: () => (readyRef.current ? !(playerRef.current?.isPlaying() ?? false) : true),
+    isPaused: () => {
+      const player = playerRef.current
+      if (!player || !readyRef.current) return true
+      const state = player.getPlayerState()
+      return state !== YT_PLAYING && state !== YT_BUFFERING
+    },
   }))
 
-  if (!videoId && !channel) return null
+  if (!videoId) return null
 
   const win = winProp ?? VOD_WINDOWS[side as VodSide]
   const playerName = label ?? (side === "right" ? "Player 2" : "Player 1")
@@ -400,23 +256,17 @@ export const VodPlayer = forwardRef<VodPlayerHandle, Props>(function VodPlayer(
         zIndex: raised ? 902 : layout.onTop ? 14 : 13,
       }}
     >
-      <div
-        ref={hostRef}
-        className="vod-frame"
-        style={overscan(layout)}
-      />
+      <div ref={hostRef} className="vod-frame" style={overscan(layout)} />
       {config.crop && (
         <div
           className="vod-crop-mask"
           aria-hidden="true"
           style={{
-                // Anchored to the window center rather than the frame: the frame can be nudged
-                // sideways to avoid covering the other embed, and the mask must not follow.
-                left: "50%",
-                top: "50%",
-                width: (config.crop.x1 - config.crop.x0) * layout.width,
-                height: (config.crop.y1 - config.crop.y0) * layout.height,
-                transform: "translate(-50%, -50%)",
+            left: "50%",
+            top: "50%",
+            width: (config.crop.x1 - config.crop.x0) * layout.width,
+            height: (config.crop.y1 - config.crop.y0) * layout.height,
+            transform: "translate(-50%, -50%)",
           }}
         />
       )}
