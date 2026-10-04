@@ -172,6 +172,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
             ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
             : { channel }),
           autoplay: false,
+          controls: false,
           muted: latest.current.muted,
           parent: getParentDomains(),
         })

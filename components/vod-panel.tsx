@@ -294,7 +294,7 @@ export function VodPanel({
               <span className="vod-value">{Math.round(config.volume * 100)}%</span>
             </div>
             <p className="vod-hint">
-              The video&apos;s own controls work directly on it. Right-click the frame around it to reopen this
+              The video&apos;s own controls are hidden, so use Play/Pause here or the timer. Right-click the frame around it to reopen this
               panel.
             </p>
           </div>
