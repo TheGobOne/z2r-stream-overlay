@@ -129,15 +129,27 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const layouts = resolveQuadLayouts(windows, viewVods, layout.stretchCrop ?? true)
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
 
-  // With a crop, the black bar right of the picture joins the tracker column, so center the tracker in that space
+  // With a crop, the black bar beside the picture joins the tracker column, so center the tracker in that space
   const trackerLeft = (i: number) => {
     const cell = cells[i]
+    const maxLeft = cell.left + cell.width - QUAD_TRACKER_WIDTH
+    return Math.min(maxLeft, Math.max(cell.left, Math.round(rawTrackerLeft(i) / BRICK_W) * BRICK_W))
+  }
+
+  const rawTrackerLeft = (i: number) => {
+    const cell = cells[i]
     const cellRight = cell.left + cell.width
-    const fallback = cellRight - QUAD_TRACKER_WIDTH
+    const onLeft = layout.trackerSides[i] === "left"
+    const fallback = onLeft ? cell.left : cellRight - QUAD_TRACKER_WIDTH
     const crop = vods[i].crop
     if (!crop || !hasSource(vods[i]) || i === croppingIndex) return fallback
-    const layout = layouts[i]
-    const cropRight = Math.min(windows[i].width, Math.max(0, layout.left + crop.x1 * layout.width))
+    const frame = layouts[i]
+    if (onLeft) {
+      const cropLeft = Math.min(windows[i].width, Math.max(0, frame.left + crop.x0 * frame.width))
+      const spaceRight = windows[i].left + cropLeft
+      return Math.max(fallback, cell.left + (spaceRight - cell.left - QUAD_TRACKER_WIDTH) / 2)
+    }
+    const cropRight = Math.min(windows[i].width, Math.max(0, frame.left + crop.x1 * frame.width))
     const spaceLeft = windows[i].left + cropRight
     return Math.min(fallback, spaceLeft + (cellRight - spaceLeft - QUAD_TRACKER_WIDTH) / 2)
   }
@@ -340,15 +352,18 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           min-height: 0;
           height: 26px;
           margin: 0;
-          padding: 0 8px;
+          padding: 0 8px 6px;
           font-size: 13px;
-          line-height: 22px;
+          line-height: 16px;
           white-space: nowrap;
         }
 
+        /* ZeldaII draws glyphs on the baseline with a tall ascent, so text sits ~3px low; nudge it up to center the ink. */
         .quad-side-bar .quad-side-title {
           flex: none;
           margin: 0;
+          position: relative;
+          top: -3px;
         }
 
         .quad-side.quad-side-bar .commentary-input,
@@ -356,11 +371,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           flex: 1;
           width: auto;
           min-width: 0;
+          padding-top: 0;
+          padding-bottom: 6px;
         }
 
         .quad-side.quad-side-bar .quad-side-timer {
+          position: relative;
+          top: -3px;
+          left: auto;
+          right: auto;
+          bottom: auto;
           margin-top: 0;
-          font-size: 24px;
+          font-size: 13px;
+          line-height: 1;
         }
 
         .quad-side-bar .quad-side-gem {
@@ -425,7 +448,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           flex-direction: column;
           align-items: center;
   justify-content: flex-start;
-  padding: 6px;
+  padding: 6px 5px;
   z-index: 15;
   }
 

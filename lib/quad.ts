@@ -9,7 +9,8 @@ export const BRICK_ROWS = 23
 export const BRICK_W = STAGE_WIDTH / BRICK_COLS
 export const BRICK_H = STAGE_HEIGHT / BRICK_ROWS
 
-export const QUAD_TRACKER_WIDTH = 150
+// Exactly four bricks wide so each tracker lines up with the brick columns above and below it.
+export const QUAD_TRACKER_WIDTH = 4 * BRICK_W
 
 function brickRect(col: number, row: number, cols: number, rows: number): WindowRect {
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
@@ -26,15 +27,24 @@ export type GridLayout = {
   panelStyle: PanelStyle
   /** Stretch crops to fill each window; when false, crops keep their aspect with black bars. */
   stretchCrop?: boolean
+  /** Which side of each cell's video its tracker column sits on. */
+  trackerSides: TrackerSide[]
   dock: WindowRect
   defaultZoom: number
 }
 
-function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelStyle): GridLayout {
-  // Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
+export type TrackerSide = "left" | "right"
+
+function buildLayout(
+  cells: WindowRect[],
+  panel: WindowRect,
+  panelStyle: PanelStyle,
+  trackerSides: TrackerSide[] = cells.map(() => "right"),
+): GridLayout {
+  // Each cell's tracker column sits beside its video, so a zoomed frame can spill
   // sideways under the tracker and divider without ever reaching the next player's video.
-  const windows = cells.map((cell) => ({
-    left: cell.left,
+  const windows = cells.map((cell, i) => ({
+    left: trackerSides[i] === "left" ? cell.left + QUAD_TRACKER_WIDTH : cell.left,
     top: cell.top,
     width: cell.width - QUAD_TRACKER_WIDTH,
     height: cell.height,
@@ -43,6 +53,7 @@ function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelSt
     count: cells.length,
     cells,
     windows,
+    trackerSides,
     panel,
     panelStyle,
     // The settings panel is centered over the top row, at the same size as the two-runner panel
@@ -57,11 +68,14 @@ function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelSt
   }
 }
 
-// A 2x2 grid of players split by a full-height panel column in the middle, with one-brick borders throughout.
+// Player cells form a 2x2 grid between two-brick-wide side borders, with no top or bottom border
+// row; the top cells sit flush with the stage top, a single brick row divides the halves, and the
+// panel is a single brick-tall bar flush with the bottom.
 export const QUAD_LAYOUT = buildLayout(
-  [brickRect(1, 1, 16, 10), brickRect(24, 1, 16, 10), brickRect(1, 12, 16, 10), brickRect(24, 12, 16, 10)],
-  brickRect(18, 1, 5, 21),
-  "column",
+  [brickRect(2, 0, 18, 10), brickRect(21, 0, 18, 10), brickRect(2, 11, 18, 10), brickRect(21, 11, 18, 10)],
+  brickRect(2, 22, 37, 1),
+  "bar",
+  ["left", "right", "left", "right"],
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
