@@ -68,9 +68,10 @@ function buildLayout(
 }
 
 // Player cells span the full width as a 2x2 grid with no top or bottom border row; the top
-// cells sit flush with the stage top and the panel is a single brick-tall bar flush with the bottom.
+// cells sit flush with the stage top, a single brick row divides the halves, and the panel is a
+// single brick-tall bar flush with the bottom.
 export const QUAD_LAYOUT = buildLayout(
-  [brickRect(1, 0, 19, 9), brickRect(21, 0, 19, 9), brickRect(1, 12, 19, 9), brickRect(21, 12, 19, 9)],
+  [brickRect(1, 0, 19, 10), brickRect(21, 0, 19, 10), brickRect(1, 11, 19, 10), brickRect(21, 11, 19, 10)],
   brickRect(1, 22, 39, 1),
   "bar",
   ["left", "right", "left", "right"],
