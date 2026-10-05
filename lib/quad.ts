@@ -67,11 +67,11 @@ function buildLayout(
   }
 }
 
-// A 2x2 grid of players split by a full-height panel column in the middle, with one-brick borders throughout.
+// Player cells span the full width as a 2x2 grid; the panel is a single brick-tall bar along the bottom.
 export const QUAD_LAYOUT = buildLayout(
-  [brickRect(1, 1, 16, 10), brickRect(24, 1, 16, 10), brickRect(1, 12, 16, 10), brickRect(24, 12, 16, 10)],
-  brickRect(18, 1, 5, 21),
-  "column",
+  [brickRect(1, 1, 19, 9), brickRect(21, 1, 19, 9), brickRect(1, 11, 19, 9), brickRect(21, 11, 19, 9)],
+  brickRect(1, 21, 39, 1),
+  "bar",
   ["left", "right", "left", "right"],
 )
 
