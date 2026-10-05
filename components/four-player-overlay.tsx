@@ -346,15 +346,18 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           min-height: 0;
           height: 26px;
           margin: 0;
-          padding: 0 8px;
+          padding: 0 8px 6px;
           font-size: 13px;
-          line-height: 22px;
+          line-height: 16px;
           white-space: nowrap;
         }
 
+        /* ZeldaII draws glyphs on the baseline with a tall ascent, so text sits ~3px low; nudge it up to center the ink. */
         .quad-side-bar .quad-side-title {
           flex: none;
           margin: 0;
+          position: relative;
+          top: -3px;
         }
 
         .quad-side.quad-side-bar .commentary-input,
@@ -362,11 +365,16 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           flex: 1;
           width: auto;
           min-width: 0;
+          padding-top: 0;
+          padding-bottom: 6px;
         }
 
         .quad-side.quad-side-bar .quad-side-timer {
+          position: relative;
+          top: -3px;
           margin-top: 0;
-          font-size: 24px;
+          font-size: 13px;
+          line-height: 1;
         }
 
         .quad-side-bar .quad-side-gem {
