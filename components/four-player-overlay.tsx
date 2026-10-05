@@ -129,15 +129,21 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const layouts = resolveQuadLayouts(windows, viewVods, layout.stretchCrop ?? true)
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
 
-  // With a crop, the black bar right of the picture joins the tracker column, so center the tracker in that space
+  // With a crop, the black bar beside the picture joins the tracker column, so center the tracker in that space
   const trackerLeft = (i: number) => {
     const cell = cells[i]
     const cellRight = cell.left + cell.width
-    const fallback = cellRight - QUAD_TRACKER_WIDTH
+    const onLeft = layout.trackerSides[i] === "left"
+    const fallback = onLeft ? cell.left : cellRight - QUAD_TRACKER_WIDTH
     const crop = vods[i].crop
     if (!crop || !hasSource(vods[i]) || i === croppingIndex) return fallback
-    const layout = layouts[i]
-    const cropRight = Math.min(windows[i].width, Math.max(0, layout.left + crop.x1 * layout.width))
+    const frame = layouts[i]
+    if (onLeft) {
+      const cropLeft = Math.min(windows[i].width, Math.max(0, frame.left + crop.x0 * frame.width))
+      const spaceRight = windows[i].left + cropLeft
+      return Math.max(fallback, cell.left + (spaceRight - cell.left - QUAD_TRACKER_WIDTH) / 2)
+    }
+    const cropRight = Math.min(windows[i].width, Math.max(0, frame.left + crop.x1 * frame.width))
     const spaceLeft = windows[i].left + cropRight
     return Math.min(fallback, spaceLeft + (cellRight - spaceLeft - QUAD_TRACKER_WIDTH) / 2)
   }

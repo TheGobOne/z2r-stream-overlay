@@ -26,15 +26,24 @@ export type GridLayout = {
   panelStyle: PanelStyle
   /** Stretch crops to fill each window; when false, crops keep their aspect with black bars. */
   stretchCrop?: boolean
+  /** Which side of each cell's video its tracker column sits on. */
+  trackerSides: TrackerSide[]
   dock: WindowRect
   defaultZoom: number
 }
 
-function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelStyle): GridLayout {
-  // Each cell's tracker column sits to the right of its video, so a zoomed frame can spill
+export type TrackerSide = "left" | "right"
+
+function buildLayout(
+  cells: WindowRect[],
+  panel: WindowRect,
+  panelStyle: PanelStyle,
+  trackerSides: TrackerSide[] = cells.map(() => "right"),
+): GridLayout {
+  // Each cell's tracker column sits beside its video, so a zoomed frame can spill
   // sideways under the tracker and divider without ever reaching the next player's video.
-  const windows = cells.map((cell) => ({
-    left: cell.left,
+  const windows = cells.map((cell, i) => ({
+    left: trackerSides[i] === "left" ? cell.left + QUAD_TRACKER_WIDTH : cell.left,
     top: cell.top,
     width: cell.width - QUAD_TRACKER_WIDTH,
     height: cell.height,
@@ -43,6 +52,7 @@ function buildLayout(cells: WindowRect[], panel: WindowRect, panelStyle: PanelSt
     count: cells.length,
     cells,
     windows,
+    trackerSides,
     panel,
     panelStyle,
     // The settings panel is centered over the top row, at the same size as the two-runner panel
@@ -62,6 +72,7 @@ export const QUAD_LAYOUT = buildLayout(
   [brickRect(1, 1, 16, 10), brickRect(24, 1, 16, 10), brickRect(1, 12, 16, 10), brickRect(24, 12, 16, 10)],
   brickRect(18, 1, 5, 21),
   "column",
+  ["left", "right", "left", "right"],
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
