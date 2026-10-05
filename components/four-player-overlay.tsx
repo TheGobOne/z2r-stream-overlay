@@ -372,6 +372,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         .quad-side.quad-side-bar .quad-side-timer {
           position: relative;
           top: -3px;
+          left: auto;
+          right: auto;
+          bottom: auto;
           margin-top: 0;
           font-size: 13px;
           line-height: 1;
