@@ -9,7 +9,8 @@ export const BRICK_ROWS = 23
 export const BRICK_W = STAGE_WIDTH / BRICK_COLS
 export const BRICK_H = STAGE_HEIGHT / BRICK_ROWS
 
-export const QUAD_TRACKER_WIDTH = 150
+// Exactly four bricks wide so each tracker lines up with the brick columns above and below it.
+export const QUAD_TRACKER_WIDTH = 4 * BRICK_W
 
 function brickRect(col: number, row: number, cols: number, rows: number): WindowRect {
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }

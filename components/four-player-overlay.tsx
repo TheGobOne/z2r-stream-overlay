@@ -132,6 +132,12 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   // With a crop, the black bar beside the picture joins the tracker column, so center the tracker in that space
   const trackerLeft = (i: number) => {
     const cell = cells[i]
+    const maxLeft = cell.left + cell.width - QUAD_TRACKER_WIDTH
+    return Math.min(maxLeft, Math.max(cell.left, Math.round(rawTrackerLeft(i) / BRICK_W) * BRICK_W))
+  }
+
+  const rawTrackerLeft = (i: number) => {
+    const cell = cells[i]
     const cellRight = cell.left + cell.width
     const onLeft = layout.trackerSides[i] === "left"
     const fallback = onLeft ? cell.left : cellRight - QUAD_TRACKER_WIDTH
@@ -442,7 +448,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           flex-direction: column;
           align-items: center;
   justify-content: flex-start;
-  padding: 6px;
+  padding: 6px 5px;
   z-index: 15;
   }
 
