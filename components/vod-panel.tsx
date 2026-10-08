@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type RefObject } from "react"
+import { useEffect, useId, useState, type RefObject } from "react"
 import type { VodPlayerHandle } from "@/components/vod-player"
 import {
   createVodConfig,
@@ -9,6 +9,7 @@ import {
   hasSource,
   parseTime,
   parseVodSource,
+  PLAYBACK_RATES,
   VOD_WINDOWS,
   type VodConfig,
   type VodSide,
@@ -56,6 +57,7 @@ export function VodPanel({
   onPauseBoth,
   onClose,
 }: Props) {
+  const speedId = useId()
   const [urlDraft, setUrlDraft] = useState(config.url)
   const [startDraft, setStartDraft] = useState(config.videoId ? formatTime(config.startSeconds) : "")
   const [error, setError] = useState("")
@@ -292,6 +294,25 @@ export function VodPanel({
                 aria-label="Volume"
               />
               <span className="vod-value">{Math.round(config.volume * 100)}%</span>
+            </div>
+            <div className="vod-row">
+              <label className="vod-label" htmlFor={`${speedId}-speed`}>
+                Speed
+              </label>
+              <select
+                id={`${speedId}-speed`}
+                className="vod-select"
+                value={config.platform === "youtube" ? (config.playbackRate ?? 1) : 1}
+                disabled={config.platform !== "youtube"}
+                onChange={(e) => onChange({ playbackRate: Number(e.target.value) })}
+              >
+                {PLAYBACK_RATES.map((rate) => (
+                  <option key={rate} value={rate}>
+                    {rate === 1 ? "Normal (1x)" : `${rate}x`}
+                  </option>
+                ))}
+              </select>
+              {config.platform !== "youtube" && <span className="vod-hint">YouTube only</span>}
             </div>
             <p className="vod-hint">
               The video&apos;s own controls are hidden, so use Play/Pause here or the timer. Right-click the frame around it to reopen this
