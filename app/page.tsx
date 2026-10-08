@@ -1413,21 +1413,6 @@ export default function StreamOverlay() {
 
         .vod-input:focus-visible { border-color: #ffd700; }
 
-        .vod-select {
-          background: #000;
-          border: 2px solid #2ec4b6;
-          outline: none;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 11px;
-          letter-spacing: 1px;
-          padding: 5px 8px;
-          cursor: pointer;
-        }
-
-        .vod-select:focus-visible { border-color: #ffd700; }
-        .vod-select:disabled { opacity: 0.45; cursor: not-allowed; }
-
         .vod-input-time {
           width: 110px;
           text-align: center;

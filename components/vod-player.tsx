@@ -17,7 +17,6 @@ type YouTubePlayer = {
   unMute(): void
   isMuted(): boolean
   setVolume(volume: number): void
-  setPlaybackRate(rate: number): void
 }
 
 type YouTubePlayerConstructor = new (elementId: string, options: Record<string, unknown>) => YouTubePlayer
@@ -133,7 +132,7 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
     }, AUTOPLAY_CHECK_MS)
   }
 
-  const { videoId, loadKey, muted, volume, playbackRate = 1 } = config
+  const { videoId, loadKey, muted, volume } = config
 
   useEffect(() => {
     const host = hostRef.current
@@ -169,7 +168,6 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
               if (cancelled) return
               readyRef.current = true
               player.setVolume(Math.round(latest.current.volume * 100))
-              player.setPlaybackRate(latest.current.playbackRate ?? 1)
               if (latest.current.muted) player.mute()
               if (pendingPlayRef.current) attemptPlay(player)
             },
@@ -198,10 +196,6 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
   useEffect(() => {
     if (readyRef.current) playerRef.current?.setVolume(Math.round(volume * 100))
   }, [volume])
-
-  useEffect(() => {
-    if (readyRef.current) playerRef.current?.setPlaybackRate(playbackRate)
-  }, [playbackRate])
 
   const [volumeOpen, setVolumeOpen] = useState(false)
   const audioRef = useRef<HTMLDivElement>(null)

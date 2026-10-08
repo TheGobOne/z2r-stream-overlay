@@ -19,11 +19,7 @@ export type VodConfig = {
   crop?: VideoRect | null
   muted: boolean
   volume: number
-  /** Only YouTube honours this; Twitch's embed API has no playback-rate control. */
-  playbackRate?: number
 }
-
-export const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
 // Transparent game-window holes in the 1456x816 overlay. The name boxes sit in the
 // brick row below the windows, so the video fills the whole window.
@@ -68,7 +64,6 @@ export function createVodConfig(): VodConfig {
     centerY: 0.5,
     muted: false,
     volume: 0.5,
-    playbackRate: 1,
   }
 }
 
