@@ -56,7 +56,7 @@ function loadTwitchEmbed() {
 
 // Twitch refuses to play unless every embedding domain is listed as a parent,
 // which includes the v0 preview frame and any page that iframes the overlay.
-function getParentDomains() {
+export function getParentDomains() {
   const hosts = new Set<string>([window.location.hostname])
   const ancestors = window.location.ancestorOrigins
   if (ancestors) {

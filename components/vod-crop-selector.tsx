@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   clamp,
   cropToSelection,
@@ -37,10 +37,14 @@ export function VodCropSelector({ win, frame, onApply, onCancel, target, fill = 
   const [pointer, setPointer] = useState<Point | null>(null)
   const [downAt, setDownAt] = useState<{ x: number; y: number } | null>(null)
 
+  const selectorRef = useRef<HTMLDivElement>(null)
+
+  // The selector may render inside the tools popup, so listen on whichever window owns it
   useEffect(() => {
+    const view = selectorRef.current?.ownerDocument.defaultView ?? window
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel()
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    view.addEventListener("keydown", onKey)
+    return () => view.removeEventListener("keydown", onKey)
   }, [onCancel])
 
   function toVideoPoint(e: React.PointerEvent<HTMLDivElement>): Point {
@@ -123,6 +127,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel, target, fill = 
       />
     )}
     <div
+      ref={selectorRef}
       className="vod-crop-selector"
       style={{ left: win.left, top: win.top, width: win.width, height: win.height }}
       role="application"
