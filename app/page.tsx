@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
@@ -299,6 +299,19 @@ export default function StreamOverlay() {
     setLeftBossBadge(updater)
     setRightBossBadge(updater)
   }
+
+  const itemMenuRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const menu = itemMenuRef.current
+    if (!itemMenu || !menu) return
+    const margin = 8
+    const { width, height } = menu.getBoundingClientRect()
+    const maxLeft = window.innerWidth - width - margin
+    const maxTop = window.innerHeight - height - margin
+    menu.style.left = `${Math.max(margin, Math.min(itemMenu.x, maxLeft))}px`
+    menu.style.top = `${Math.max(margin, Math.min(itemMenu.y, maxTop))}px`
+  }, [itemMenu])
 
   useEffect(() => {
     if (!itemMenu) return
@@ -2038,6 +2051,7 @@ export default function StreamOverlay() {
       {/* Item badge context menu */}
       {itemMenu && (
         <div
+          ref={itemMenuRef}
           className="item-context-menu"
           style={{ top: itemMenu.y, left: itemMenu.x }}
           onClick={(e) => e.stopPropagation()}
