@@ -17,6 +17,8 @@ type Props = {
   placements?: Placements
   playerLabels?: string[]
   onPlacementChange?: (player: number, place: Place | null) => void
+  /** Card heading rendered atop the left column so the Placements heading can sit level with it. */
+  title?: { id: string; text: string }
 }
 
 export function SetupForm({
@@ -30,12 +32,18 @@ export function SetupForm({
   placements,
   playerLabels,
   onPlacementChange,
+  title,
 }: Props) {
   const players = Array.from({ length: runnerCount }, (_, i) => i)
   const places: Place[] = [...players.map((i) => (i + 1) as Place), "dnf"]
   return (
     <div className={placements && onPlacementChange ? "setup-columns" : undefined}>
       <div className="setup-column">
+      {title && (
+        <h2 id={title.id} className="tools-card-title">
+          {title.text}
+        </h2>
+      )}
       <div className="setup-section">
         <p id={`${id}-runners`} className="gem-modal-title">Runners</p>
         <div className="gem-modal-options" role="radiogroup" aria-labelledby={`${id}-runners`}>
@@ -79,7 +87,7 @@ export function SetupForm({
       </div>
       {placements && onPlacementChange && (
         <div className="setup-section setup-column">
-          <p className="gem-modal-title">Placements</p>
+          <h2 className="tools-card-title">Placements</h2>
           <div className="setup-places">
             {players.map((player) => {
               const current = placements[player] ?? null

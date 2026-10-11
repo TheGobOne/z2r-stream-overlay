@@ -1973,11 +1973,9 @@ export default function StreamOverlay() {
                 <p className="tools-subheading">Only you can see this window. Changes apply to the overlay instantly.</p>
               </header>
               <section className="tools-card" aria-labelledby="tools-setup-title">
-                <h2 id="tools-setup-title" className="tools-card-title">
-                  Setup
-                </h2>
                 <SetupForm
                   id="tools-setup"
+                  title={{ id: "tools-setup-title", text: "Setup" }}
                   runnerCount={runnerCount}
                   commentatorCount={commentatorCount}
                   maxRando={isMaxRando}
