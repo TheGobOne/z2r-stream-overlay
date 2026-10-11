@@ -1,5 +1,7 @@
 "use client"
 
+import { PLACE_LABELS, type Place, type Placements } from "@/components/place-badge"
+
 export type RunnerCount = 2 | 3 | 4
 export type CommentatorCount = 1 | 2
 
@@ -11,6 +13,10 @@ type Props = {
   onRunnerCountChange: (value: RunnerCount) => void
   onCommentatorCountChange: (value: CommentatorCount) => void
   onMaxRandoChange: (value: boolean) => void
+  /** Omit to hide the placement controls (e.g. in the opening popup). */
+  placements?: Placements
+  playerLabels?: string[]
+  onPlacementChange?: (player: number, place: Place | null) => void
 }
 
 export function SetupForm({
@@ -21,7 +27,11 @@ export function SetupForm({
   onRunnerCountChange,
   onCommentatorCountChange,
   onMaxRandoChange,
+  placements,
+  playerLabels,
+  onPlacementChange,
 }: Props) {
+  const places = Array.from({ length: runnerCount }, (_, i) => (i + 1) as Place)
   return (
     <>
       <div className="setup-section">
@@ -64,6 +74,48 @@ export function SetupForm({
           Max Rando
         </label>
       </div>
+      {placements && onPlacementChange && (
+        <div className="setup-section">
+          <p className="gem-modal-title">Placements</p>
+          <div className="setup-places">
+            {places.map((_, player) => {
+              const current = placements[player] ?? null
+              const labelId = `${id}-place-${player}`
+              return (
+                <div key={player} className="setup-place-row">
+                  <span id={labelId} className="setup-place-label">
+                    {playerLabels?.[player] || `Player ${player + 1}`}
+                  </span>
+                  <div className="setup-place-options" role="radiogroup" aria-labelledby={labelId}>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={current === null}
+                      aria-label="No placement"
+                      className={`setup-place-opt${current === null ? " selected" : ""}`}
+                      onClick={() => onPlacementChange(player, null)}
+                    >
+                      -
+                    </button>
+                    {places.map((place) => (
+                      <button
+                        key={place}
+                        type="button"
+                        role="radio"
+                        aria-checked={current === place}
+                        className={`setup-place-opt setup-place-opt-${place}${current === place ? " selected" : ""}`}
+                        onClick={() => onPlacementChange(player, place)}
+                      >
+                        {PLACE_LABELS[place]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { PlayerTools } from "@/components/player-tools"
 import { SetupForm } from "@/components/setup-form"
+import { assignPlace, PlaceBadge, type Placements } from "@/components/place-badge"
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
@@ -97,7 +98,14 @@ export default function StreamOverlay() {
     }
   }, [toolsWin])
 
+  const [placements, setPlacements] = useState<Placements>(() => Array(4).fill(null))
+  const [quadNames, setQuadNames] = useState<string[]>([])
+
   function applyRunnerCount(n: 2 | 3 | 4) {
+    if (n !== runnerCount) {
+      setPlacements(Array(4).fill(null))
+      setQuadNames([])
+    }
     setRunnerCount(n)
     setDraftRunnerCount(n)
   }
@@ -1160,6 +1168,81 @@ export default function StreamOverlay() {
           outline-offset: 2px;
         }
 
+        .setup-places {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .setup-place-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .setup-place-label {
+          width: 120px;
+          flex-shrink: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: #ffffff;
+        }
+
+        .setup-place-options {
+          display: flex;
+          gap: 6px;
+        }
+
+        .setup-place-opt {
+          min-width: 44px;
+          height: 32px;
+          padding: 0 8px;
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .setup-place-opt:hover,
+        .setup-place-opt.selected {
+          background: #2ec4b6;
+          color: #000000;
+        }
+
+        .setup-place-opt-1.selected { background: #f8b800; border-color: #f8b800; }
+        .setup-place-opt-2.selected { background: #bcbcbc; border-color: #bcbcbc; }
+        .setup-place-opt-3.selected { background: #e45c10; border-color: #e45c10; }
+        .setup-place-opt-4.selected { background: #3050f8; border-color: #3050f8; color: #ffffff; }
+
+        .setup-place-opt:focus-visible {
+          outline: 2px solid #ffd700;
+          outline-offset: 2px;
+        }
+
+        .place-badge {
+          position: absolute;
+          transform: translate(-50%, 6px);
+          z-index: 14;
+          padding: 2px 8px 5px;
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          line-height: 1;
+          color: #000000;
+          pointer-events: none;
+          box-shadow: 0 0 0 2px #000000;
+        }
+
+        .place-badge-1 { background: #f8b800; }
+        .place-badge-2 { background: #bcbcbc; }
+        .place-badge-3 { background: #e45c10; }
+        .place-badge-4 { background: #3050f8; color: #ffffff; }
+
         .setup-hint {
           margin: 0 0 24px;
           font-size: 10px;
@@ -1611,6 +1694,8 @@ export default function StreamOverlay() {
             onSidePanelContextMenu={reopenSetup}
             toolsSlot={toolsWin ? quadToolsSlot : null}
             onRequestTools={showTools}
+            placements={placements}
+            onNamesChange={setQuadNames}
             sidePanel={
               <>
                 <div className="quad-side-group quad-side-info">
@@ -1888,6 +1973,9 @@ export default function StreamOverlay() {
                   onRunnerCountChange={applyRunnerCount}
                   onCommentatorCountChange={applyCommentatorCount}
                   onMaxRandoChange={applyMaxRando}
+                  placements={placements}
+                  playerLabels={runnerCount === 2 ? [leftText, rightText] : quadNames}
+                  onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
                 />
               </section>
               {runnerCount === 2 ? (
@@ -1972,6 +2060,9 @@ export default function StreamOverlay() {
             style={{ "--zelda-font-size": `${rightFontSize}px` } as React.CSSProperties}
           />
         </div>
+
+        <PlaceBadge place={placements[0]} win={VOD_WINDOWS.left} />
+        <PlaceBadge place={placements[1]} win={VOD_WINDOWS.right} />
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">

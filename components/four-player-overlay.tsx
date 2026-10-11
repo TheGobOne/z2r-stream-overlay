@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } fro
 import { createPortal } from "react-dom"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { PlayerTools } from "@/components/player-tools"
+import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
 import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 
@@ -34,6 +35,8 @@ type Props = {
   toolsSlot: HTMLElement | null
   /** Called from a right-click so the browser allows (re)opening the tools window. */
   onRequestTools: () => void
+  placements: Placements
+  onNamesChange?: (names: string[]) => void
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
@@ -78,6 +81,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     onSidePanelContextMenu,
     toolsSlot,
     onRequestTools,
+    placements,
+    onNamesChange,
   },
   ref,
 ) {
@@ -538,6 +543,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         />
       ))}
 
+      {windows.map((win, i) => (
+        <PlaceBadge key={i} place={placements[i]} win={win} />
+      ))}
+
       {cells.map((cell, i) => (
         <div
           key={i}
@@ -559,7 +568,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               type="text"
               className="zelda-input"
               value={names[i]}
-              onChange={(e) => setNames((prev) => prev.map((n, j) => (j === i ? e.target.value : n)))}
+              onChange={(e) => {
+                const next = names.map((n, j) => (j === i ? e.target.value : n))
+                setNames(next)
+                onNamesChange?.(next)
+              }}
               placeholder={`PLAYER ${i + 1}`}
               aria-label={`Player ${i + 1} name`}
               spellCheck={false}
