@@ -262,7 +262,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         width: win.width,
         height: win.height,
         clipPath: win.clipPath,
-        zIndex: raised ? 902 : layout.onTop ? 14 : 13,
+        zIndex: raised ? 902 : (layout.z ?? (layout.onTop ? 14 : 13)),
       }}
     >
       <div

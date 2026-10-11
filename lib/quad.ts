@@ -127,48 +127,59 @@ function fitAxis(frame: Span, win: Span, bounds: Bounds, floor = 0, cap = 1): Sp
 /**
  * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away; YouTube
  * doesn't care. Twitch frames stack above YouTube ones, so a frame may freely overlap a YouTube
- * neighbor's window. When two Twitch frames would touch, the frame first slides away from the
- * neighbor as far as it can while the chosen crop stays fully inside its window, and only zooms
- * out (about the crop) by the minimum needed when sliding alone isn't enough.
+ * neighbor's window. Like the 2-player layout, Twitch frames are stacked by how far they spill
+ * out of their windows: the top frame is never adjusted, and a lower frame only has to stay clear
+ * of the windows of the Twitch frames above it (their overflow is clipped, so it covers nothing).
+ * A lower frame first slides as far as it can while its crop stays fully inside its window, and
+ * only zooms out (about the crop) by the minimum needed when sliding alone isn't enough.
  */
 export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], fill = true): VodFrameLayout[] {
-  return configs.map((config, i) => {
+  const frames = configs.map((config, i) => {
     const own = windows[i]
     const frame = frameInWindow(own, config, fill)
-    let x: Span = { start: own.left + frame.left, size: frame.width }
-    let y: Span = { start: own.top + frame.top, size: frame.height }
+    return {
+      x: { start: own.left + frame.left, size: frame.width } as Span,
+      y: { start: own.top + frame.top, size: frame.height } as Span,
+    }
+  })
+  const isLiveTwitch = configs.map((c) => hasSource(c) && c.platform === "twitch")
+  const overflow = (i: number) => {
+    const w = windows[i]
+    const { x, y } = frames[i]
+    return (
+      Math.max(0, w.left - x.start) +
+      Math.max(0, x.start + x.size - (w.left + w.width)) +
+      Math.max(0, w.top - y.start) +
+      Math.max(0, y.start + y.size - (w.top + w.height))
+    )
+  }
+  // Top of the stack first.
+  const stack = configs
+    .map((_, i) => i)
+    .filter((i) => isLiveTwitch[i])
+    .sort((a, b) => overflow(b) - overflow(a) || a - b)
+
+  stack.forEach((i, depth) => {
+    const own = windows[i]
+    let { x, y } = frames[i]
     const ownX: Span = { start: own.left, size: own.width }
     const ownY: Span = { start: own.top, size: own.height }
-    const isTwitch = config.platform === "twitch"
-
-    if (hasSource(config) && isTwitch) {
-      // Limits from every Twitch neighbor are combined before fitting, so satisfying one neighbor
-      // can never push the frame back into another. Each frame may only use its own half of a gap.
+    {
+      // Limits from every Twitch window above are combined before fitting, so satisfying one
+      // can never push the frame back into another.
       const bx: Bounds = { lo: -Infinity, hi: Infinity }
       const by: Bounds = { lo: -Infinity, hi: Infinity }
       const within = (span: Span, b: Bounds) => span.start >= b.lo - 1e-6 && span.start + span.size <= b.hi + 1e-6
       const ownRight = own.left + own.width
       const ownBottom = own.top + own.height
 
-      configs.forEach((other, j) => {
-        if (j === i || !hasSource(other) || other.platform !== "twitch") return
+      stack.slice(0, depth).forEach((j) => {
         const win = windows[j]
         const options: { axis: "x" | "y"; bounds: Bounds }[] = []
-        if (win.left >= ownRight) options.push({ axis: "x", bounds: { lo: -Infinity, hi: (ownRight + win.left) / 2 } })
-        if (win.left + win.width <= own.left)
-          options.push({ axis: "x", bounds: { lo: (win.left + win.width + own.left) / 2, hi: Infinity } })
-        if (win.top >= ownBottom) options.push({ axis: "y", bounds: { lo: -Infinity, hi: (ownBottom + win.top) / 2 } })
-        if (win.top + win.height <= own.top)
-          options.push({ axis: "y", bounds: { lo: (win.top + win.height + own.top) / 2, hi: Infinity } })
-
-        // Diagonal neighbors must both dodge along the same axis, or their frames can still meet
-        // at the corner; use the axis with the wider gap.
-        if (options.length > 1) {
-          const gapX = Math.max(win.left - ownRight, own.left - (win.left + win.width))
-          const gapY = Math.max(win.top - ownBottom, own.top - (win.top + win.height))
-          const axis = gapX >= gapY ? "x" : "y"
-          options.splice(0, options.length, ...options.filter((o) => o.axis === axis))
-        }
+        if (win.left >= ownRight) options.push({ axis: "x", bounds: { lo: -Infinity, hi: win.left } })
+        if (win.left + win.width <= own.left) options.push({ axis: "x", bounds: { lo: win.left + win.width, hi: Infinity } })
+        if (win.top >= ownBottom) options.push({ axis: "y", bounds: { lo: -Infinity, hi: win.top } })
+        if (win.top + win.height <= own.top) options.push({ axis: "y", bounds: { lo: win.top + win.height, hi: Infinity } })
 
         const merged = options.map((o) => {
           const cur = o.axis === "x" ? bx : by
@@ -192,7 +203,23 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
         y = { start: fy.start, size: fy.size }
       }
     }
+    frames[i] = { x, y }
+  })
 
-    return { left: x.start - own.left, top: y.start - own.top, width: x.size, height: y.size, onTop: isTwitch }
+  return configs.map((config, i) => {
+    const own = windows[i]
+    const { x, y } = frames[i]
+    const depth = stack.indexOf(i)
+    return {
+      left: x.start - own.left,
+      top: y.start - own.top,
+      width: x.size,
+      height: y.size,
+      onTop: config.platform === "twitch",
+      z: depth >= 0 ? QUAD_TWITCH_Z + stack.length - 1 - depth : undefined,
+    }
   })
 }
+
+/** Twitch frames take z-indexes from here up, one per frame, below the place badges. */
+const QUAD_TWITCH_Z = 14

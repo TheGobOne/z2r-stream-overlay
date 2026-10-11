@@ -121,7 +121,15 @@ export function visibleVideoRect(win: WindowRect, view: View): VideoRect {
   }
 }
 
-export type VodFrameLayout = { left: number; top: number; width: number; height: number; onTop: boolean }
+export type VodFrameLayout = {
+  left: number
+  top: number
+  width: number
+  height: number
+  onTop: boolean
+  /** Explicit stacking order, overriding `onTop`, when several frames must stack in a set order. */
+  z?: number
+}
 
 const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
 
