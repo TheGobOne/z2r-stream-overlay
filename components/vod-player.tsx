@@ -260,6 +260,8 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
       }}
     >
   <div ref={hostRef} className="vod-frame" style={overscan(layout)} />
+  {/* Keeps the mouse out of the embed so it never shows its hover title/dim overlay */}
+  <div aria-hidden="true" style={{ position: "absolute", inset: 0 }} />
 
       {config.crop && (
         <div
