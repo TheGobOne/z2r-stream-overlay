@@ -34,7 +34,10 @@ type Props = {
   onLinkToTimerChange: (value: boolean) => void
   onPlayBoth: () => void
   onPauseBoth: () => void
-  onClose: () => void
+  /** Omitted when the panel lives in the tools window and has nothing to close. */
+  onClose?: () => void
+  /** Flow inside its container instead of floating over a game window. */
+  inline?: boolean
 }
 
 const NUDGES = [-10, -1, 1, 10]
@@ -55,6 +58,7 @@ export function VodPanel({
   onPlayBoth,
   onPauseBoth,
   onClose,
+  inline = false,
 }: Props) {
   const [urlDraft, setUrlDraft] = useState(config.url)
   const [startDraft, setStartDraft] = useState(config.videoId ? formatTime(config.startSeconds) : "")
@@ -71,6 +75,7 @@ export function VodPanel({
   }, [playerRef])
 
   useEffect(() => {
+    if (!onClose) return
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose()
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
@@ -138,19 +143,21 @@ export function VodPanel({
 
   return (
     <div
-      className="vod-panel"
-      role="dialog"
+      className={`vod-panel${inline ? " vod-panel-inline" : ""}`}
+      role={inline ? "group" : "dialog"}
       aria-labelledby={`vod-panel-title-${side}`}
-      style={{ left: dock.left, top: dock.top, width: dock.width, height: dock.height }}
-      onContextMenu={(e) => e.preventDefault()}
+      style={inline ? undefined : { left: dock.left, top: dock.top, width: dock.width, height: dock.height }}
+      onContextMenu={inline ? undefined : (e) => e.preventDefault()}
     >
       <div className="vod-panel-header">
         <p id={`vod-panel-title-${side}`} className="vod-panel-title">
           {playerLabel} {isLive ? "live stream" : "VOD"}
         </p>
-        <button className="vod-btn" onClick={onClose}>
-          Done
-        </button>
+        {onClose && (
+          <button className="vod-btn" onClick={onClose}>
+            Done
+          </button>
+        )}
       </div>
 
       <div className="vod-panel-section">
@@ -294,8 +301,9 @@ export function VodPanel({
               <span className="vod-value">{Math.round(config.volume * 100)}%</span>
             </div>
             <p className="vod-hint">
-              The video&apos;s own controls are hidden, so use Play/Pause here or the timer. Right-click the frame around it to reopen this
-              panel.
+              {inline
+                ? "The video's own controls are hidden, so use Play/Pause here or the timer."
+                : "The video's own controls are hidden, so use Play/Pause here or the timer. Right-click the frame around it to reopen this panel."}
             </p>
           </div>
         </>

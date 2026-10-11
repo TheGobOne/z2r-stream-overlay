@@ -1,10 +1,11 @@
 "use client"
 
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState, type ReactNode } from "react"
+import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
-import { VodPanel } from "@/components/vod-panel"
-import { VodCropSelector } from "@/components/vod-crop-selector"
-import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
+import { PlayerTools } from "@/components/player-tools"
+import { PlaceBadge, type Placements } from "@/components/place-badge"
+import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
 import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 
 type TrackerIcon = { id: string; src: string; alt: string }
@@ -30,6 +31,12 @@ type Props = {
   /** Commentary, tracking, timer and anything else shown in the right-hand column. */
   sidePanel: ReactNode
   onSidePanelContextMenu: (e: React.MouseEvent) => void
+  /** Slot in the tools window where this overlay's video controls render; null while it's closed. */
+  toolsSlot: HTMLElement | null
+  /** Called from a right-click so the browser allows (re)opening the tools window. */
+  onRequestTools: () => void
+  placements: Placements
+  onNamesChange?: (names: string[]) => void
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
@@ -72,10 +79,14 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     onLinkToTimerChange,
     sidePanel,
     onSidePanelContextMenu,
+    toolsSlot,
+    onRequestTools,
+    placements,
+    onNamesChange,
   },
   ref,
 ) {
-  const { count, cells, windows, panel, panelStyle, dock, defaultZoom } = layout
+  const { count, cells, windows, panel, panelStyle, defaultZoom } = layout
   const [names, setNames] = useState(() => Array<string>(count).fill(""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
     Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
@@ -87,8 +98,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const [notDefeated, setNotDefeated] = useState(() =>
     Array.from({ length: count }, () => new Set(bosses.map((boss) => boss.id))),
   )
-  const [panelIndex, setPanelIndex] = useState<number | null>(null)
-  const [cropMode, setCropMode] = useState(false)
+  const [selected, setSelected] = useState(0)
 
   const ref0 = useRef<VodPlayerHandle>(null)
   const ref1 = useRef<VodPlayerHandle>(null)
@@ -100,16 +110,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     setVods((prev) => prev.map((config, i) => (i === index ? { ...config, ...patch } : config)))
   }
 
-  const closePanel = useCallback(() => {
-    setPanelIndex(null)
-    setCropMode(false)
-  }, [])
-
   function playAll() {
-    // Twitch refuses to play embeds that are covered, and the panel covers the player grid
-    const panelWasOpen = panelIndex !== null
-    closePanel()
-    window.setTimeout(() => playerRefs.forEach((r) => r.current?.play()), panelWasOpen ? 100 : 0)
+    playerRefs.forEach((r) => r.current?.play())
   }
 
   function pauseAll() {
@@ -120,13 +122,12 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
   function openPanel(index: number, e: React.MouseEvent) {
     e.preventDefault()
-    setCropMode(false)
-    setPanelIndex(index)
+    setSelected(index)
+    onRequestTools()
   }
 
-  const croppingIndex = panelIndex !== null && cropMode && hasSource(vods[panelIndex]) ? panelIndex : null
-  const viewVods = vods.map((config, i) => (i === croppingIndex ? { ...config, ...UNCROPPED_VIEW } : config))
-  const layouts = resolveQuadLayouts(windows, viewVods, layout.stretchCrop ?? true)
+  const fillCrop = layout.stretchCrop ?? true
+  const layouts = resolveQuadLayouts(windows, vods, fillCrop)
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
 
   // With a crop, the black bar beside the picture joins the tracker column, so center the tracker in that space
@@ -142,7 +143,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     const onLeft = layout.trackerSides[i] === "left"
     const fallback = onLeft ? cell.left : cellRight - QUAD_TRACKER_WIDTH
     const crop = vods[i].crop
-    if (!crop || !hasSource(vods[i]) || i === croppingIndex) return fallback
+    if (!crop || !hasSource(vods[i])) return fallback
     const frame = layouts[i]
     if (onLeft) {
       const cropLeft = Math.min(windows[i].width, Math.max(0, frame.left + crop.x0 * frame.width))
@@ -532,15 +533,18 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           key={i}
           ref={playerRefs[i]}
           side={`quad-${i}`}
-          win={i === croppingIndex ? CROP_FOCUS_WINDOW : windows[i]}
-          raised={i === croppingIndex}
+          win={windows[i]}
           label={labelFor(i)}
-          config={viewVods[i]}
-          layout={i === croppingIndex ? CROP_FOCUS_LAYOUT : layouts[i]}
+          config={config}
+          layout={layouts[i]}
               onAutoMute={() => updateVod(i, { muted: true })}
               onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
               onVolumeChange={(volume) => updateVod(i, { volume })}
         />
+      ))}
+
+      {windows.map((win, i) => (
+        <PlaceBadge key={i} place={placements[i]} win={win} />
       ))}
 
       {cells.map((cell, i) => (
@@ -564,7 +568,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               type="text"
               className="zelda-input"
               value={names[i]}
-              onChange={(e) => setNames((prev) => prev.map((n, j) => (j === i ? e.target.value : n)))}
+              onChange={(e) => {
+                const next = names.map((n, j) => (j === i ? e.target.value : n))
+                setNames(next)
+                onNamesChange?.(next)
+              }}
               placeholder={`PLAYER ${i + 1}`}
               aria-label={`Player ${i + 1} name`}
               spellCheck={false}
@@ -637,22 +645,6 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       {/* Right-click an empty game window (or the bricks around a loaded one) to set up that player's VOD.
           Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
       {windows.map((win, i) => {
-        if (croppingIndex === i) {
-          return (
-            <VodCropSelector
-              key={i}
-              win={CROP_FOCUS_WINDOW}
-                frame={CROP_FOCUS_LAYOUT}
-                target={win}
-                fill={layout.stretchCrop ?? true}
-                onApply={(view) => {
-                updateVod(i, view)
-                setCropMode(false)
-              }}
-              onCancel={() => setCropMode(false)}
-            />
-          )
-        }
         if (hasSource(vods[i])) return null
         return (
           <div
@@ -665,26 +657,29 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         )
       })}
 
-      {panelIndex !== null && croppingIndex === null && (
-        <VodPanel
-          key={panelIndex}
-          side={`quad-${panelIndex}`}
-          dock={dock}
-          defaultZoom={defaultZoom}
-          groupLabel="all"
-          playerLabel={labelFor(panelIndex)}
-          config={vods[panelIndex]}
-          onChange={(patch) => updateVod(panelIndex, patch)}
-          playerRef={playerRefs[panelIndex]}
-          cropMode={cropMode}
-          onCropModeChange={setCropMode}
-          linkToTimer={linkToTimer}
-          onLinkToTimerChange={onLinkToTimerChange}
-          onPlayBoth={playAll}
-          onPauseBoth={pauseAll}
-          onClose={closePanel}
-        />
-      )}
+      {toolsSlot &&
+        createPortal(
+          <PlayerTools
+            id="quad-tools"
+            players={vods.map((config, i) => ({
+              label: labelFor(i),
+              config,
+              onChange: (patch) => updateVod(i, patch),
+              playerRef: playerRefs[i],
+              cropTarget: windows[i],
+            }))}
+            selected={selected}
+            onSelect={setSelected}
+            defaultZoom={defaultZoom}
+            groupLabel="all"
+            fillCrop={fillCrop}
+            linkToTimer={linkToTimer}
+            onLinkToTimerChange={onLinkToTimerChange}
+            onPlayAll={playAll}
+            onPauseAll={pauseAll}
+          />,
+          toolsSlot,
+        )}
 
       <div
         className={`quad-side${panelStyle === "column" ? "" : ` quad-side-${panelStyle}`}`}

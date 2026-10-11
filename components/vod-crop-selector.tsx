@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   clamp,
   cropToSelection,
@@ -24,6 +24,10 @@ type Props = {
   target?: WindowRect
   /** Stretch the selection to fill the window; otherwise keep its aspect with black bars. */
   fill?: boolean
+  /** Black out everything behind the selector; off when the selector sits over its own preview video. */
+  backdrop?: boolean
+  /** Height of the area the instructions are positioned within. */
+  stageHeight?: number
 }
 
 const MIN_SELECTION = 0.02
@@ -31,16 +35,29 @@ const DRAG_THRESHOLD_PX = 6
 const INSTRUCTIONS_GAP = 6
 const INSTRUCTIONS_CLEARANCE = 48
 
-export function VodCropSelector({ win, frame, onApply, onCancel, target, fill = true }: Props) {
+export function VodCropSelector({
+  win,
+  frame,
+  onApply,
+  onCancel,
+  target,
+  fill = true,
+  backdrop = true,
+  stageHeight = STAGE_HEIGHT,
+}: Props) {
   const cropWin = target ?? win
   const [corner, setCorner] = useState<Point | null>(null)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [downAt, setDownAt] = useState<{ x: number; y: number } | null>(null)
 
+  const selectorRef = useRef<HTMLDivElement>(null)
+
+  // The selector may render inside the tools popup, so listen on whichever window owns it
   useEffect(() => {
+    const view = selectorRef.current?.ownerDocument.defaultView ?? window
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel()
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
+    view.addEventListener("keydown", onKey)
+    return () => view.removeEventListener("keydown", onKey)
   }, [onCancel])
 
   function toVideoPoint(e: React.PointerEvent<HTMLDivElement>): Point {
@@ -102,17 +119,17 @@ export function VodCropSelector({ win, frame, onApply, onCancel, target, fill = 
     height: (r.y1 - r.y0) * frame.height,
   })
 
-  const spaceBelow = STAGE_HEIGHT - (win.top + win.height)
+  const spaceBelow = stageHeight - (win.top + win.height)
   const instructionsStyle: React.CSSProperties =
     spaceBelow >= INSTRUCTIONS_CLEARANCE
       ? { left: win.left + win.width / 2, top: win.top + win.height + INSTRUCTIONS_GAP }
       : win.top >= INSTRUCTIONS_CLEARANCE
-        ? { left: win.left + win.width / 2, bottom: STAGE_HEIGHT - win.top + INSTRUCTIONS_GAP }
-        : { left: win.left + win.width / 2, bottom: STAGE_HEIGHT - (win.top + win.height) + INSTRUCTIONS_GAP }
+        ? { left: win.left + win.width / 2, bottom: stageHeight - win.top + INSTRUCTIONS_GAP }
+        : { left: win.left + win.width / 2, bottom: stageHeight - (win.top + win.height) + INSTRUCTIONS_GAP }
 
   return (
     <>
-    {target && (
+    {target && backdrop && (
       <div
         className="vod-crop-backdrop"
         aria-hidden="true"
@@ -123,6 +140,7 @@ export function VodCropSelector({ win, frame, onApply, onCancel, target, fill = 
       />
     )}
     <div
+      ref={selectorRef}
       className="vod-crop-selector"
       style={{ left: win.left, top: win.top, width: win.width, height: win.height }}
       role="application"

@@ -56,7 +56,7 @@ function loadTwitchEmbed() {
 
 // Twitch refuses to play unless every embedding domain is listed as a parent,
 // which includes the v0 preview frame and any page that iframes the overlay.
-function getParentDomains() {
+export function getParentDomains() {
   const hosts = new Set<string>([window.location.hostname])
   const ancestors = window.location.ancestorOrigins
   if (ancestors) {
@@ -262,7 +262,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         width: win.width,
         height: win.height,
         clipPath: win.clipPath,
-        zIndex: raised ? 902 : layout.onTop ? 14 : 13,
+        zIndex: raised ? 902 : (layout.z ?? (layout.onTop ? 14 : 13)),
       }}
     >
       <div

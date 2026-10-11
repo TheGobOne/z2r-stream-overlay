@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
-import { VodPanel } from "@/components/vod-panel"
-import { VodCropSelector } from "@/components/vod-crop-selector"
+import { PlayerTools } from "@/components/player-tools"
+import { SetupForm } from "@/components/setup-form"
+import { assignPlace, PlaceBadge, type Placements } from "@/components/place-badge"
+import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
-import { CROP_FOCUS_LAYOUT, CROP_FOCUS_WINDOW, createVodConfig, hasSource, resolveVodLayouts, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
 const BOSSES = [
   { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
@@ -70,17 +72,66 @@ export default function StreamOverlay() {
   const visibleBosses = isMaxRando ? BOSSES : BOSSES.filter((boss) => boss.id !== "thunderbird")
   const quadRef = useRef<QuadOverlayHandle>(null)
 
-  function confirmSetup() {
-    if (draftRunnerCount !== runnerCount) closeVodPanel()
-    setRunnerCount(draftRunnerCount)
-    setCommentatorCount(draftCommentatorCount)
-    setIsMaxRando(draftMaxRando)
-    if (draftCommentatorCount === 1) setCommentator2("")
-    setSetupOpen(false)
+  const [toolsWin, setToolsWin] = useState<Window | null>(null)
+  const [popupBlocked, setPopupBlocked] = useState(false)
+  const [quadToolsSlot, setQuadToolsSlot] = useState<HTMLElement | null>(null)
+
+  /** Opens (or focuses) the separate tools window; must run inside a click/key handler. */
+  function showTools() {
+    const win = openToolsWindow(toolsWin)
+    setPopupBlocked(!win)
+    if (win && win !== toolsWin) setToolsWin(win)
+    return win
   }
 
+  useEffect(() => {
+    if (!toolsWin) return
+    const poll = window.setInterval(() => {
+      if (toolsWin.closed) setToolsWin(null)
+    }, 500)
+    // The tools are rendered by this page, so they'd go dead if the overlay reloads
+    const closeWithOverlay = () => toolsWin.close()
+    window.addEventListener("pagehide", closeWithOverlay)
+    return () => {
+      window.clearInterval(poll)
+      window.removeEventListener("pagehide", closeWithOverlay)
+    }
+  }, [toolsWin])
+
+  const [placements, setPlacements] = useState<Placements>(() => Array(4).fill(null))
+  const [quadNames, setQuadNames] = useState<string[]>([])
+
+  function applyRunnerCount(n: 2 | 3 | 4) {
+    if (n !== runnerCount) {
+      setPlacements(Array(4).fill(null))
+      setQuadNames([])
+    }
+    setRunnerCount(n)
+    setDraftRunnerCount(n)
+  }
+
+  function applyCommentatorCount(n: 1 | 2) {
+    setCommentatorCount(n)
+    setDraftCommentatorCount(n)
+    if (n === 1) setCommentator2("")
+  }
+
+  function applyMaxRando(value: boolean) {
+    setIsMaxRando(value)
+    setDraftMaxRando(value)
+  }
+
+  function confirmSetup() {
+    applyRunnerCount(draftRunnerCount)
+    applyCommentatorCount(draftCommentatorCount)
+    applyMaxRando(draftMaxRando)
+    if (showTools()) setSetupOpen(false)
+  }
+
+  /** Right-clicks that used to reopen setup on the overlay now bring up the private tools window. */
   function reopenSetup(e: React.MouseEvent) {
     e.preventDefault()
+    if (showTools()) return
     setDraftCommentatorCount(commentatorCount)
     setDraftMaxRando(isMaxRando)
     setDraftRunnerCount(runnerCount)
@@ -91,8 +142,7 @@ export default function StreamOverlay() {
     left: createVodConfig(),
     right: createVodConfig(),
   }))
-  const [vodPanelSide, setVodPanelSide] = useState<VodSide | null>(null)
-  const [vodCropMode, setVodCropMode] = useState(false)
+  const [toolsSide, setToolsSide] = useState<VodSide>("left")
   const [linkVodsToTimer, setLinkVodsToTimer] = useState(true)
   const leftVodRef = useRef<VodPlayerHandle>(null)
   const rightVodRef = useRef<VodPlayerHandle>(null)
@@ -103,16 +153,8 @@ export default function StreamOverlay() {
   }
 
   function playBothVods() {
-    // Twitch refuses to play embeds that are covered, and the panel covers the other window
-    const panelWasOpen = vodPanelSide !== null
-    closeVodPanel()
-    window.setTimeout(
-      () => {
-        leftVodRef.current?.play()
-        rightVodRef.current?.play()
-      },
-      panelWasOpen ? 100 : 0,
-    )
+    leftVodRef.current?.play()
+    rightVodRef.current?.play()
   }
 
   function pauseBothVods() {
@@ -120,21 +162,15 @@ export default function StreamOverlay() {
     rightVodRef.current?.pause()
   }
 
-  const closeVodPanel = useCallback(() => {
-    setVodPanelSide(null)
-    setVodCropMode(false)
-  }, [])
-
   function openVodPanel(side: VodSide, e: React.MouseEvent) {
     e.preventDefault()
-    setVodCropMode(false)
-    setVodPanelSide(side)
+    setToolsSide(side)
+    showTools()
   }
 
-  // While picking crop corners, the cropping side shows its whole uncropped video
-  const croppingSide = vodPanelSide && vodCropMode && hasSource(vods[vodPanelSide]) ? vodPanelSide : null
-  const viewVods = croppingSide ? { ...vods, [croppingSide]: { ...vods[croppingSide], ...UNCROPPED_VIEW } } : vods
-  const vodLayouts = resolveVodLayouts(viewVods)
+  const vodLayouts = resolveVodLayouts(vods)
+  const duoLabel = (side: VodSide) =>
+    (side === "left" ? leftText : rightText) || (side === "left" ? "Player 1" : "Player 2")
 
   // Timer state: 0 = stopped/reset, 1 = running, 2 = paused
   const [timerPhase, setTimerPhase] = useState<0 | 1 | 2>(0)
@@ -1132,6 +1168,83 @@ export default function StreamOverlay() {
           outline-offset: 2px;
         }
 
+        .setup-places {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .setup-place-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .setup-place-label {
+          width: 120px;
+          flex-shrink: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          color: #ffffff;
+        }
+
+        .setup-place-options {
+          display: flex;
+          gap: 6px;
+        }
+
+        .setup-place-opt {
+          min-width: 44px;
+          height: 32px;
+          padding: 0 8px;
+          background: #0a0a0a;
+          border: 2px solid #2ec4b6;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          cursor: pointer;
+        }
+
+        .setup-place-opt:hover,
+        .setup-place-opt.selected {
+          background: #2ec4b6;
+          color: #000000;
+        }
+
+        .setup-place-opt-1.selected { background: #f8b800; border-color: #f8b800; }
+        .setup-place-opt-2.selected { background: #bcbcbc; border-color: #bcbcbc; }
+        .setup-place-opt-3.selected { background: #e45c10; border-color: #e45c10; }
+        .setup-place-opt-4.selected { background: #3050f8; border-color: #3050f8; color: #ffffff; }
+        .setup-place-opt-dnf.selected { background: #d01818; border-color: #d01818; color: #ffffff; }
+
+        .setup-place-opt:focus-visible {
+          outline: 2px solid #ffd700;
+          outline-offset: 2px;
+        }
+
+        .place-badge {
+          position: absolute;
+          transform: translate(-50%, calc(-100% - 10px));
+          z-index: 20;
+          padding: 2px 8px 5px;
+          font-family: 'ZeldaII', monospace;
+          font-size: 14px;
+          line-height: 1;
+          color: #000000;
+          pointer-events: none;
+          box-shadow: 0 0 0 2px #000000;
+        }
+
+        .place-badge-1 { background: #f8b800; }
+        .place-badge-2 { background: #bcbcbc; }
+        .place-badge-3 { background: #e45c10; }
+        .place-badge-4 { background: #3050f8; color: #ffffff; }
+        .place-badge-dnf { background: #d01818; color: #ffffff; }
+
         .setup-hint {
           margin: 0 0 24px;
           font-size: 10px;
@@ -1343,6 +1456,77 @@ export default function StreamOverlay() {
           overflow-y: auto;
         }
 
+        .vod-panel.vod-panel-inline {
+          position: static;
+          border: 2px solid #2ec4b6;
+          overflow: visible;
+        }
+
+        .tools {
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          min-height: 100vh;
+          padding: 24px;
+          background: #050505;
+          font-family: 'ZeldaII', monospace;
+          color: #ffffff;
+        }
+
+        .tools-header { display: flex; flex-direction: column; gap: 6px; }
+        .tools-heading { margin: 0; font-size: 18px; color: #2ec4b6; letter-spacing: 1px; }
+        .tools-subheading { margin: 0; font-size: 9px; color: #8a9a9a; line-height: 1.6; }
+
+        .tools-card {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          padding: 18px;
+          background: #0a0a0a;
+          border: 2px solid #1d3b38;
+        }
+
+        .tools-card-title { margin: 0; font-size: 12px; color: #2ec4b6; text-transform: uppercase; }
+
+        .tools .setup-section { display: flex; flex-direction: column; gap: 8px; }
+        .tools .setup-columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
+        .tools .setup-column { display: flex; flex-direction: column; gap: 14px; }
+        .tools .setup-columns > .setup-column:last-child:not(:first-child) { flex: 1; min-width: 0; }
+        .tools .setup-columns .setup-section { margin-bottom: 0; }
+  .tools .setup-place-row { gap: 12px; }
+  .tools .setup-place-label { width: auto; flex: 1; min-width: 0; font-size: 11px; letter-spacing: 1px; }
+  .tools .setup-place-options { gap: 6px; flex-shrink: 0; }
+  .tools .setup-place-opt { min-width: 44px; height: 32px; padding: 0 8px; font-size: 11px; }
+  .tools .setup-place-opt:first-child { min-width: 32px; }
+        .tools .gem-modal-title { margin: 0; font-size: 10px; }
+        .tools .gem-modal-options { justify-content: flex-start; }
+
+        .tools-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+
+        .tools-tab {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          background: transparent;
+          border: 2px solid #2a2a2a;
+          color: #8a9a9a;
+          font-family: inherit;
+          font-size: 10px;
+          cursor: pointer;
+        }
+
+        .tools-tab:hover { color: #ffffff; border-color: #3a3a3a; }
+        .tools-tab[aria-selected="true"] { color: #ffffff; border-color: #2ec4b6; }
+        .tools-tab:focus-visible { outline: 2px solid #2ec4b6; outline-offset: 2px; }
+        .tools-tab-dot { width: 6px; height: 6px; background: #2ec4b6; }
+
+        .tools-crop { display: flex; flex-direction: column; gap: 10px; }
+        .tools-crop-title { margin: 0; font-size: 10px; color: #8a9a9a; }
+        .tools-crop-stage { position: relative; max-width: 100%; overflow: hidden; background: #000000; }
+        .tools-crop-video { position: absolute; border: 0; }
+
         .vod-panel-header {
           display: flex;
           align-items: center;
@@ -1519,6 +1703,10 @@ export default function StreamOverlay() {
             linkToTimer={linkVodsToTimer}
             onLinkToTimerChange={setLinkVodsToTimer}
             onSidePanelContextMenu={reopenSetup}
+            toolsSlot={toolsWin ? quadToolsSlot : null}
+            onRequestTools={showTools}
+            placements={placements}
+            onNamesChange={setQuadNames}
             sidePanel={
               <>
                 <div className="quad-side-group quad-side-info">
@@ -1607,10 +1795,8 @@ export default function StreamOverlay() {
             key={side}
             ref={vodRefs[side]}
             side={side}
-              win={croppingSide === side ? CROP_FOCUS_WINDOW : undefined}
-              raised={croppingSide === side}
-              config={viewVods[side]}
-              layout={croppingSide === side ? CROP_FOCUS_LAYOUT : vodLayouts[side]}
+              config={vods[side]}
+              layout={vodLayouts[side]}
               onAutoMute={() => updateVod(side, { muted: true })}
               onSelectAudio={() =>
                 setVods((prev) => ({
@@ -1683,49 +1869,21 @@ export default function StreamOverlay() {
               aria-labelledby="setup-title"
               onKeyDown={(e) => e.key === "Enter" && confirmSetup()}
             >
-              <div className="setup-section">
-                <p id="setup-title" className="gem-modal-title">How many runners?</p>
-                <div className="gem-modal-options" role="radiogroup" aria-label="Number of runners">
-                  {([2, 3, 4] as const).map((n) => (
-                    <button
-                      key={n}
-                      role="radio"
-                      aria-checked={draftRunnerCount === n}
-                      className={`gem-modal-opt${draftRunnerCount === n ? " selected" : ""}`}
-                      onClick={() => setDraftRunnerCount(n)}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="setup-section">
-                <p className="gem-modal-title">How many commentators?</p>
-                <div className="gem-modal-options" role="radiogroup" aria-label="Number of commentators">
-                  {([1, 2] as const).map((n) => (
-                    <button
-                      key={n}
-                      role="radio"
-                      aria-checked={draftCommentatorCount === n}
-                      className={`gem-modal-opt${draftCommentatorCount === n ? " selected" : ""}`}
-                      onClick={() => setDraftCommentatorCount(n)}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="setup-section">
-                <label className="setup-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={draftMaxRando}
-                    onChange={(e) => setDraftMaxRando(e.target.checked)}
-                  />
-                  Max Rando
-                </label>
-              </div>
-              <p className="setup-hint">Right-click a game window to load a Twitch or YouTube VOD, or a Twitch livestream</p>
+              <h2 id="setup-title" className="sr-only">Overlay setup</h2>
+              <SetupForm
+                id="setup"
+                runnerCount={draftRunnerCount}
+                commentatorCount={draftCommentatorCount}
+                maxRando={draftMaxRando}
+                onRunnerCountChange={setDraftRunnerCount}
+                onCommentatorCountChange={setDraftCommentatorCount}
+                onMaxRandoChange={setDraftMaxRando}
+              />
+              <p className="setup-hint">
+                {popupBlocked
+                  ? "Your browser blocked the tools window. Allow popups for this page, then press OK again."
+                  : "OK opens a separate tools window for loading, syncing and cropping videos, so viewers never see it."}
+              </p>
               <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
             </div>
           </div>
@@ -1736,23 +1894,7 @@ export default function StreamOverlay() {
             Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
         {(["left", "right"] as const).map((side) => {
           const win = VOD_WINDOWS[side]
-          const hasVod = hasSource(vods[side])
-          if (croppingSide === side) {
-            return (
-              <VodCropSelector
-                key={side}
-                win={CROP_FOCUS_WINDOW}
-                frame={CROP_FOCUS_LAYOUT}
-                target={win}
-                onApply={(view) => {
-                  updateVod(side, view)
-                  setVodCropMode(false)
-                }}
-                onCancel={() => setVodCropMode(false)}
-              />
-            )
-          }
-          if (hasVod) return null
+          if (hasSource(vods[side])) return null
           return (
             <div
               key={side}
@@ -1769,23 +1911,6 @@ export default function StreamOverlay() {
           )
         })}
 
-        {vodPanelSide && !croppingSide && (
-          <VodPanel
-            key={vodPanelSide}
-            side={vodPanelSide}
-            playerLabel={(vodPanelSide === "left" ? leftText : rightText) || (vodPanelSide === "left" ? "Player 1" : "Player 2")}
-            config={vods[vodPanelSide]}
-            onChange={(patch) => updateVod(vodPanelSide, patch)}
-            playerRef={vodRefs[vodPanelSide]}
-              cropMode={vodCropMode}
-              onCropModeChange={setVodCropMode}
-            linkToTimer={linkVodsToTimer}
-            onLinkToTimerChange={setLinkVodsToTimer}
-            onPlayBoth={playBothVods}
-            onPauseBoth={pauseBothVods}
-            onClose={closeVodPanel}
-          />
-        )}
 
         {/* Right-click anywhere in the center panel to reopen setup */}
         <div className="center-panel-hitbox" onContextMenu={reopenSetup} aria-hidden="true" />
@@ -1839,6 +1964,53 @@ export default function StreamOverlay() {
           {formatTimer(timerMs)}
         </div>
         </>)}
+
+        {toolsWin && (
+          <ToolsWindowPortal win={toolsWin}>
+            <main className="tools">
+              <header className="tools-header">
+                <h1 className="tools-heading">Overlay tools</h1>
+                <p className="tools-subheading">Only you can see this window. Changes apply to the overlay instantly.</p>
+              </header>
+              <section className="tools-card" aria-labelledby="tools-setup-title">
+                <SetupForm
+                  id="tools-setup"
+                  title={{ id: "tools-setup-title", text: "Setup" }}
+                  runnerCount={runnerCount}
+                  commentatorCount={commentatorCount}
+                  maxRando={isMaxRando}
+                  onRunnerCountChange={applyRunnerCount}
+                  onCommentatorCountChange={applyCommentatorCount}
+                  onMaxRandoChange={applyMaxRando}
+                  placements={placements}
+                  playerLabels={runnerCount === 2 ? [leftText, rightText] : quadNames}
+                  onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
+                />
+              </section>
+              {runnerCount === 2 ? (
+                <PlayerTools
+                  id="duo-tools"
+                  players={(["left", "right"] as const).map((side) => ({
+                    label: duoLabel(side),
+                    config: vods[side],
+                    onChange: (patch) => updateVod(side, patch),
+                    playerRef: vodRefs[side],
+                    cropTarget: VOD_WINDOWS[side],
+                  }))}
+                  selected={toolsSide === "left" ? 0 : 1}
+                  onSelect={(i) => setToolsSide(i === 0 ? "left" : "right")}
+                  groupLabel="both"
+                  linkToTimer={linkVodsToTimer}
+                  onLinkToTimerChange={setLinkVodsToTimer}
+                  onPlayAll={playBothVods}
+                  onPauseAll={pauseBothVods}
+                />
+              ) : (
+                <div ref={setQuadToolsSlot} />
+              )}
+            </main>
+          </ToolsWindowPortal>
+        )}
 
         {/* Timer edit popup */}
         {timerEditOpen && (
@@ -1897,6 +2069,9 @@ export default function StreamOverlay() {
             style={{ "--zelda-font-size": `${rightFontSize}px` } as React.CSSProperties}
           />
         </div>
+
+        <PlaceBadge place={placements[0]} win={VOD_WINDOWS.left} />
+        <PlaceBadge place={placements[1]} win={VOD_WINDOWS.right} />
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
