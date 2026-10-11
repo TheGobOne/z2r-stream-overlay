@@ -37,7 +37,7 @@ const PREVIEW_LAYOUT = { ...frameInWindow(PREVIEW_WINDOW, UNCROPPED_VIEW), onTop
 function previewSrc(config: VodConfig, startSeconds: number) {
   if (config.platform === "youtube") {
     const params = new URLSearchParams({
-      autoplay: "1",
+      autoplay: "0",
       mute: "1",
       start: String(Math.floor(startSeconds)),
       controls: "0",
@@ -48,7 +48,7 @@ function previewSrc(config: VodConfig, startSeconds: number) {
     })
     return `https://www.youtube.com/embed/${config.videoId}?${params}`
   }
-  const params = new URLSearchParams({ autoplay: "true", muted: "true", controls: "false" })
+  const params = new URLSearchParams({ autoplay: "false", muted: "true", controls: "false" })
   if (config.videoId) {
     params.set("video", `v${config.videoId}`)
     params.set("time", toTwitchTime(startSeconds))
