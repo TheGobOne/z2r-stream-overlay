@@ -77,6 +77,12 @@ function CropPreview({
       <div className="tools-crop-stage" style={{ width: PREVIEW_WINDOW.width, height: PREVIEW_WINDOW.height }}>
         <iframe
           className="tools-crop-video"
+          style={{
+            left: PREVIEW_LAYOUT.left,
+            top: PREVIEW_LAYOUT.top,
+            width: PREVIEW_LAYOUT.width,
+            height: PREVIEW_LAYOUT.height,
+          }}
           src={previewSrc(player.config, startAt)}
           title={`${player.label} crop preview`}
           allow="autoplay; encrypted-media"
@@ -86,6 +92,8 @@ function CropPreview({
           frame={PREVIEW_LAYOUT}
           target={player.cropTarget}
           fill={fill}
+          backdrop={false}
+          stageHeight={PREVIEW_WINDOW.height}
           onApply={(view) => {
             player.onChange(view)
             onDone()

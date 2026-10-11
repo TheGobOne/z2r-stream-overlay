@@ -1,11 +1,13 @@
 "use client"
 
-import { useLayoutEffect, useState, type ReactNode } from "react"
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 const TOOLS_WINDOW_NAME = "z2r-overlay-tools"
 const TOOLS_WINDOW_FEATURES = "popup,width=880,height=980"
 const COPIED_ATTR = "data-tools-copied"
+// A real same-origin page rather than about:blank, so embeds (YouTube) receive a referrer
+const TOOLS_PAGE = "/tools.html"
 
 /** Must be called from a click (or key) handler, or the browser blocks the popup. */
 export function openToolsWindow(existing: Window | null): Window | null {
@@ -13,13 +15,18 @@ export function openToolsWindow(existing: Window | null): Window | null {
     existing.focus()
     return existing
   }
-  const win = window.open("", TOOLS_WINDOW_NAME, TOOLS_WINDOW_FEATURES)
+  const win = window.open(TOOLS_PAGE, TOOLS_WINDOW_NAME, TOOLS_WINDOW_FEATURES)
   if (!win) return null
-  // A popup left over from a previous page load keeps its old document; start clean.
-  win.document.head.querySelectorAll(`[${COPIED_ATTR}]`).forEach((node) => node.remove())
-  win.document.body.replaceChildren()
   win.focus()
   return win
+}
+
+function isToolsPageReady(win: Window) {
+  try {
+    return win.location.pathname === TOOLS_PAGE && win.document.readyState === "complete"
+  } catch {
+    return false
+  }
 }
 
 function isStyleNode(node: Node) {
@@ -29,15 +36,26 @@ function isStyleNode(node: Node) {
 /** Renders children into the popup and keeps the overlay's stylesheets mirrored there. */
 export function ToolsWindowPortal({ win, children }: { win: Window; children: ReactNode }) {
   const [container, setContainer] = useState<HTMLElement | null>(null)
+  const [ready, setReady] = useState(() => isToolsPageReady(win))
+
+  useEffect(() => {
+    if (ready) return
+    const poll = window.setInterval(() => {
+      if (win.closed) window.clearInterval(poll)
+      else if (isToolsPageReady(win)) {
+        window.clearInterval(poll)
+        setReady(true)
+      }
+    }, 50)
+    return () => window.clearInterval(poll)
+  }, [win, ready])
 
   useLayoutEffect(() => {
+    if (!ready) return
     const doc = win.document
     doc.title = "Overlay tools"
-    if (!doc.querySelector("base")) {
-      const base = doc.createElement("base")
-      base.href = window.location.href
-      doc.head.appendChild(base)
-    }
+    doc.head.querySelectorAll(`[${COPIED_ATTR}]`).forEach((node) => node.remove())
+    doc.body.replaceChildren()
     doc.body.style.margin = "0"
     doc.body.style.background = "#050505"
 
@@ -76,7 +94,7 @@ export function ToolsWindowPortal({ win, children }: { win: Window; children: Re
       root.remove()
       setContainer(null)
     }
-  }, [win])
+  }, [win, ready])
 
   return container ? createPortal(children, container) : null
 }
