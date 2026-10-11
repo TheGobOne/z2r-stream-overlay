@@ -31,11 +31,13 @@ export function SetupForm({
   playerLabels,
   onPlacementChange,
 }: Props) {
-  const places = Array.from({ length: runnerCount }, (_, i) => (i + 1) as Place)
+  const players = Array.from({ length: runnerCount }, (_, i) => i)
+  const places: Place[] = [...players.map((i) => (i + 1) as Place), "dnf"]
   return (
-    <>
+    <div className={placements && onPlacementChange ? "setup-columns" : undefined}>
+      <div className="setup-column">
       <div className="setup-section">
-        <p id={`${id}-runners`} className="gem-modal-title">How many runners?</p>
+        <p id={`${id}-runners`} className="gem-modal-title">Runners</p>
         <div className="gem-modal-options" role="radiogroup" aria-labelledby={`${id}-runners`}>
           {([2, 3, 4] as const).map((n) => (
             <button
@@ -52,7 +54,7 @@ export function SetupForm({
         </div>
       </div>
       <div className="setup-section">
-        <p id={`${id}-coms`} className="gem-modal-title">How many commentators?</p>
+        <p id={`${id}-coms`} className="gem-modal-title">Commentators</p>
         <div className="gem-modal-options" role="radiogroup" aria-labelledby={`${id}-coms`}>
           {([1, 2] as const).map((n) => (
             <button
@@ -74,11 +76,12 @@ export function SetupForm({
           Max Rando
         </label>
       </div>
+      </div>
       {placements && onPlacementChange && (
-        <div className="setup-section">
+        <div className="setup-section setup-column">
           <p className="gem-modal-title">Placements</p>
           <div className="setup-places">
-            {places.map((_, player) => {
+            {players.map((player) => {
               const current = placements[player] ?? null
               const labelId = `${id}-place-${player}`
               return (
@@ -116,6 +119,6 @@ export function SetupForm({
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

@@ -1219,6 +1219,7 @@ export default function StreamOverlay() {
         .setup-place-opt-2.selected { background: #bcbcbc; border-color: #bcbcbc; }
         .setup-place-opt-3.selected { background: #e45c10; border-color: #e45c10; }
         .setup-place-opt-4.selected { background: #3050f8; border-color: #3050f8; color: #ffffff; }
+        .setup-place-opt-dnf.selected { background: #d01818; border-color: #d01818; color: #ffffff; }
 
         .setup-place-opt:focus-visible {
           outline: 2px solid #ffd700;
@@ -1242,6 +1243,7 @@ export default function StreamOverlay() {
         .place-badge-2 { background: #bcbcbc; }
         .place-badge-3 { background: #e45c10; }
         .place-badge-4 { background: #3050f8; color: #ffffff; }
+        .place-badge-dnf { background: #d01818; color: #ffffff; }
 
         .setup-hint {
           margin: 0 0 24px;
@@ -1488,6 +1490,15 @@ export default function StreamOverlay() {
         .tools-card-title { margin: 0; font-size: 12px; color: #2ec4b6; text-transform: uppercase; }
 
         .tools .setup-section { display: flex; flex-direction: column; gap: 8px; }
+        .tools .setup-columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
+        .tools .setup-column { display: flex; flex-direction: column; gap: 14px; }
+        .tools .setup-columns > .setup-column:last-child:not(:first-child) { flex: 1; min-width: 0; }
+        .tools .setup-columns .setup-section { margin-bottom: 0; }
+  .tools .setup-place-row { gap: 12px; }
+  .tools .setup-place-label { width: auto; flex: 1; min-width: 0; font-size: 11px; letter-spacing: 1px; }
+  .tools .setup-place-options { gap: 6px; flex-shrink: 0; }
+  .tools .setup-place-opt { min-width: 44px; height: 32px; padding: 0 8px; font-size: 11px; }
+  .tools .setup-place-opt:first-child { min-width: 32px; }
         .tools .gem-modal-title { margin: 0; font-size: 10px; }
         .tools .gem-modal-options { justify-content: flex-start; }
 
