@@ -12,10 +12,7 @@ export function assignPlace(placements: Placements, player: number, place: Place
 
 type WindowBox = { left: number; top: number; width: number; height: number }
 
-/**
- * Centred on the bricks just below the player's video. It never overlaps the video itself,
- * because Twitch pauses embeds that anything covers.
- */
+/** Bottom-centre, just inside the player's video window. */
 export function PlaceBadge({ place, win }: { place: Place | null | undefined; win: WindowBox }) {
   if (!place) return null
   return (

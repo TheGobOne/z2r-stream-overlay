@@ -1227,7 +1227,7 @@ export default function StreamOverlay() {
 
         .place-badge {
           position: absolute;
-          transform: translate(-50%, 6px);
+          transform: translate(-50%, calc(-100% - 10px));
           z-index: 14;
           padding: 2px 8px 5px;
           font-family: 'ZeldaII', monospace;
