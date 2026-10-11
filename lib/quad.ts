@@ -83,6 +83,7 @@ export const TRIO_LAYOUT = buildLayout(
   [brickRect(1, 1, 18, 10), brickRect(22, 1, 18, 10), brickRect(1, 12, 18, 10)],
   brickRect(22, 12, 18, 10),
   "wide",
+  ["left", "right", "left"],
 )
 
 type Span = { start: number; size: number }
