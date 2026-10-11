@@ -142,39 +142,55 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
     const isTwitch = config.platform === "twitch"
 
     if (hasSource(config) && isTwitch) {
+      // Limits from every Twitch neighbor are combined before fitting, so satisfying one neighbor
+      // can never push the frame back into another. Each frame may only use its own half of a gap.
+      const bx: Bounds = { lo: -Infinity, hi: Infinity }
+      const by: Bounds = { lo: -Infinity, hi: Infinity }
+      const within = (span: Span, b: Bounds) => span.start >= b.lo - 1e-6 && span.start + span.size <= b.hi + 1e-6
+      const ownRight = own.left + own.width
+      const ownBottom = own.top + own.height
+
       configs.forEach((other, j) => {
         if (j === i || !hasSource(other) || other.platform !== "twitch") return
         const win = windows[j]
-        const overlapsX = x.start < win.left + win.width && x.start + x.size > win.left
-        const overlapsY = y.start < win.top + win.height && y.start + y.size > win.top
-        if (!overlapsX || !overlapsY) return
-
-        const free: Bounds = { lo: -Infinity, hi: Infinity }
         const options: { axis: "x" | "y"; bounds: Bounds }[] = []
-        if (win.left >= own.left + own.width) options.push({ axis: "x", bounds: { lo: -Infinity, hi: win.left } })
-        if (win.left + win.width <= own.left) options.push({ axis: "x", bounds: { lo: win.left + win.width, hi: Infinity } })
-        if (win.top >= own.top + own.height) options.push({ axis: "y", bounds: { lo: -Infinity, hi: win.top } })
-        if (win.top + win.height <= own.top) options.push({ axis: "y", bounds: { lo: win.top + win.height, hi: Infinity } })
+        if (win.left >= ownRight) options.push({ axis: "x", bounds: { lo: -Infinity, hi: (ownRight + win.left) / 2 } })
+        if (win.left + win.width <= own.left)
+          options.push({ axis: "x", bounds: { lo: (win.left + win.width + own.left) / 2, hi: Infinity } })
+        if (win.top >= ownBottom) options.push({ axis: "y", bounds: { lo: -Infinity, hi: (ownBottom + win.top) / 2 } })
+        if (win.top + win.height <= own.top)
+          options.push({ axis: "y", bounds: { lo: (win.top + win.height + own.top) / 2, hi: Infinity } })
 
-        const fits = options.map((o) => ({
-          axis: o.axis,
-          main: o.axis === "x" ? fitAxis(x, ownX, o.bounds) : fitAxis(y, ownY, o.bounds),
-        }))
-        const best = fits.sort((a, b) => b.main.scale - a.main.scale)[0]
-        if (!best) return
-        // Scale the other axis the same amount where possible so the picture keeps its shape.
-        const crossFit =
-          best.axis === "x"
-            ? fitAxis(y, ownY, free, best.main.scale, best.main.scale)
-            : fitAxis(x, ownX, free, best.main.scale, best.main.scale)
-        if (best.axis === "x") {
-          x = { start: best.main.start, size: best.main.size }
-          y = { start: crossFit.start, size: crossFit.size }
-        } else {
-          y = { start: best.main.start, size: best.main.size }
-          x = { start: crossFit.start, size: crossFit.size }
+        // Diagonal neighbors must both dodge along the same axis, or their frames can still meet
+        // at the corner; use the axis with the wider gap.
+        if (options.length > 1) {
+          const gapX = Math.max(win.left - ownRight, own.left - (win.left + win.width))
+          const gapY = Math.max(win.top - ownBottom, own.top - (win.top + win.height))
+          const axis = gapX >= gapY ? "x" : "y"
+          options.splice(0, options.length, ...options.filter((o) => o.axis === axis))
         }
+
+        const merged = options.map((o) => {
+          const cur = o.axis === "x" ? bx : by
+          return { axis: o.axis, bounds: { lo: Math.max(cur.lo, o.bounds.lo), hi: Math.min(cur.hi, o.bounds.hi) } }
+        })
+        // Already clear of this neighbor on some axis: no new limit needed.
+        if (merged.some((o) => within(o.axis === "x" ? x : y, o.bounds))) return
+        const best = merged
+          .map((o) => ({ ...o, scale: (o.axis === "x" ? fitAxis(x, ownX, o.bounds) : fitAxis(y, ownY, o.bounds)).scale }))
+          .sort((a, b) => b.scale - a.scale)[0]
+        if (!best) return
+        Object.assign(best.axis === "x" ? bx : by, best.bounds)
       })
+
+      if (!within(x, bx) || !within(y, by)) {
+        // Zoom both axes by the same amount so the picture keeps its shape.
+        const scale = Math.min(fitAxis(x, ownX, bx).scale, fitAxis(y, ownY, by).scale)
+        const fx = fitAxis(x, ownX, bx, scale, scale)
+        const fy = fitAxis(y, ownY, by, scale, scale)
+        x = { start: fx.start, size: fx.size }
+        y = { start: fy.start, size: fy.size }
+      }
     }
 
     return { left: x.start - own.left, top: y.start - own.top, width: x.size, height: y.size, onTop: isTwitch }
