@@ -86,9 +86,10 @@ export const TRIO_LAYOUT = buildLayout(
 )
 
 /**
- * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away. A frame
- * may spill over bricks and trackers freely, but when it would reach another loaded player's
- * window it is pushed back toward its own outer edge, along whichever axis needs the least shift.
+ * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away; YouTube
+ * doesn't care. Twitch frames stack above YouTube ones, so a frame may overlap a neighbor's
+ * window unless both are Twitch. Only then is it pushed back toward its own outer edge, along
+ * whichever axis needs the least shift, which moves the picture off the chosen crop.
  */
 export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], fill = true): VodFrameLayout[] {
   return configs.map((config, i) => {
@@ -97,10 +98,11 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
     let left = own.left + frame.left
     let top = own.top + frame.top
     const { width, height } = frame
+    const isTwitch = config.platform === "twitch"
 
-    if (hasSource(config)) {
+    if (hasSource(config) && isTwitch) {
       configs.forEach((other, j) => {
-        if (j === i || !hasSource(other)) return
+        if (j === i || !hasSource(other) || other.platform !== "twitch") return
         const win = windows[j]
         const overlapsX = left < win.left + win.width && left + width > win.left
         const overlapsY = top < win.top + win.height && top + height > win.top
@@ -120,6 +122,6 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
       })
     }
 
-    return { left: left - own.left, top: top - own.top, width, height, onTop: false }
+    return { left: left - own.left, top: top - own.top, width, height, onTop: isTwitch }
   })
 }
