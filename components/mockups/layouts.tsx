@@ -129,33 +129,40 @@ function InfoRight() {
 }
 
 /** Left rail middle: race info as one tall box that fills the same height as the right rail's block. */
-function RaceInfoFill() {
+  /** Race info and the comms/tracking/timer stack share this height so the two rails read as a matched pair. */
+  const MIDDLE_H = 210
+  
+  function RaceInfoFill() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", flex: 1, minHeight: 0 }}>
-      <Gold>RACE INFO</Gold>
-      <Field height="auto" grow>
-        <span className="mk-ph">RACE INFO</span>
-      </Field>
-    </div>
+  <div
+  className="mk-center"
+  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%", height: MIDDLE_H }}
+  >
+  <Gold>RACE INFO</Gold>
+  <Field height="auto" grow>
+  <span className="mk-ph">RACE INFO</span>
+  </Field>
+  </div>
   )
 }
 
 /** Right rail middle: commentary, a single tracking slot, then the centered timer underneath. */
 function BroadcastFill() {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        gap: 8,
-        width: "100%",
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <Gold>COMMENTARY</Gold>
+  <div
+  className="mk-center"
+  style={{
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 8,
+  width: "100%",
+  height: MIDDLE_H,
+  }}
+  >
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%" }}>
+  <Gold>COMMENTARY</Gold>
         <Field>
           <span className="mk-ph">COM 1</span>
         </Field>
@@ -163,8 +170,8 @@ function BroadcastFill() {
           <span className="mk-ph">COM 2</span>
         </Field>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <Gold>TRACKING</Gold>
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%" }}>
+  <Gold>TRACKING</Gold>
         <Field>
           <span className="mk-ph">TRACKING</span>
         </Field>

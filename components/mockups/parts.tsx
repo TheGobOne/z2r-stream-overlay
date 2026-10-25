@@ -439,6 +439,8 @@ export function MockupStyles() {
         border-radius: 2px;
         width: 100%;
       }
+      .mk-center { text-align: center; }
+      .mk-center .mk-field { justify-content: center; }
       .mk-ph {
         color: rgba(255, 215, 0, 0.4);
         font-size: 12px;
