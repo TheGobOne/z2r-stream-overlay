@@ -42,6 +42,24 @@ export function Bricks() {
   return <div className="mk-bricks" aria-hidden="true" />
 }
 
+/** A region of brick texture aligned to the stage grid, for drawing brick frames on a black stage. */
+export function BrickBox({ x, y, w, h }: Box) {
+  return (
+    <Abs
+      x={x}
+      y={y}
+      w={w}
+      h={h}
+      style={{
+        backgroundImage: "url('/overlays/brick-tile.png')",
+        backgroundSize: `${BW}px ${BH}px`,
+        backgroundPosition: `${-x}px ${-y}px`,
+        imageRendering: "pixelated",
+      }}
+    />
+  )
+}
+
 export function Video({
   x,
   y,

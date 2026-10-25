@@ -1,13 +1,19 @@
 import type { ReactNode } from "react"
 import {
   Bar,
+  BrickBox,
+  Field,
+  Gold,
   InfoBlock,
   InfoStack,
   NamePlate,
   Panel,
+  Timer,
   Tracker,
   Video,
   BH,
+  STAGE_H,
+  STAGE_W,
   bx,
   by,
   type Place,
@@ -15,7 +21,6 @@ import {
 
 const ACCENTS = ["#3050f8", "#d82800", "#00a800", "#f8b800"]
 const PLACES: Place[] = [1, 2, 3, "dnf"]
-const COLUMNS = [1, 11, 21, 31]
 
 export type Mockup = {
   id: string
@@ -25,455 +30,494 @@ export type Mockup = {
   render: () => ReactNode
 }
 
+type Rect = { x: number; y: number; w: number; h: number }
+
 /** Name plate with the runner's tracker underneath. */
 function RunnerCard({
   n,
-  cols = 8,
-  size = 32,
+  cols = 6,
+  size = 34,
   gap = 2,
+  bossCols = 6,
 }: {
   n: number
   cols?: number
   size?: number
   gap?: number
+  bossCols?: number
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: "100%" }}>
       <NamePlate n={n} accent={ACCENTS[n - 1]} width="100%" height={32} />
-      <Tracker cols={cols} size={size} gap={gap} bossCols={6} seed={n} />
+      <Tracker cols={cols} size={size} gap={gap} bossCols={bossCols} seed={n} />
     </div>
   )
 }
 
-function CardRow({ ids, size = 30, cols = 8 }: { ids: number[]; size?: number; cols?: number }) {
-  return (
-    <div style={{ display: "flex", gap: 14, width: "100%" }}>
-      {ids.map((n) => (
-        <div key={n} style={{ flex: 1, minWidth: 0 }}>
-          <RunnerCard n={n} size={size} cols={cols} />
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/** 2x2 grid positions for four 10x10 squares inside the brick border (rows 1-10 and 12-21). */
-const QUAD_ROWS = [1, 12]
-
-/* 1. Square Row: four 9x9 squares across the top, each runner's tracker directly underneath. */
-function SquareRow() {
+/** Four video windows in reading order: P1 top-left, P2 top-right, P3 bottom-left, P4 bottom-right. */
+function VideoSet({ boxes }: { boxes: Rect[] }) {
   return (
     <>
-      {COLUMNS.map((x, i) => (
-        <div key={x}>
-          <Video n={i + 1} place={PLACES[i]} accent={ACCENTS[i]} x={bx(x)} y={by(1)} w={bx(9)} h={by(9)} />
-          <Panel x={bx(x)} y={by(11)} w={bx(9)} h={by(9)} style={{ padding: 12, justifyContent: "center" }}>
-            <RunnerCard n={i + 1} size={32} />
-          </Panel>
-        </div>
+      {boxes.map((b, i) => (
+        <Video key={i} n={i + 1} place={PLACES[i]} accent={ACCENTS[i]} x={b.x} y={b.y} w={b.w} h={b.h} />
       ))}
+    </>
+  )
+}
+
+function quadBoxes(xs: [number, number], ys: [number, number], w: number, h: number): Rect[] {
+  return [
+    { x: xs[0], y: ys[0], w, h },
+    { x: xs[1], y: ys[0], w, h },
+    { x: xs[0], y: ys[1], w, h },
+    { x: xs[1], y: ys[1], w, h },
+  ]
+}
+
+/** One runner's card centered in its own panel, sized to sit beside a video window. */
+function RailCard({
+  n,
+  x,
+  y,
+  w,
+  h,
+  size = 34,
+  cols = 6,
+  bossCols = 6,
+  pad = 10,
+}: Rect & { n: number; size?: number; cols?: number; bossCols?: number; pad?: number }) {
+  return (
+    <Panel x={x} y={y} w={w} h={h} style={{ padding: pad, justifyContent: "center" }}>
+      <RunnerCard n={n} size={size} cols={cols} bossCols={bossCols} />
+    </Panel>
+  )
+}
+
+function InfoLeft() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
+      <Gold>RACE INFO</Gold>
+      <Field height={52}>
+        <span className="mk-ph">RACE INFO</span>
+      </Field>
+      <div style={{ paddingTop: 6 }}>
+        <Timer size={22} />
+      </div>
+    </div>
+  )
+}
+
+function InfoRight() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
+      <Gold>COMMENTARY</Gold>
+      <Field>
+        <span className="mk-ph">COM 1</span>
+      </Field>
+      <Field>
+        <span className="mk-ph">COM 2</span>
+      </Field>
+      <Gold>TRACKING</Gold>
+      <Field>
+        <span className="mk-ph">TRACKING</span>
+      </Field>
+      <Field>
+        <span className="mk-ph">TRACKING</span>
+      </Field>
+    </div>
+  )
+}
+
+/** A full-height rail: top runner's card, the broadcast fields, then the bottom runner's card. */
+function CardRail({
+  side,
+  x,
+  y,
+  w,
+  h,
+  size = 34,
+  cols = 6,
+  bossCols = 6,
+  pad = 12,
+}: Rect & { side: "left" | "right"; size?: number; cols?: number; bossCols?: number; pad?: number }) {
+  const [top, bottom] = side === "left" ? [1, 3] : [2, 4]
+  return (
+    <Panel
+      x={x}
+      y={y}
+      w={w}
+      h={h}
+      style={{ padding: pad, justifyContent: "space-between", alignItems: "center", gap: 12 }}
+    >
+      <RunnerCard n={top} size={size} cols={cols} bossCols={bossCols} />
+      {side === "left" ? <InfoLeft /> : <InfoRight />}
+      <RunnerCard n={bottom} size={size} cols={cols} bossCols={bossCols} />
+    </Panel>
+  )
+}
+
+/** The four rail cards beside a 2 x 2: P1/P3 on the left, P2/P4 on the right, aligned to each video row. */
+function SideCards({
+  leftX,
+  rightX,
+  w,
+  ys,
+  h,
+  size,
+  cols,
+  bossCols,
+  pad,
+}: {
+  leftX: number
+  rightX: number
+  w: number
+  ys: [number, number]
+  h: number
+  size?: number
+  cols?: number
+  bossCols?: number
+  pad?: number
+}) {
+  const shared = { w, h, size, cols, bossCols, pad }
+  return (
+    <>
+      <RailCard n={1} x={leftX} y={ys[0]} {...shared} />
+      <RailCard n={2} x={rightX} y={ys[0]} {...shared} />
+      <RailCard n={3} x={leftX} y={ys[1]} {...shared} />
+      <RailCard n={4} x={rightX} y={ys[1]} {...shared} />
+    </>
+  )
+}
+
+const CENTER_XS: [number, number] = [bx(9), bx(21)]
+
+/* 1. Center Quad: 11 x 9 windows in the middle, a tracker rail on each side, and the info bar along the bottom. */
+function CenterQuad() {
+  const ys: [number, number] = [by(1), by(11)]
+  return (
+    <>
+      <VideoSet boxes={quadBoxes(CENTER_XS, ys, bx(11), by(9))} />
+      <SideCards leftX={bx(1)} rightX={bx(33)} w={bx(7)} ys={ys} h={by(9)} />
       <Bar x={bx(1)} y={by(21)} w={bx(39)} h={BH} />
     </>
   )
 }
 
-/* 2. Corner Pinwheel: 10x10 squares in the corners, all four trackers and the broadcast info in the middle. */
-function CornerPinwheel() {
-  const corners = [
-    { x: 1, y: 1 },
-    { x: 30, y: 1 },
-    { x: 1, y: 12 },
-    { x: 30, y: 12 },
-  ]
+/* 2. Wide Quad: 12 x 10 windows with slim rails that also carry the broadcast fields. */
+function WideQuad() {
   return (
     <>
-      {corners.map((c, i) => (
-        <Video
-          key={i}
-          n={i + 1}
-          place={PLACES[i]}
-          accent={ACCENTS[i]}
-          x={bx(c.x)}
-          y={by(c.y)}
-          w={bx(10)}
-          h={by(10)}
-        />
-      ))}
-      <Panel x={bx(12)} y={by(1)} w={bx(17)} h={by(21)} style={{ padding: 14, justifyContent: "space-between" }}>
-        <CardRow ids={[1, 2]} />
-        <div style={{ height: 96, width: "100%" }}>
-          <InfoBlock compact />
-        </div>
-        <CardRow ids={[3, 4]} />
+      <VideoSet boxes={quadBoxes([bx(8), bx(21)], [by(1), by(12)], bx(12), by(10))} />
+      <CardRail side="left" x={bx(1)} y={by(1)} w={bx(6)} h={by(21)} size={30} />
+      <CardRail side="right" x={bx(34)} y={by(1)} w={bx(6)} h={by(21)} size={30} />
+    </>
+  )
+}
+
+/* 3. Center Band: two rows of windows with the info band sandwiched between them. */
+function CenterBand() {
+  const ys: [number, number] = [by(1), by(13)]
+  return (
+    <>
+      <VideoSet boxes={quadBoxes(CENTER_XS, ys, bx(11), by(9))} />
+      <SideCards leftX={bx(1)} rightX={bx(33)} w={bx(7)} ys={ys} h={by(9)} />
+      <Panel x={bx(9)} y={by(10)} w={bx(23)} h={by(3)} style={{ padding: 14 }}>
+        <InfoBlock compact />
       </Panel>
     </>
   )
 }
 
-/* 3. Hero + Three: one runner at 15x15, the other three at 7x7 across the top right. */
-function HeroPlusThree() {
-  const smallX = [17, 25, 33]
+/* 4. Black Rails: solid black rails run to the screen edges and replace the side borders. */
+function BlackRails() {
   return (
     <>
-      <Video n={1} place={1} accent={ACCENTS[0]} x={bx(1)} y={by(1)} w={bx(15)} h={by(15)} />
-      <Panel x={bx(1)} y={by(17)} w={bx(15)} h={by(5)} style={{ padding: 14, justifyContent: "center", gap: 8 }}>
-        <NamePlate n={1} accent={ACCENTS[0]} width="100%" height={32} />
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <Tracker cols={8} size={30} gap={2} bossCols={3} seed={1} direction="row" />
+      <VideoSet boxes={quadBoxes(CENTER_XS, [by(1), by(12)], bx(11), by(10))} />
+      <CardRail side="left" x={0} y={0} w={bx(8)} h={STAGE_H} size={34} cols={7} pad={14} />
+      <CardRail side="right" x={bx(33)} y={0} w={bx(8)} h={STAGE_H} size={34} cols={7} pad={14} />
+    </>
+  )
+}
+
+/* 5. Header Bar: the info bar replaces the top border and the windows run flush to the bottom edge. */
+function HeaderBar() {
+  const ys: [number, number] = [by(2), by(13)]
+  return (
+    <>
+      <Bar x={0} y={0} w={STAGE_W} h={BH} />
+      <VideoSet boxes={quadBoxes(CENTER_XS, ys, bx(11), by(10))} />
+      <SideCards leftX={bx(1)} rightX={bx(33)} w={bx(7)} ys={ys} h={by(10)} />
+    </>
+  )
+}
+
+/* 6. Offset Quad: the right column drops two rows, and the empty corners hold the broadcast fields. */
+function OffsetQuad() {
+  const w = bx(11)
+  const h = by(9)
+  const boxes: Rect[] = [
+    { x: bx(9), y: by(1), w, h },
+    { x: bx(21), y: by(3), w, h },
+    { x: bx(9), y: by(11), w, h },
+    { x: bx(21), y: by(13), w, h },
+  ]
+  return (
+    <>
+      <VideoSet boxes={boxes} />
+      <RailCard n={1} x={bx(1)} y={by(1)} w={bx(7)} h={h} />
+      <RailCard n={3} x={bx(1)} y={by(11)} w={bx(7)} h={h} />
+      <RailCard n={2} x={bx(33)} y={by(3)} w={bx(7)} h={h} />
+      <RailCard n={4} x={bx(33)} y={by(13)} w={bx(7)} h={h} />
+      <Panel
+        x={bx(21)}
+        y={by(1)}
+        w={w}
+        h={by(2)}
+        style={{ flexDirection: "row", alignItems: "center", gap: 14, padding: "0 12px" }}
+      >
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Field height={28}>
+            <span className="mk-ph">RACE INFO</span>
+          </Field>
         </div>
+        <Timer size={18} />
       </Panel>
-      {smallX.map((x, i) => (
-        <div key={x}>
-          <Video
-            n={i + 2}
-            place={PLACES[i + 1]}
-            accent={ACCENTS[i + 1]}
-            x={bx(x)}
-            y={by(1)}
-            w={bx(7)}
-            h={by(7)}
-          />
-          <Panel x={bx(x)} y={by(9)} w={bx(7)} h={by(7)} style={{ padding: 10, justifyContent: "center" }}>
-            <RunnerCard n={i + 2} cols={6} size={32} />
-          </Panel>
-        </div>
-      ))}
-      <Panel x={bx(17)} y={by(17)} w={bx(23)} h={by(5)} style={{ padding: 14 }}>
-        <InfoBlock />
+      <Panel
+        x={bx(9)}
+        y={by(20)}
+        w={w}
+        h={by(2)}
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, padding: "4px 10px", alignContent: "center" }}
+      >
+        <Field height={28}>
+          <span className="mk-ph">COM 1</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">COM 2</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
       </Panel>
     </>
   )
 }
 
-/* 4. Mirrored Pairs: 9x9 squares on the outer edges, each tracker on the inside next to its video. */
-function MirroredPairs() {
-  const cells = [
-    { v: 1, t: 11, y: 1 },
-    { v: 31, t: 21, y: 1 },
-    { v: 1, t: 11, y: 11 },
-    { v: 31, t: 21, y: 11 },
-  ]
+/* 7. Tracker Column: every tracker stacked in the left rail, every broadcast field in the right rail. */
+function TrackerColumn() {
   return (
     <>
-      {cells.map((c, i) => (
-        <div key={i}>
-          <Video
-            n={i + 1}
-            place={PLACES[i]}
-            accent={ACCENTS[i]}
-            x={bx(c.v)}
-            y={by(c.y)}
-            w={bx(9)}
-            h={by(9)}
-          />
-          <Panel x={bx(c.t)} y={by(c.y)} w={bx(9)} h={by(9)} style={{ padding: 12, justifyContent: "center" }}>
-            <RunnerCard n={i + 1} size={32} />
-          </Panel>
-        </div>
-      ))}
-      <Bar x={bx(1)} y={by(21)} w={bx(39)} h={BH} />
-    </>
-  )
-}
-
-/* 5. Left Rail Quad: all four trackers in a rail on the left, a 2x2 of 10x10 squares, broadcast info on the right. */
-function LeftRailQuad() {
-  const cells = [
-    { x: 12, y: 1 },
-    { x: 23, y: 1 },
-    { x: 12, y: 12 },
-    { x: 23, y: 12 },
-  ]
-  return (
-    <>
-      <Panel x={bx(1)} y={by(1)} w={bx(10)} h={by(21)} style={{ padding: 12, gap: 8, justifyContent: "space-between" }}>
+      <VideoSet boxes={quadBoxes(CENTER_XS, [by(1), by(12)], bx(11), by(10))} />
+      <Panel x={bx(1)} y={by(1)} w={bx(7)} h={by(21)} style={{ padding: 8, justifyContent: "space-between", gap: 8 }}>
         {[1, 2, 3, 4].map((n) => (
-          <RunnerCard key={n} n={n} size={30} />
+          <RunnerCard key={n} n={n} size={27} cols={8} />
         ))}
       </Panel>
-      {cells.map((c, i) => (
-        <Video
-          key={i}
-          n={i + 1}
-          place={PLACES[i]}
-          accent={ACCENTS[i]}
-          x={bx(c.x)}
-          y={by(c.y)}
-          w={bx(10)}
-          h={by(10)}
-        />
-      ))}
-      <Panel x={bx(34)} y={by(1)} w={bx(6)} h={by(21)}>
+      <Panel x={bx(33)} y={by(1)} w={bx(7)} h={by(21)}>
         <InfoStack timerSize={22} />
       </Panel>
     </>
   )
 }
 
-/* 6. Zigzag: 9x9 squares alternate top and bottom, so every tracker sits above or below its neighbours' videos. */
-function Zigzag() {
+/* 8. Letterbox: black bars run edge to edge along the top and bottom and replace those borders. */
+function Letterbox() {
+  const ys: [number, number] = [by(2), by(12)]
+  const strip = {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 20,
+    padding: "0 20px",
+  }
   return (
     <>
-      {COLUMNS.map((x, i) => {
-        const top = i % 2 === 0
-        return (
-          <div key={x}>
-            <Video
-              n={i + 1}
-              place={PLACES[i]}
-              accent={ACCENTS[i]}
-              x={bx(x)}
-              y={by(top ? 1 : 12)}
-              w={bx(9)}
-              h={by(9)}
-            />
-            <Panel
-              x={bx(x)}
-              y={by(top ? 11 : 1)}
-              w={bx(9)}
-              h={by(10)}
-              style={{ padding: 12, justifyContent: "center" }}
-            >
-              <RunnerCard n={i + 1} size={32} />
-            </Panel>
-          </div>
-        )
-      })}
-      <Bar x={bx(1)} y={by(22)} w={bx(39)} h={BH} />
-    </>
-  )
-}
-
-/* 7. Edge Pinwheel: 11x11 squares flush to the top and bottom edges, a full-height console between them. */
-function EdgePinwheel() {
-  const corners = [
-    { x: 1, y: 0 },
-    { x: 29, y: 0 },
-    { x: 1, y: 12 },
-    { x: 29, y: 12 },
-  ]
-  return (
-    <>
-      {corners.map((c, i) => (
-        <Video
-          key={i}
-          n={i + 1}
-          place={PLACES[i]}
-          accent={ACCENTS[i]}
-          x={bx(c.x)}
-          y={by(c.y)}
-          w={bx(11)}
-          h={by(11)}
-        />
-      ))}
-      <Panel x={bx(13)} y={0} w={bx(15)} h={by(23)} style={{ padding: 14, justifyContent: "space-between" }}>
-        <CardRow ids={[1, 2]} size={36} cols={6} />
-        <div style={{ height: 110, width: "100%" }}>
-          <InfoBlock compact />
+      <Panel x={0} y={0} w={STAGE_W} h={BH} style={strip}>
+        <div style={{ flex: 1.6, minWidth: 0 }}>
+          <Field height={24}>
+            <span className="mk-ph">RACE INFO</span>
+          </Field>
         </div>
-        <CardRow ids={[3, 4]} size={36} cols={6} />
+        <Gold>COMMENTARY</Gold>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Field height={24}>
+            <span className="mk-ph">COM 1</span>
+          </Field>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Field height={24}>
+            <span className="mk-ph">COM 2</span>
+          </Field>
+        </div>
+      </Panel>
+      <VideoSet boxes={quadBoxes(CENTER_XS, ys, bx(11), by(9))} />
+      <SideCards leftX={bx(1)} rightX={bx(33)} w={bx(7)} ys={ys} h={by(9)} />
+      <Panel x={0} y={by(22)} w={STAGE_W} h={BH} style={strip}>
+        <Gold>TRACKING</Gold>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Field height={24}>
+            <span className="mk-ph">TRACKING</span>
+          </Field>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Field height={24}>
+            <span className="mk-ph">TRACKING</span>
+          </Field>
+        </div>
+        <Timer size={16} />
       </Panel>
     </>
   )
 }
 
-/* 8. Tracker Quad: a 2x2 of 10x10 squares with a matching 2x2 of trackers beside it. */
-function TrackerQuad() {
-  const videos = [
-    { x: 1, y: 1 },
-    { x: 12, y: 1 },
-    { x: 1, y: 12 },
-    { x: 12, y: 12 },
-  ]
-  const trackers = [
-    { x: 23, y: 1 },
-    { x: 32, y: 1 },
-    { x: 23, y: 12 },
-    { x: 32, y: 12 },
-  ]
+/* 9. Brick Wall: the stage is black, and the bricks survive only as one wall with four windows cut into it. */
+function BrickWall() {
   return (
     <>
-      {videos.map((v, i) => (
-        <Video
-          key={i}
-          n={i + 1}
-          place={PLACES[i]}
-          accent={ACCENTS[i]}
-          x={bx(v.x)}
-          y={by(v.y)}
-          w={bx(10)}
-          h={by(10)}
-        />
-      ))}
-      {trackers.map((t, i) => (
-        <Panel key={i} x={bx(t.x)} y={by(t.y)} w={bx(8)} h={by(10)} style={{ padding: 12, justifyContent: "center" }}>
-          <RunnerCard n={i + 1} size={30} />
-        </Panel>
-      ))}
-      <Bar x={bx(1)} y={by(22)} w={bx(39)} h={BH} />
+      <Panel x={0} y={0} w={STAGE_W} h={STAGE_H} />
+      <BrickBox x={bx(7)} y={0} w={bx(27)} h={STAGE_H} />
+      <VideoSet boxes={quadBoxes([bx(8), bx(21)], [by(1), by(12)], bx(12), by(10))} />
+      <CardRail side="left" x={0} y={0} w={bx(7)} h={STAGE_H} size={34} pad={14} />
+      <CardRail side="right" x={bx(34)} y={0} w={bx(7)} h={STAGE_H} size={34} pad={14} />
     </>
   )
 }
 
-/* 9. Right Console: a 2x2 of 10x10 squares, with one console holding all trackers and a full info block. */
-function RightConsole() {
-  const cells = [
-    { x: 1, y: 1 },
-    { x: 12, y: 1 },
-    { x: 1, y: 12 },
-    { x: 12, y: 12 },
-  ]
+/* 10. Center Spine: square windows either side of a slim info column, with narrow tracker rails outside. */
+function CenterSpine() {
+  const ys: [number, number] = [by(1), by(12)]
   return (
     <>
-      {cells.map((c, i) => (
-        <Video
-          key={i}
-          n={i + 1}
-          place={PLACES[i]}
-          accent={ACCENTS[i]}
-          x={bx(c.x)}
-          y={by(c.y)}
-          w={bx(10)}
-          h={by(10)}
-        />
-      ))}
-      <Panel x={bx(23)} y={by(1)} w={bx(17)} h={by(21)} style={{ padding: 14, gap: 16, justifyContent: "space-between" }}>
-        <CardRow ids={[1, 2]} size={32} />
-        <CardRow ids={[3, 4]} size={32} />
-        <div style={{ flex: 1, minHeight: 0, width: "100%" }}>
-          <InfoBlock />
-        </div>
+      <VideoSet boxes={quadBoxes([bx(7), bx(24)], ys, bx(10), by(10))} />
+      <SideCards
+        leftX={bx(1)}
+        rightX={bx(35)}
+        w={bx(5)}
+        ys={ys}
+        h={by(10)}
+        size={30}
+        cols={5}
+        bossCols={3}
+        pad={8}
+      />
+      <Panel x={bx(18)} y={by(1)} w={bx(5)} h={by(21)}>
+        <InfoStack timerSize={20} />
       </Panel>
-    </>
-  )
-}
-
-/* 10. Header + Trackers Above: info bar replaces the top border, trackers sit over 9x9 squares in the lower band. */
-function HeaderTrackersAbove() {
-  return (
-    <>
-      <Bar x={bx(1)} y={0} w={bx(39)} h={BH} />
-      {COLUMNS.map((x, i) => (
-        <div key={x}>
-          <Panel x={bx(x)} y={by(2)} w={bx(9)} h={by(10)} style={{ padding: 12, justifyContent: "center" }}>
-            <RunnerCard n={i + 1} size={32} />
-          </Panel>
-          <Video n={i + 1} place={PLACES[i]} accent={ACCENTS[i]} x={bx(x)} y={by(13)} w={bx(9)} h={by(9)} />
-        </div>
-      ))}
     </>
   )
 }
 
 export const MOCKUPS: Mockup[] = [
   {
-    id: "square-row",
-    name: "1. Square Row",
-    tagline: "Four 9 x 9 squares side by side, each runner's tracker directly underneath.",
+    id: "center-quad",
+    name: "1. Center Quad",
+    tagline: "Four windows packed into the middle, a tracker rail on each side, the info bar along the bottom.",
     points: [
-      "Videos: 4 x (9 x 9 bricks), exactly square at 320 x 320 px",
-      "Border: full brick frame, with the info bar as a separate strip near the bottom",
-      "Easiest to read: every runner is one clean column from video to tracker",
+      "Windows: 4 x (11 x 9 bricks), about 391 x 319 px, 1.22 : 1",
+      "Border: full brick frame, with the info bar as a strip inside it",
+      "Each tracker sits beside its own window, so left and right rails map to rows",
     ],
-    render: SquareRow,
+    render: CenterQuad,
   },
   {
-    id: "corner-pinwheel",
-    name: "2. Corner Pinwheel",
-    tagline: "Squares in the four corners, with all trackers and the broadcast info in a console between them.",
+    id: "wide-quad",
+    name: "2. Wide Quad",
+    tagline: "The biggest windows: slim rails take the trackers and carry the broadcast fields too.",
     points: [
-      "Videos: 4 x (10 x 10 bricks), 355 x 355 px each, the biggest square a bordered 2 x 2 allows",
-      "Border: full brick frame and brick gutters around every window",
-      "Trackers sit in a block between the videos, with race info and the timer in the middle of it",
+      "Windows: 4 x (12 x 10 bricks), about 426 x 355 px, 1.20 : 1",
+      "Border: full brick frame, no bottom bar needed",
+      "Left rail: P1, race info and timer, P3. Right rail: P2, commentary and tracking, P4",
     ],
-    render: CornerPinwheel,
+    render: WideQuad,
   },
   {
-    id: "hero-plus-three",
-    name: "3. Hero + Three",
-    tagline: "One runner big and square, the other three smaller and square across the top right.",
+    id: "center-band",
+    name: "3. Center Band",
+    tagline: "Two rows of windows with the broadcast info sandwiched in the gap between them.",
     points: [
-      "Videos: one 15 x 15 (532 px) and three 7 x 7 (248 px), all exactly square",
+      "Windows: 4 x (11 x 9 bricks), about 391 x 319 px, 1.22 : 1",
+      "Border: full brick frame, with the info band replacing the middle gutter",
+      "Keeps the whole bottom edge clean, and the band reads like a scoreboard between the runs",
+    ],
+    render: CenterBand,
+  },
+  {
+    id: "black-rails",
+    name: "4. Black Rails",
+    tagline: "Solid black rails run to the screen edges and replace the side borders; bricks frame the center.",
+    points: [
+      "Windows: 4 x (11 x 10 bricks), about 391 x 355 px, 1.10 : 1",
+      "Border: top, bottom and gutters stay brick; the left and right borders become black rails",
+      "Bigger tracker icons since each rail is 8 bricks wide",
+    ],
+    render: BlackRails,
+  },
+  {
+    id: "header-bar",
+    name: "5. Header Bar",
+    tagline: "The info bar replaces the top border and the windows run right down to the bottom edge.",
+    points: [
+      "Windows: 4 x (11 x 10 bricks), about 391 x 355 px, 1.10 : 1",
+      "Border: the top becomes a full-width info bar and the bottom border is dropped for more window height",
+      "Side rails stay brick-framed and line up with each window",
+    ],
+    render: HeaderBar,
+  },
+  {
+    id: "offset-quad",
+    name: "6. Offset Quad",
+    tagline: "The right column drops two rows, and the empty corners that leaves hold the broadcast fields.",
+    points: [
+      "Windows: 4 x (11 x 9 bricks), about 391 x 319 px, 1.22 : 1",
       "Border: full brick frame",
-      "Needs a way to pick who is featured, since the layout is not symmetrical",
+      "The staggered grid breaks up the boxy look, and the fields sit right where eyes land",
     ],
-    render: HeroPlusThree,
+    render: OffsetQuad,
   },
   {
-    id: "mirrored-pairs",
-    name: "4. Mirrored Pairs",
-    tagline: "Squares on the outer edges, each tracker on the inside next to its video, mirrored left and right.",
+    id: "tracker-column",
+    name: "7. Tracker Column",
+    tagline: "All four trackers stacked in the left rail, all broadcast fields in the right rail.",
     points: [
-      "Videos: 4 x (9 x 9 bricks), exactly square",
-      "Border: full brick frame, with the info bar near the bottom",
-      "The four trackers cluster in the middle, so comparing progress is one glance",
-    ],
-    render: MirroredPairs,
-  },
-  {
-    id: "left-rail-quad",
-    name: "5. Left Rail Quad",
-    tagline: "All four trackers in one rail on the left, a 2 x 2 of squares in the middle, race info on the right.",
-    points: [
-      "Videos: 4 x (10 x 10 bricks), 355 px each",
-      "Border: full brick frame, with black rails on the left and right instead of a bottom bar",
-      "Color-coded plates link each tracker to its video",
-    ],
-    render: LeftRailQuad,
-  },
-  {
-    id: "zigzag",
-    name: "6. Zigzag",
-    tagline: "Squares alternate between the top and bottom of the screen, with trackers filling the space opposite.",
-    points: [
-      "Videos: 4 x (9 x 9 bricks), exactly square",
-      "Border: top and sides stay bricks; the bottom border is replaced by the info bar",
-      "Gives the layout some movement, and each video still has its tracker directly above or below it",
-    ],
-    render: Zigzag,
-  },
-  {
-    id: "edge-pinwheel",
-    name: "7. Edge Pinwheel",
-    tagline: "Bigger squares pushed to the top and bottom edges, with a full-height console between them.",
-    points: [
-      "Videos: 4 x (11 x 11 bricks), 390 px each, the biggest option here",
-      "Border: the top and bottom borders are replaced by the videos and console; the sides stay bricks",
-      "Trackers and race info all sit in the center column",
-    ],
-    render: EdgePinwheel,
-  },
-  {
-    id: "tracker-quad",
-    name: "8. Tracker Quad",
-    tagline: "A 2 x 2 of squares with a matching 2 x 2 of trackers beside it, same positions, same colors.",
-    points: [
-      "Videos: 4 x (10 x 10 bricks), 355 px each",
-      "Border: top and sides stay bricks; the bottom border is replaced by the info bar",
-      "Each tracker sits in the same grid position as its video, so the mapping is obvious",
-    ],
-    render: TrackerQuad,
-  },
-  {
-    id: "right-console",
-    name: "9. Right Console",
-    tagline: "A 2 x 2 of squares on the left and one console on the right with every tracker plus a full info block.",
-    points: [
-      "Videos: 4 x (10 x 10 bricks), 355 px each",
+      "Windows: 4 x (11 x 10 bricks), about 391 x 355 px, 1.10 : 1",
       "Border: full brick frame",
-      "Race info, commentary, tracking and the timer get a roomy three-column block instead of a thin bar",
+      "Comparing runner progress is a single vertical scan, and the colors tie each tracker to its window",
     ],
-    render: RightConsole,
+    render: TrackerColumn,
   },
   {
-    id: "header-trackers-above",
-    name: "10. Header + Trackers Above",
-    tagline: "The info bar replaces the top border, trackers sit in the upper band, and the squares sit below.",
+    id: "letterbox",
+    name: "8. Letterbox",
+    tagline: "Black bars along the top and bottom edges replace those borders and split the broadcast info.",
     points: [
-      "Videos: 4 x (9 x 9 bricks), exactly square",
-      "Border: bottom and sides stay bricks; the top border is replaced by the info bar",
-      "Trackers read first, then the gameplay underneath, in four clean columns",
+      "Windows: 4 x (11 x 9 bricks), about 391 x 319 px, 1.22 : 1",
+      "Border: top and bottom borders become full-width bars; the sides stay brick",
+      "Top bar: race info and commentary. Bottom bar: tracking and the timer",
     ],
-    render: HeaderTrackersAbove,
+    render: Letterbox,
+  },
+  {
+    id: "brick-wall",
+    name: "9. Brick Wall",
+    tagline: "The stage turns black and the bricks only remain as a wall with four windows cut into it.",
+    points: [
+      "Windows: 4 x (12 x 10 bricks), about 426 x 355 px, 1.20 : 1",
+      "Border: inverted. The bricks are the frame around the windows; everything else is black",
+      "The most dramatic option, since the gameplay becomes a single glowing block in the middle",
+    ],
+    render: BrickWall,
+  },
+  {
+    id: "center-spine",
+    name: "10. Center Spine",
+    tagline: "Square windows either side of a slim info column, with narrow tracker rails outside.",
+    points: [
+      "Windows: 4 x (10 x 10 bricks), about 355 x 355 px, 1 : 1",
+      "Border: full brick frame",
+      "The timer and fields sit dead center between the pairs, trackers go outside",
+    ],
+    render: CenterSpine,
   },
 ]
