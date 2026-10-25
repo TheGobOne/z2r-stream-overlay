@@ -17,9 +17,9 @@ export default function MockupsPage() {
           <h1 className="text-balance text-3xl font-semibold">4-player layout mockups</h1>
           <p className="max-w-2xl text-pretty text-neutral-400">
             Ten alternatives drawn at the real 1456 x 816 stage size, using the live brick tile, font and tracker icons.
-            Options 1 to 5 are the first round; options 6 to 10 all keep a brick border on every side, or replace part
-            of it with rails or an info bar. Video windows are empty placeholders; place badges (1st, 2nd, 3rd, DNF) are
-            shown inside each window.
+            Every video window is square, so the gameplay is never stretched; each window shows its pixel size. Some
+            options keep a full brick border and some replace part of it with an info bar or the videos themselves.
+            Place badges (1st, 2nd, 3rd, DNF) are shown inside each window.
           </p>
         </header>
 

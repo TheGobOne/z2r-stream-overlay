@@ -242,6 +242,75 @@ export function InfoStack({ timerSize = 30, gap = 10 }: { timerSize?: number; ga
   )
 }
 
+/** Broadcast fields laid out on a grid. `compact` fits a 2-brick-tall slot; otherwise three headed columns. */
+export function InfoBlock({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gridTemplateRows: "repeat(2, 1fr)",
+          alignItems: "center",
+          gap: 8,
+          width: "100%",
+          height: "100%",
+        }}
+      >
+        <Field height={28}>
+          <span className="mk-ph">RACE INFO</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">COM 1</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">COM 2</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
+        <Field height={28}>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Timer size={22} />
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18, width: "100%", height: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Gold>RACE INFO</Gold>
+        <Field height={40}>
+          <span className="mk-ph">RACE INFO</span>
+        </Field>
+        <div style={{ marginTop: "auto" }}>
+          <Timer size={30} />
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Gold>COMMENTARY</Gold>
+        <Field>
+          <span className="mk-ph">COM 1</span>
+        </Field>
+        <Field>
+          <span className="mk-ph">COM 2</span>
+        </Field>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <Gold>TRACKING</Gold>
+        <Field>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
+        <Field>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
+      </div>
+    </div>
+  )
+}
+
 export function MockupStyles() {
   return (
     <style>{`
