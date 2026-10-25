@@ -128,7 +128,58 @@ function InfoRight() {
   )
 }
 
-/** A full-height rail: top runner's card, the broadcast fields, then the bottom runner's card. */
+/** Left rail middle: race info as one tall box that fills the same height as the right rail's block. */
+function RaceInfoFill() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", flex: 1, minHeight: 0 }}>
+      <Gold>RACE INFO</Gold>
+      <Field height="auto" grow>
+        <span className="mk-ph">RACE INFO</span>
+      </Field>
+    </div>
+  )
+}
+
+/** Right rail middle: commentary, a single tracking slot, then the centered timer underneath. */
+function BroadcastFill() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: 8,
+        width: "100%",
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Gold>COMMENTARY</Gold>
+        <Field>
+          <span className="mk-ph">COM 1</span>
+        </Field>
+        <Field>
+          <span className="mk-ph">COM 2</span>
+        </Field>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <Gold>TRACKING</Gold>
+        <Field>
+          <span className="mk-ph">TRACKING</span>
+        </Field>
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", width: "100%" }}>
+        <Timer size={26} />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A full-height rail: top runner's card, the broadcast fields, then the bottom runner's card.
+ * `fillInfo` makes the middle block stretch to the space between the cards (race info left, comms/tracking/timer right).
+ */
 function CardRail({
   side,
   x,
@@ -139,8 +190,17 @@ function CardRail({
   cols = 6,
   bossCols = 6,
   pad = 12,
-}: Rect & { side: "left" | "right"; size?: number; cols?: number; bossCols?: number; pad?: number }) {
+  fillInfo = false,
+}: Rect & {
+  side: "left" | "right"
+  size?: number
+  cols?: number
+  bossCols?: number
+  pad?: number
+  fillInfo?: boolean
+}) {
   const [top, bottom] = side === "left" ? [1, 3] : [2, 4]
+  const middle = fillInfo ? side === "left" ? <RaceInfoFill /> : <BroadcastFill /> : side === "left" ? <InfoLeft /> : <InfoRight />
   return (
     <Panel
       x={x}
@@ -150,7 +210,7 @@ function CardRail({
       style={{ padding: pad, justifyContent: "space-between", alignItems: "center", gap: 12 }}
     >
       <RunnerCard n={top} size={size} cols={cols} bossCols={bossCols} />
-      {side === "left" ? <InfoLeft /> : <InfoRight />}
+      {middle}
       <RunnerCard n={bottom} size={size} cols={cols} bossCols={bossCols} />
     </Panel>
   )
@@ -208,8 +268,8 @@ function WideQuad() {
   return (
     <>
       <VideoSet boxes={quadBoxes([bx(8), bx(21)], [by(1), by(12)], bx(12), by(10))} />
-      <CardRail side="left" x={bx(1)} y={by(1)} w={bx(6)} h={by(21)} size={30} />
-      <CardRail side="right" x={bx(34)} y={by(1)} w={bx(6)} h={by(21)} size={30} />
+      <CardRail side="left" x={bx(1)} y={by(1)} w={bx(6)} h={by(21)} size={30} fillInfo />
+      <CardRail side="right" x={bx(34)} y={by(1)} w={bx(6)} h={by(21)} size={30} fillInfo />
     </>
   )
 }
@@ -428,7 +488,7 @@ export const MOCKUPS: Mockup[] = [
     points: [
       "Windows: 4 x (12 x 10 bricks), about 426 x 355 px, 1.20 : 1",
       "Border: full brick frame, no bottom bar needed",
-      "Left rail: P1, race info and timer, P3. Right rail: P2, commentary and tracking, P4",
+      "Left rail: P1, one tall race info box, P3. Right rail: P2, commentary, one tracking slot, centered timer, P4",
     ],
     render: WideQuad,
   },

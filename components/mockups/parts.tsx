@@ -196,7 +196,15 @@ export function Gold({ children, size = 13 }: { children: ReactNode; size?: numb
   )
 }
 
-export function Field({ children, height = 26, grow }: { children?: ReactNode; height?: number; grow?: boolean }) {
+export function Field({
+  children,
+  height = 26,
+  grow,
+}: {
+  children?: ReactNode
+  height?: number | string
+  grow?: boolean
+}) {
   return (
     <div className="mk-field" style={{ height, flex: grow ? 1 : undefined }}>
       {children}
