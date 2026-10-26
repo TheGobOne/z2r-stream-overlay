@@ -795,7 +795,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       ))}
 
       {windows.map((win, i) => (
-        <PlaceBadge key={i} place={placements[i]} win={win} />
+        <PlaceBadge key={i} place={placements[i]} win={win} edge="top" />
       ))}
 
       {!rails &&
