@@ -16,7 +16,7 @@ function brickRect(col: number, row: number, cols: number, rows: number): Window
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
 }
 
-export type PanelStyle = "column" | "wide" | "bar"
+export type PanelStyle = "column" | "wide" | "bar" | "rails"
 
 export type GridLayout = {
   count: number
@@ -29,6 +29,8 @@ export type GridLayout = {
   stretchCrop?: boolean
   /** Which side of each cell's video its tracker column sits on. */
   trackerSides: TrackerSide[]
+  /** "rails" layouts: full-height black columns either side of the windows (P1/P3 on the left, P2/P4 on the right). */
+  rails?: { left: WindowRect; right: WindowRect }
   dock: WindowRect
   defaultZoom: number
 }
@@ -68,14 +70,32 @@ function buildLayout(
   }
 }
 
-// Player cells form a 2x2 grid between two-brick-wide side borders, with no top or bottom border
-// row; the top cells sit flush with the stage top, a single brick row divides the halves, and the
-// panel is a single brick-tall bar flush with the bottom.
-export const QUAD_LAYOUT = buildLayout(
-  [brickRect(2, 0, 18, 10), brickRect(21, 0, 18, 10), brickRect(2, 11, 18, 10), brickRect(21, 11, 18, 10)],
-  brickRect(2, 22, 37, 1),
-  "bar",
-  ["left", "right", "left", "right"],
+function buildRailLayout(windows: WindowRect[], rails: { left: WindowRect; right: WindowRect }): GridLayout {
+  return {
+    count: windows.length,
+    // The windows sit directly on the bricks, so each one is its own black backing cell.
+    cells: windows,
+    windows,
+    trackerSides: windows.map(() => "right"),
+    panel: rails.right,
+    panelStyle: "rails",
+    rails,
+    dock: {
+      left: (windows[0].left + windows[1].left + windows[1].width - 655) / 2,
+      top: (STAGE_HEIGHT - 511) / 2,
+      width: 655,
+      height: 511,
+    },
+    defaultZoom: Math.round((windows[0].height / ((windows[0].width * 9) / 16)) * 100) / 100,
+  }
+}
+
+// Wide Quad: four 12x10-brick windows in the middle, one brick apart, with a six-brick black rail on
+// each side. Each rail holds two runners' name and trackers (P1/P3 left, P2/P4 right) around a block
+// of race info on the left and commentary, tracking and the timer on the right.
+export const QUAD_LAYOUT = buildRailLayout(
+  [brickRect(8, 1, 12, 10), brickRect(21, 1, 12, 10), brickRect(8, 12, 12, 10), brickRect(21, 12, 12, 10)],
+  { left: brickRect(1, 1, 6, 21), right: brickRect(34, 1, 6, 21) },
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.

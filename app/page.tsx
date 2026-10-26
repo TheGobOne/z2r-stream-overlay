@@ -1707,8 +1707,8 @@ export default function StreamOverlay() {
             onRequestTools={showTools}
             placements={placements}
             onNamesChange={setQuadNames}
-            sidePanel={
-              <>
+            sidePanel={{
+              info: (
                 <div className="quad-side-group quad-side-info">
                 <textarea
                   className="quad-side-info-input"
@@ -1721,6 +1721,8 @@ export default function StreamOverlay() {
                   autoComplete="off"
                 />
                 </div>
+              ),
+              commentary: (
                 <div className="quad-side-group quad-side-commentary">
                 <p className="quad-side-title">Commentary</p>
                 <input
@@ -1746,6 +1748,8 @@ export default function StreamOverlay() {
                   />
                 )}
                 </div>
+              ),
+              tracking: (
                 <div className="quad-side-group quad-side-tracking">
                 <p className="quad-side-title">Tracking</p>
                 <input
@@ -1759,6 +1763,8 @@ export default function StreamOverlay() {
                   autoComplete="off"
                 />
                 </div>
+              ),
+              status: (
                 <div className="quad-side-group quad-side-status">
                 <button
                   type="button"
@@ -1783,8 +1789,8 @@ export default function StreamOverlay() {
                   </button>
                 )}
                 </div>
-              </>
-            }
+              ),
+            }}
           />
         )}
 

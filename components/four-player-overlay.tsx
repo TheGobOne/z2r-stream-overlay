@@ -28,8 +28,8 @@ type Props = {
   onClearItemBadge: (itemId: string) => void
   linkToTimer: boolean
   onLinkToTimerChange: (value: boolean) => void
-  /** Commentary, tracking, timer and anything else shown in the right-hand column. */
-  sidePanel: ReactNode
+  /** Race info, commentary, tracking and the timer; each layout arranges these its own way. */
+  sidePanel: { info: ReactNode; commentary: ReactNode; tracking: ReactNode; status: ReactNode }
   onSidePanelContextMenu: (e: React.MouseEvent) => void
   /** Slot in the tools window where this overlay's video controls render; null while it's closed. */
   toolsSlot: HTMLElement | null
@@ -86,7 +86,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   },
   ref,
 ) {
-  const { count, cells, windows, panel, panelStyle, defaultZoom } = layout
+  const { count, cells, windows, panel, panelStyle, defaultZoom, rails } = layout
   const [names, setNames] = useState(() => Array<string>(count).fill(""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
     Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
@@ -154,6 +154,121 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     const spaceLeft = windows[i].left + cropRight
     return Math.min(fallback, spaceLeft + (cellRight - spaceLeft - QUAD_TRACKER_WIDTH) / 2)
   }
+
+  const hasThunderbird = bosses.some((boss) => boss.id === "thunderbird")
+
+  // One runner's name plate and trackers; `rail` swaps the grid widths for the Wide Quad rails
+  const renderRunner = (i: number, rail: boolean) => (
+    <>
+          <div
+            className="quad-name"
+            onContextMenu={(e) => {
+              if (hasSource(vods[i])) openPanel(i, e)
+            }}
+          >
+            <input
+              type="text"
+              className="zelda-input"
+              value={names[i]}
+              onChange={(e) => {
+                const next = names.map((n, j) => (j === i ? e.target.value : n))
+                setNames(next)
+                onNamesChange?.(next)
+              }}
+              placeholder={`PLAYER ${i + 1}`}
+              aria-label={`Player ${i + 1} name`}
+              spellCheck={false}
+              autoComplete="off"
+              style={{ "--zelda-font-size": `${nameFontSize(names[i])}px` } as React.CSSProperties}
+            />
+          </div>
+
+          <div
+                className={`quad-grid${rail ? (hasThunderbird ? " quad-grid-boss-wrap" : "") : hasThunderbird ? "" : " quad-grid-3"}`}
+                role="group"
+                aria-label={`${labelFor(i)} boss tracker`}
+              >
+            {bosses.map((boss) => {
+              const off = notDefeated[i].has(boss.id)
+              const badge = bossBadges[boss.id]
+              return (
+                <button
+                  key={boss.id}
+                  className={`boss-btn ${off ? "defeated" : "active"}`}
+                  onClick={() => setNotDefeated((prev) => toggleIn(prev, i, boss.id))}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    onBossContextMenu(boss.id)
+                  }}
+                  onAuxClick={(e) => {
+                    if (e.button === 1) {
+                      e.preventDefault()
+                      onClearBossBadge(boss.id)
+                    }
+                  }}
+                  aria-label={`${boss.alt} — ${off ? "alive" : "defeated"}`}
+                  title={boss.alt}
+                >
+                  <img src={boss.src || "/placeholder.svg"} alt="" />
+                  {badge !== undefined && <span className="boss-badge">{bossBadgeLabels[badge]}</span>}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="quad-grid" role="group" aria-label={`${labelFor(i)} item tracker`}>
+            {items.map((item, index) => {
+              const off = notCollected[i].has(item.id)
+              const badge = itemBadges[item.id]
+              return (
+                <button
+                  key={item.id}
+                  className={`item-btn ${off ? "collected" : "active"}`}
+                  onClick={() => setNotCollected((prev) => toggleIn(prev, i, item.id))}
+                  onContextMenu={(e) => onItemContextMenu(e, item.id, index < NUMBER_BADGE_ITEMS ? "number" : "letter")}
+                  onAuxClick={(e) => {
+                    if (e.button === 1) {
+                      e.preventDefault()
+                      onClearItemBadge(item.id)
+                    }
+                  }}
+                  aria-label={`${item.alt} — ${off ? "not collected" : "collected"}`}
+                  title={item.alt}
+                >
+                  <img src={item.src || "/placeholder.svg"} alt="" />
+                  {badge !== undefined && <span className="item-badge num-badge">{badge}</span>}
+                </button>
+              )
+            })}
+          </div>
+    </>
+  )
+
+  const railSides = rails
+    ? [
+        {
+          rect: rails.left,
+          runners: [0, 2],
+          middle: (
+            <div className="quad-rail-middle" onContextMenu={onSidePanelContextMenu}>
+              <p className="quad-side-title">Race info</p>
+              {sidePanel.info}
+            </div>
+          ),
+        },
+        {
+          rect: rails.right,
+          runners: [1, 3],
+          middle: (
+            <div className="quad-rail-middle" onContextMenu={onSidePanelContextMenu}>
+              {sidePanel.commentary}
+              {sidePanel.tracking}
+              {sidePanel.status}
+            </div>
+          ),
+        },
+      ]
+    : []
 
   return (
     <>
@@ -505,6 +620,142 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           height: 30px;
         }
 
+        .quad-rail {
+          position: absolute;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          padding: 10px 6px;
+          background: #000000;
+          font-family: 'ZeldaII', monospace;
+          z-index: 15;
+        }
+
+        .quad-runner {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        /* Race info and the broadcast block share one height so the two rails read as a matched pair. */
+        .quad-rail-middle {
+          flex: none;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          width: 100%;
+          height: 200px;
+        }
+
+        .quad-rail-middle .quad-side-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .quad-rail .quad-side-title {
+          margin: 0;
+        }
+
+        .quad-rail .quad-side-input {
+          height: 26px;
+          font-size: 12px;
+          text-align: center;
+        }
+
+        .quad-rail .commentary-input,
+        .quad-rail .tracking-input {
+          width: 100%;
+          box-sizing: border-box;
+          text-align: center;
+        }
+
+        .quad-rail-middle .quad-side-info {
+          flex: 1;
+          min-height: 0;
+          justify-content: center;
+          box-sizing: border-box;
+          border: 2px solid rgba(255, 215, 0, 0.45);
+          border-radius: 2px;
+          padding: 4px;
+        }
+
+        .quad-rail-middle .quad-side-info:focus-within {
+          border-color: #ffd700;
+        }
+
+        .quad-rail .quad-side-info-input {
+          field-sizing: content;
+          min-height: 0;
+          max-height: 100%;
+          margin: 0;
+          padding: 0;
+          border: none;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+
+        .quad-rail .quad-side-status {
+          gap: 6px;
+        }
+
+        .quad-rail .quad-side-timer {
+          position: static;
+          transform: none;
+          margin: 0;
+          padding: 0 0 0 2px;
+          background: none;
+          border: none;
+          font-size: 26px;
+          line-height: 1.1;
+          text-align: center;
+        }
+
+        .quad-rail .quad-side-gem {
+          margin-top: 0;
+          font-size: 22px;
+        }
+
+        .quad-rail .quad-side-gem img {
+          width: 32px;
+          height: 32px;
+        }
+
+        .quad-rail .quad-name {
+          height: 36px;
+        }
+
+        .quad-rail .quad-name .zelda-input {
+          line-height: 30px;
+        }
+
+        .quad-rail .quad-grid {
+          width: ${6 * 30 + 5 * 3}px;
+        }
+
+        .quad-rail .quad-grid.quad-grid-boss-wrap {
+          width: ${4 * 30 + 3 * 3}px;
+        }
+
+        .quad-rail .boss-btn img,
+        .quad-rail .item-btn img {
+          width: 30px;
+          height: 30px;
+        }
+
+        .quad-rail .boss-badge,
+        .quad-rail .item-badge.num-badge {
+          font-size: 10px;
+        }
+
         .quad-tracker .boss-btn img,
         .quad-tracker .item-btn img {
           width: 30px;
@@ -547,98 +798,26 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         <PlaceBadge key={i} place={placements[i]} win={win} />
       ))}
 
-      {cells.map((cell, i) => (
-        <div
-          key={i}
-          className="quad-tracker"
-          style={{
-            left: trackerLeft(i),
-            top: cell.top,
-            width: QUAD_TRACKER_WIDTH,
-            height: cell.height,
-          }}
-        >
+      {!rails &&
+        cells.map((cell, i) => (
           <div
-            className="quad-name"
-            onContextMenu={(e) => {
-              if (hasSource(vods[i])) openPanel(i, e)
-            }}
+            key={i}
+            className="quad-tracker"
+            style={{ left: trackerLeft(i), top: cell.top, width: QUAD_TRACKER_WIDTH, height: cell.height }}
           >
-            <input
-              type="text"
-              className="zelda-input"
-              value={names[i]}
-              onChange={(e) => {
-                const next = names.map((n, j) => (j === i ? e.target.value : n))
-                setNames(next)
-                onNamesChange?.(next)
-              }}
-              placeholder={`PLAYER ${i + 1}`}
-              aria-label={`Player ${i + 1} name`}
-              spellCheck={false}
-              autoComplete="off"
-              style={{ "--zelda-font-size": `${nameFontSize(names[i])}px` } as React.CSSProperties}
-            />
+            {renderRunner(i, false)}
           </div>
+        ))}
 
-          <div
-                className={`quad-grid${bosses.some((boss) => boss.id === "thunderbird") ? "" : " quad-grid-3"}`}
-                role="group"
-                aria-label={`${labelFor(i)} boss tracker`}
-              >
-            {bosses.map((boss) => {
-              const off = notDefeated[i].has(boss.id)
-              const badge = bossBadges[boss.id]
-              return (
-                <button
-                  key={boss.id}
-                  className={`boss-btn ${off ? "defeated" : "active"}`}
-                  onClick={() => setNotDefeated((prev) => toggleIn(prev, i, boss.id))}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    onBossContextMenu(boss.id)
-                  }}
-                  onAuxClick={(e) => {
-                    if (e.button === 1) {
-                      e.preventDefault()
-                      onClearBossBadge(boss.id)
-                    }
-                  }}
-                  aria-label={`${boss.alt} — ${off ? "alive" : "defeated"}`}
-                  title={boss.alt}
-                >
-                  <img src={boss.src || "/placeholder.svg"} alt="" />
-                  {badge !== undefined && <span className="boss-badge">{bossBadgeLabels[badge]}</span>}
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="quad-grid" role="group" aria-label={`${labelFor(i)} item tracker`}>
-            {items.map((item, index) => {
-              const off = notCollected[i].has(item.id)
-              const badge = itemBadges[item.id]
-              return (
-                <button
-                  key={item.id}
-                  className={`item-btn ${off ? "collected" : "active"}`}
-                  onClick={() => setNotCollected((prev) => toggleIn(prev, i, item.id))}
-                  onContextMenu={(e) => onItemContextMenu(e, item.id, index < NUMBER_BADGE_ITEMS ? "number" : "letter")}
-                  onAuxClick={(e) => {
-                    if (e.button === 1) {
-                      e.preventDefault()
-                      onClearItemBadge(item.id)
-                    }
-                  }}
-                  aria-label={`${item.alt} — ${off ? "not collected" : "collected"}`}
-                  title={item.alt}
-                >
-                  <img src={item.src || "/placeholder.svg"} alt="" />
-                  {badge !== undefined && <span className="item-badge num-badge">{badge}</span>}
-                </button>
-              )
-            })}
-          </div>
+      {railSides.map(({ rect: r, runners, middle }, k) => (
+        <div
+          key={k}
+          className="quad-rail"
+          style={{ left: r.left - 1, top: r.top - 1, width: r.width + 1, height: r.height + 1 }}
+        >
+          <div className="quad-runner">{renderRunner(runners[0], true)}</div>
+          {middle}
+          <div className="quad-runner">{renderRunner(runners[1], true)}</div>
         </div>
       ))}
 
@@ -681,14 +860,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           toolsSlot,
         )}
 
+      {!rails && (
       <div
         className={`quad-side${panelStyle === "column" ? "" : ` quad-side-${panelStyle}`}`}
         // Reach 1px up and left so neighboring brick highlights can't bleed through fractional edges
         style={{ left: panel.left - 1, top: panel.top - 1, width: panel.width + 1, height: panel.height + 1 }}
         onContextMenu={onSidePanelContextMenu}
       >
-        {sidePanel}
+        {sidePanel.info}
+        {sidePanel.commentary}
+        {sidePanel.tracking}
+        {sidePanel.status}
       </div>
+      )}
     </>
   )
 })
