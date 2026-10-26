@@ -1245,6 +1245,23 @@ export default function StreamOverlay() {
         .place-badge-4 { background: #3050f8; color: #ffffff; }
         .place-badge-dnf { background: #d01818; color: #ffffff; }
 
+        .place-badge-1 { --glow: 248, 184, 0; }
+        .place-badge-2 { --glow: 188, 188, 188; }
+        .place-badge-3 { --glow: 228, 92, 16; }
+        .place-badge-4 { --glow: 48, 80, 248; }
+        .place-badge-dnf { --glow: 208, 24, 24; }
+
+        /* 4-player: 33% larger than the base badge, pinned inside the top edge, with a coloured glow */
+        .place-badge-top {
+          transform: translate(-50%, 13px);
+          padding: 3px 11px 7px;
+          font-size: 18.6px;
+          box-shadow:
+            0 0 0 3px #000000,
+            0 0 14px 5px rgba(var(--glow), 0.85),
+            0 0 34px 12px rgba(var(--glow), 0.45);
+        }
+
         .setup-hint {
           margin: 0 0 24px;
           font-size: 10px;
