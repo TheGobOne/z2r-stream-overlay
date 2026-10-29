@@ -2093,8 +2093,8 @@ export default function StreamOverlay() {
           />
         </div>
 
-        <PlaceBadge place={placements[0]} win={VOD_WINDOWS.left} />
-        <PlaceBadge place={placements[1]} win={VOD_WINDOWS.right} />
+              <PlaceBadge place={placements[0]} win={VOD_WINDOWS.left} edge="top" />
+              <PlaceBadge place={placements[1]} win={VOD_WINDOWS.right} edge="top" />
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
