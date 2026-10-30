@@ -179,7 +179,7 @@ export function Tracker({
   align?: "center" | "flex-start"
   direction?: "column" | "row"
 }) {
-  const bosses = BOSSES.filter((b) => b.id !== "thunderbird")
+  const bosses = BOSSES
   return (
     <div className="mk-tracker" style={{ alignItems: align, gap: Math.max(6, gap * 3), flexDirection: direction }}>
       <IconGrid icons={bosses} cols={bossCols} size={size} gap={gap} seed={seed} density={5} />

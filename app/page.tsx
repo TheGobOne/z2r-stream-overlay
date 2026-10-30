@@ -10,44 +10,47 @@ import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-pla
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
 import { createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
+const STATE_STORAGE_KEY = "z2r-overlay-state"
+const TIMER_STORAGE_KEY = "z2r-overlay-timer"
+
 const BOSSES = [
-  { id: "horsehead",   src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/horsehead-ihboyP4yCXZnzXoI2AtoZIFBnkDEKN.png",   alt: "Horsehead" },
-  { id: "helmethead",  src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/helmethead-KfyfAeeYOhwquQq1uRs3fZUfQHeCe6.png",  alt: "Helmethead" },
-  { id: "rebonack",    src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/rebonack-zxfzxTTdw7gVkGbediDpNzXQaKiVZb.png",    alt: "Rebonack" },
-  { id: "karock",      src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/karock-ZbNgVKifIT7lJgJXM8B9aWZWZHpaHa.png",      alt: "Karock" },
-  { id: "gooma",       src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/gooma-rJomB6KNKyZ7GPJuHAGQI6degiEArl.png",       alt: "Gooma" },
-  { id: "barba",       src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/barba-f1hq85LjnkIEqGC7FqEuQ0Y4JpSg6E.png",       alt: "Barba" },
-  { id: "thunderbird", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/thunderbird-yJKu35CrTvTV46jN5zDqqB9aDJDNaq.png", alt: "Thunderbird" },
+  { id: "horsehead",   src: "/icons/horsehead.png",   alt: "Horsehead" },
+  { id: "helmethead",  src: "/icons/helmethead.png",  alt: "Helmethead" },
+  { id: "rebonack",    src: "/icons/rebonack.png",    alt: "Rebonack" },
+  { id: "karock",      src: "/icons/karock.png",      alt: "Karock" },
+  { id: "gooma",       src: "/icons/gooma.png",       alt: "Gooma" },
+  { id: "barba",       src: "/icons/barba.png",       alt: "Barba" },
+  { id: "thunderbird", src: "/icons/thunderbird.png", alt: "Thunderbird" },
 ]
 
 // Row 1: candle, glove, raft, boots, flute, cross, downstab, upstab
 // Row 2: hammer, magickey, trophy, mirror, noteforriverman, wateroflife, water, kid
 // Row 3: shield, jump, life, fairy, fire, reflect, spell, thunder
 const ITEMS = [
-  { id: "candle",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/candle-215T0VkrriKMMF3KNj996UclZvjPrm.png",          alt: "Candle" },
-  { id: "glove",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/glove-OEDPJotBIReqdX3PYHnjH8Bi7cte8Q.png",           alt: "Glove" },
-  { id: "raft",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/raft-Njv9edZYYpIp9fAlh4IkfQInw0Bu6S.png",            alt: "Raft" },
-  { id: "boots",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/boots-3YlIFbtnVXATYwX3G8enKtd9LBtR6u.png",           alt: "Boots" },
-  { id: "flute",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/flute-c5UguBIJ4FpbVmBGMY02fLQtRYzI4o.png",           alt: "Flute" },
-  { id: "cross",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/cross-0xVtnawiBF2w3Rv2lz5jsYtX3rFCbY.png",           alt: "Cross" },
-  { id: "downstab",        src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/downstab-LChMwvu5kaovx9zC9dsCk8iFZ3Z2QV.png",        alt: "Downstab" },
-  { id: "upstab",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/upstab-R04iJ6nCHpREpaKmLCyAG69wJtG82A.png",          alt: "Upstab" },
-  { id: "hammer",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/hammer-gMBYciaxpn3ddlwv2yvx3DDCDHjEPv.png",          alt: "Hammer" },
-  { id: "magickey",        src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/magickey-EzGnClZo5xEMTEJhzc0wJaRsKuD17X.png",        alt: "Magic Key" },
-  { id: "trophy",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/trophy-bLgI9Q0JTDoNJWSM2wK6ohPw6GTFSS.png",          alt: "Trophy" },
-  { id: "mirror",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Mirror-cwVlboZ260zQymSaFb0uZsYbAV0JT2.png",          alt: "Mirror" },
-  { id: "noteforriverman", src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Bagu%27s%20Letter-nisd4Gi6jrgu1giAsOPkyaVudXL39X.png", alt: "Note for Riverman" },
-  { id: "wateroflife",     src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wateroflife-oDZH7bh4kmZ2zwi2S7xsgk4P7HSnGM.png",     alt: "Water of Life" },
-  { id: "water",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Water-D2rMqYk7GJFWQn2JRjQmBgpmkC0ltH.png",           alt: "Water" },
-  { id: "kid",             src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/kid-pAWRqLS8Yg8R6Y8b23EUdV82q052cM.png",             alt: "Child" },
-  { id: "shield",          src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/shield-1ykMtmxCvcfpYBBoImNlAvClkwCXCh.png",          alt: "Shield" },
-  { id: "jump",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/jump-CRoANAOlg9BaNCaluUdq0iTIB6Ejlg.png",            alt: "Jump" },
-  { id: "life",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/life-bEtDgJjFmftdUXyk4VjzCDC5xetcc4.png",            alt: "Life" },
-  { id: "fairy",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/fairy-0mhukM512CWJOuemkBP9l10zrO6pO6.png",           alt: "Fairy" },
-  { id: "fire",            src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/fire-SbCeoCfgjlAPAYeIRdrFYL6Eq6jrIM.png",            alt: "Fire" },
-  { id: "reflect",         src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/reflect-ViHrAXATIYAIR8nvHk29TU63Wn8YJc.png",         alt: "Reflect" },
-  { id: "spell",           src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/spell-JRQjkytihtvztUGdbkioWpXhuyHlm9.png",           alt: "Spell" },
-  { id: "thunder",         src: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/thunder-acYwJLumZAKTqphP3AUuYki6M3oiKt.png",         alt: "Thunder" },
+  { id: "candle",          src: "/icons/candle.png",          alt: "Candle" },
+  { id: "glove",           src: "/icons/glove.png",           alt: "Glove" },
+  { id: "raft",            src: "/icons/raft.png",            alt: "Raft" },
+  { id: "boots",           src: "/icons/boots.png",           alt: "Boots" },
+  { id: "flute",           src: "/icons/flute.png",           alt: "Flute" },
+  { id: "cross",           src: "/icons/cross.png",           alt: "Cross" },
+  { id: "downstab",        src: "/icons/downstab.png",        alt: "Downstab" },
+  { id: "upstab",          src: "/icons/upstab.png",          alt: "Upstab" },
+  { id: "hammer",          src: "/icons/hammer.png",          alt: "Hammer" },
+  { id: "magickey",        src: "/icons/magickey.png",        alt: "Magic Key" },
+  { id: "trophy",          src: "/icons/trophy.png",          alt: "Trophy" },
+  { id: "mirror",          src: "/icons/mirror.png",          alt: "Mirror" },
+  { id: "noteforriverman", src: "/icons/bagusletter.png", alt: "Note for Riverman" },
+  { id: "wateroflife",     src: "/icons/wateroflife.png",     alt: "Water of Life" },
+  { id: "water",           src: "/icons/water.png",           alt: "Water" },
+  { id: "kid",             src: "/icons/kid.png",             alt: "Child" },
+  { id: "shield",          src: "/icons/shield.png",          alt: "Shield" },
+  { id: "jump",            src: "/icons/jump.png",            alt: "Jump" },
+  { id: "life",            src: "/icons/life.png",            alt: "Life" },
+  { id: "fairy",           src: "/icons/fairy.png",           alt: "Fairy" },
+  { id: "fire",            src: "/icons/fire.png",            alt: "Fire" },
+  { id: "reflect",         src: "/icons/reflect.png",         alt: "Reflect" },
+  { id: "spell",           src: "/icons/spell.png",           alt: "Spell" },
+  { id: "thunder",         src: "/icons/thunder.png",         alt: "Thunder" },
 ]
 
 export default function StreamOverlay() {
@@ -69,7 +72,7 @@ export default function StreamOverlay() {
   const [draftMaxRando, setDraftMaxRando] = useState(false)
   const [runnerCount, setRunnerCount] = useState<2 | 3 | 4>(2)
   const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 3 | 4>(2)
-  const visibleBosses = isMaxRando ? BOSSES : BOSSES.filter((boss) => boss.id !== "thunderbird")
+  const visibleBosses = BOSSES
   const quadRef = useRef<QuadOverlayHandle>(null)
 
   const [toolsWin, setToolsWin] = useState<Window | null>(null)
@@ -180,6 +183,7 @@ export default function StreamOverlay() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timerStartRef = useRef<number>(0)
   const timerAccRef = useRef<number>(0)
+  const hydratedRef = useRef(false)
 
   useEffect(() => {
     if (timerPhase === 1) {
@@ -189,11 +193,27 @@ export default function StreamOverlay() {
       }, 100)
     } else {
       if (timerRef.current) clearInterval(timerRef.current)
-      if (timerPhase === 2) timerAccRef.current = timerMs
-      if (timerPhase === 0) { timerAccRef.current = 0; setTimerMs(0) }
+      if (timerPhase === 2 && timerStartRef.current) {
+        // Fold in the time since the last tick so pausing doesn't drop up to 100ms
+        timerAccRef.current += Date.now() - timerStartRef.current
+        timerStartRef.current = 0
+        setTimerMs(timerAccRef.current)
+      }
+      if (timerPhase === 0) { timerAccRef.current = 0; timerStartRef.current = 0; setTimerMs(0) }
     }
+    saveTimer()
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [timerPhase])
+
+  function saveTimer() {
+    if (!hydratedRef.current) return
+    try {
+      localStorage.setItem(
+        TIMER_STORAGE_KEY,
+        JSON.stringify({ phase: timerPhase, base: timerAccRef.current, startedAt: timerStartRef.current }),
+      )
+    } catch {}
+  }
 
   function handleTimerClick() {
     // 0 -> start, 1 -> pause, 2 -> reset
@@ -229,41 +249,43 @@ export default function StreamOverlay() {
   }
 
   function applyTimerEdit() {
-    const raw = timerEditValue.trim()
-    const negative = raw.startsWith("-")
-    const parts = raw.replace("-", "").split(":").map(Number)
-    let ms = 0
-    if (parts.length === 3) ms = ((parts[0] * 3600) + (parts[1] * 60) + parts[2]) * 1000
-    else if (parts.length === 2) ms = ((parts[0] * 60) + parts[1]) * 1000
-    if (negative) ms = -ms
+    const ms = parseTimerInput(timerEditValue)
+    if (ms === null) return
     timerAccRef.current = ms
     setTimerMs(ms)
     setTimerEditOpen(false)
+    saveTimer()
   }
+
+  /** Parses "h:mm:ss", "m:ss" or plain seconds (optionally negative); null if invalid. */
+  function parseTimerInput(raw: string): number | null {
+    const value = raw.trim()
+    if (!value) return 0
+    const negative = value.startsWith("-")
+    const parts = value.replace(/^-/, "").split(":")
+    if (parts.length > 3 || parts.some((p) => !/^\d+$/.test(p))) return null
+    const ms = parts.reduce((total, part) => total * 60 + Number(part), 0) * 1000
+    return negative ? -ms : ms
+  }
+  const timerEditInvalid = parseTimerInput(timerEditValue) === null
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
 
   // Boss badge cycling: W -> E -> MI -> DV -> clear
   const BOSS_BADGES = ["W", "E", "MI", "DV"]
-  const [leftBossBadge, setLeftBossBadge] = useState<Record<string, number>>({})
-  const [rightBossBadge, setRightBossBadge] = useState<Record<string, number>>({})
+  // Badges are mirrored across both players, so one record serves both sides
+  const [bossBadges, setBossBadges] = useState<Record<string, number>>({})
 
-  function cycleBadge(
-    _setter: React.Dispatch<React.SetStateAction<Record<string, number>>>,
-    id: string,
-  ) {
-    const updater = (prev: Record<string, number>) => {
+  function cycleBadge(id: string) {
+    setBossBadges((prev) => {
       const next = { ...prev }
       const current = prev[id]
       if (current === undefined) next[id] = 0
       else if (current >= BOSS_BADGES.length - 1) delete next[id]
       else next[id] = current + 1
       return next
-    }
-    // Mirror the boss badge across both players
-    setLeftBossBadge(updater)
-    setRightBossBadge(updater)
+    })
   }
   const [leftCollected, setLeftCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
   const [rightCollected, setRightCollected] = useState<Set<string>>(new Set(ITEMS.map(i => i.id)))
@@ -280,8 +302,7 @@ export default function StreamOverlay() {
   ]
 
   // Badge values keyed by item id, per side
-  const [leftItemBadge, setLeftItemBadge] = useState<Record<string, string>>({})
-  const [rightItemBadge, setRightItemBadge] = useState<Record<string, string>>({})
+  const [itemBadges, setItemBadges] = useState<Record<string, string>>({})
 
   type ItemMenu = {
     x: number
@@ -304,36 +325,30 @@ export default function StreamOverlay() {
 
   function selectItemBadge(value: string | null) {
     if (!itemMenu) return
-    const updater = (prev: Record<string, string>) => {
+    const { itemId } = itemMenu
+    setItemBadges((prev) => {
       const next = { ...prev }
-      if (value === null) delete next[itemMenu.itemId]
-      else next[itemMenu.itemId] = value
+      if (value === null) delete next[itemId]
+      else next[itemId] = value
       return next
-    }
-    // Mirror the badge across both players
-    setLeftItemBadge(updater)
-    setRightItemBadge(updater)
+    })
     setItemMenu(null)
   }
 
   function clearItemBadge(itemId: string) {
-    const updater = (prev: Record<string, string>) => {
+    setItemBadges((prev) => {
       const next = { ...prev }
       delete next[itemId]
       return next
-    }
-    setLeftItemBadge(updater)
-    setRightItemBadge(updater)
+    })
   }
 
   function clearBossBadge(bossId: string) {
-    const updater = (prev: Record<string, number>) => {
+    setBossBadges((prev) => {
       const next = { ...prev }
       delete next[bossId]
       return next
-    }
-    setLeftBossBadge(updater)
-    setRightBossBadge(updater)
+    })
   }
 
   const itemMenuRef = useRef<HTMLDivElement>(null)
@@ -382,22 +397,6 @@ export default function StreamOverlay() {
     setRightFontSize(calculateFontSize(value))
   }
 
-  function handleGemMouseDown(e: React.MouseEvent) {
-    setIsDraggingGem(true)
-    setDragOffsetX(e.clientX - gemX)
-    setDragOffsetY(e.clientY - gemY)
-  }
-
-  function handleMouseMove(e: React.MouseEvent) {
-    if (!isDraggingGem) return
-    setGemX(e.clientX - dragOffsetX)
-    setGemY(e.clientY - dragOffsetY)
-  }
-
-  function handleMouseUp() {
-    setIsDraggingGem(false)
-  }
-
   function toggleLeftBoss(id: string) {
     setLeftDefeated((prev) => {
       const next = new Set(prev)
@@ -428,6 +427,98 @@ export default function StreamOverlay() {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  // Restore what was on screen after a reload (OBS cache refresh, crash, accidental F5)
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STATE_STORAGE_KEY) ?? "null")
+      if (saved) {
+        if (typeof saved.leftText === "string") handleLeftTextChange(saved.leftText)
+        if (typeof saved.rightText === "string") handleRightTextChange(saved.rightText)
+        if (typeof saved.commentator1 === "string") setCommentator1(saved.commentator1)
+        if (typeof saved.commentator2 === "string") setCommentator2(saved.commentator2)
+        if (typeof saved.tracking === "string") setTracking(saved.tracking)
+        if (typeof saved.raceInfo === "string") setRaceInfo(saved.raceInfo)
+        if (typeof saved.gemCount === "number") setGemCount(saved.gemCount)
+        if (saved.runnerCount === 2 || saved.runnerCount === 3 || saved.runnerCount === 4) {
+          setRunnerCount(saved.runnerCount)
+          setDraftRunnerCount(saved.runnerCount)
+        }
+        if (saved.commentatorCount === 1 || saved.commentatorCount === 2) {
+          setCommentatorCount(saved.commentatorCount)
+          setDraftCommentatorCount(saved.commentatorCount)
+        }
+        if (typeof saved.isMaxRando === "boolean") {
+          setIsMaxRando(saved.isMaxRando)
+          setDraftMaxRando(saved.isMaxRando)
+        }
+        if (Array.isArray(saved.leftDefeated)) setLeftDefeated(new Set(saved.leftDefeated))
+        if (Array.isArray(saved.rightDefeated)) setRightDefeated(new Set(saved.rightDefeated))
+        if (Array.isArray(saved.leftCollected)) setLeftCollected(new Set(saved.leftCollected))
+        if (Array.isArray(saved.rightCollected)) setRightCollected(new Set(saved.rightCollected))
+        if (saved.bossBadges) setBossBadges(saved.bossBadges)
+        if (saved.itemBadges) setItemBadges(saved.itemBadges)
+        if (Array.isArray(saved.placements)) setPlacements(saved.placements)
+        if (saved.vods?.left && saved.vods?.right) {
+          setVods({ left: { ...createVodConfig(), ...saved.vods.left }, right: { ...createVodConfig(), ...saved.vods.right } })
+        }
+        if (typeof saved.linkVodsToTimer === "boolean") setLinkVodsToTimer(saved.linkVodsToTimer)
+      }
+      const timer = JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY) ?? "null")
+      if (timer && Number.isFinite(timer.base)) {
+        const running = timer.phase === 1 && timer.startedAt
+        const ms = running ? timer.base + (Date.now() - timer.startedAt) : timer.base
+        timerAccRef.current = ms
+        setTimerMs(ms)
+        if (timer.phase === 1 || timer.phase === 2) setTimerPhase(timer.phase)
+      }
+    } catch {}
+    hydratedRef.current = true
+    setHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!hydrated) return
+    try {
+      localStorage.setItem(
+        STATE_STORAGE_KEY,
+        JSON.stringify({
+          leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
+          runnerCount, commentatorCount, isMaxRando,
+          leftDefeated: [...leftDefeated], rightDefeated: [...rightDefeated],
+          leftCollected: [...leftCollected], rightCollected: [...rightCollected],
+          bossBadges, itemBadges, placements, vods, linkVodsToTimer,
+        }),
+      )
+    } catch {}
+  }, [
+    hydrated, leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
+    runnerCount, commentatorCount, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
+    bossBadges, itemBadges, placements, vods, linkVodsToTimer,
+  ])
+
+  // Shrink the fixed 1456x816 stage to fit small windows (OBS sources at full size are untouched)
+  const [stageScale, setStageScale] = useState(1)
+  useEffect(() => {
+    const fit = () => setStageScale(Math.min(1, window.innerWidth / 1456, window.innerHeight / 816))
+    fit()
+    window.addEventListener("resize", fit)
+    return () => window.removeEventListener("resize", fit)
+  }, [])
+
+  const setupBoxRef = useRef<HTMLDivElement>(null)
+  function handleSetupKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") return confirmSetup()
+    if (e.key === "Escape") return setSetupOpen(false)
+    if (e.key !== "Tab") return
+    const focusable = setupBoxRef.current?.querySelectorAll<HTMLElement>("button, input, select, textarea, [tabindex]:not([tabindex='-1'])")
+    if (!focusable?.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
   }
 
   return (
@@ -1702,7 +1793,10 @@ export default function StreamOverlay() {
         .single-com .timer-display { top: 732px; }
       `}</style>
 
-      <div className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}>
+      <div
+        className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}
+        style={stageScale < 1 ? { transform: `scale(${stageScale})` } : undefined}
+      >
         {runnerCount !== 2 && (
           <FourPlayerOverlay
             key={runnerCount}
@@ -1710,10 +1804,10 @@ export default function StreamOverlay() {
             layout={runnerCount === 3 ? TRIO_LAYOUT : QUAD_LAYOUT}
             bosses={visibleBosses}
             items={ITEMS}
-            bossBadges={leftBossBadge}
+            bossBadges={bossBadges}
             bossBadgeLabels={BOSS_BADGES}
-            itemBadges={leftItemBadge}
-            onBossContextMenu={(id) => cycleBadge(setLeftBossBadge, id)}
+            itemBadges={itemBadges}
+            onBossContextMenu={(id) => cycleBadge(id)}
             onClearBossBadge={clearBossBadge}
             onItemContextMenu={(e, id, type) => openItemMenu(e, "left", id, type)}
             onClearItemBadge={clearItemBadge}
@@ -1798,7 +1892,7 @@ export default function StreamOverlay() {
                 {isMaxRando && (
                   <button type="button" className="quad-side-gem" onClick={() => setGemPopupOpen(true)} aria-label="Set gem count">
                     <img
-                      src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
+                      src="/icons/s_gem_overlay_0.png"
                       alt=""
                       draggable={false}
                     />
@@ -1848,7 +1942,7 @@ export default function StreamOverlay() {
         {/* Gem — click to set count (max rando only) */}
         {isMaxRando && (
           <img
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/s_gem_overlay_0-hDegjlqJriaY5Z5xY4Cb924PFsBnS7.png"
+            src="/icons/s_gem_overlay_0.png"
             alt="Gem"
             className="gem-image"
             draggable={false}
@@ -1886,11 +1980,12 @@ export default function StreamOverlay() {
         {setupOpen && (
           <div className="gem-modal-backdrop">
             <div
+              ref={setupBoxRef}
               className="gem-modal-box"
               role="dialog"
               aria-modal="true"
               aria-labelledby="setup-title"
-              onKeyDown={(e) => e.key === "Enter" && confirmSetup()}
+              onKeyDown={handleSetupKeyDown}
             >
               <h2 id="setup-title" className="sr-only">Overlay setup</h2>
               <SetupForm
@@ -2047,9 +2142,11 @@ export default function StreamOverlay() {
                 placeholder="0:00:00"
                 spellCheck={false}
                 autoFocus
+                aria-invalid={timerEditInvalid}
+                style={timerEditInvalid ? { outline: "2px solid #db2800" } : undefined}
                 onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
               />
-              <button className="timer-edit-btn" onClick={applyTimerEdit}>Set</button>
+              <button className="timer-edit-btn" onClick={applyTimerEdit} disabled={timerEditInvalid}>Set</button>
             </div>
           </div>
         )}
@@ -2103,14 +2200,14 @@ export default function StreamOverlay() {
               key={boss.id}
               className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleLeftBoss(boss.id)}
-              onContextMenu={(e) => { e.preventDefault(); cycleBadge(setLeftBossBadge, boss.id) }}
+              onContextMenu={(e) => { e.preventDefault(); cycleBadge(boss.id) }}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearBossBadge(boss.id) } }}
               aria-label={`${boss.alt} — ${leftDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
-              {leftBossBadge[boss.id] !== undefined && (
-                <span className="boss-badge">{BOSS_BADGES[leftBossBadge[boss.id]]}</span>
+              {bossBadges[boss.id] !== undefined && (
+                <span className="boss-badge">{BOSS_BADGES[bossBadges[boss.id]]}</span>
               )}
             </button>
           ))}
@@ -2123,14 +2220,14 @@ export default function StreamOverlay() {
               key={`right-${boss.id}`}
               className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleRightBoss(boss.id)}
-              onContextMenu={(e) => { e.preventDefault(); cycleBadge(setRightBossBadge, boss.id) }}
+              onContextMenu={(e) => { e.preventDefault(); cycleBadge(boss.id) }}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearBossBadge(boss.id) } }}
               aria-label={`${boss.alt} — ${rightDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
               <img src={boss.src} alt={boss.alt} />
-              {rightBossBadge[boss.id] !== undefined && (
-                <span className="boss-badge">{BOSS_BADGES[rightBossBadge[boss.id]]}</span>
+              {bossBadges[boss.id] !== undefined && (
+                <span className="boss-badge">{BOSS_BADGES[bossBadges[boss.id]]}</span>
               )}
             </button>
           ))}
@@ -2149,7 +2246,7 @@ export default function StreamOverlay() {
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
-              {renderItemBadge(leftItemBadge[item.id])}
+              {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
         </div>
@@ -2167,7 +2264,7 @@ export default function StreamOverlay() {
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
-              {renderItemBadge(leftItemBadge[item.id])}
+              {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
         </div>
@@ -2185,7 +2282,7 @@ export default function StreamOverlay() {
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
-              {renderItemBadge(rightItemBadge[item.id])}
+              {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
         </div>
@@ -2203,7 +2300,7 @@ export default function StreamOverlay() {
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
-              {renderItemBadge(rightItemBadge[item.id])}
+              {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
         </div>
@@ -2221,7 +2318,7 @@ export default function StreamOverlay() {
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
-              {renderItemBadge(leftItemBadge[item.id])}
+              {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
         </div>
@@ -2239,7 +2336,7 @@ export default function StreamOverlay() {
               title={item.alt}
             >
               <img src={item.src} alt={item.alt} />
-              {renderItemBadge(rightItemBadge[item.id])}
+              {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
         </div>
