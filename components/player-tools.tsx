@@ -59,6 +59,10 @@ function previewSrc(config: VodConfig, startSeconds: number) {
   return `https://player.twitch.tv/?${params}`
 }
 
+function liveThumbnail(channel: string, stamp: number) {
+  return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${channel.toLowerCase()}-1280x720.jpg?t=${stamp}`
+}
+
 /** A private, muted copy of the video where the crop is picked, so the live overlay never shows it uncropped. */
 function CropPreview({
   player,
@@ -70,23 +74,51 @@ function CropPreview({
   onDone: () => void
 }) {
   const [startAt] = useState(() => player.playerRef.current?.getCurrentTime() ?? player.config.startSeconds)
+  const [thumbFailed, setThumbFailed] = useState(false)
+  const [thumbStamp] = useState(() => Date.now())
 
   return (
     <div className="tools-crop">
       <p className="tools-crop-title">Crop {player.label}</p>
-      <div className="tools-crop-stage" style={{ width: PREVIEW_WINDOW.width, height: PREVIEW_WINDOW.height }}>
-        <iframe
-          className="tools-crop-video"
-          style={{
-            left: PREVIEW_LAYOUT.left,
-            top: PREVIEW_LAYOUT.top,
-            width: PREVIEW_LAYOUT.width,
-            height: PREVIEW_LAYOUT.height,
-          }}
-          src={previewSrc(player.config, startAt)}
-          title={`${player.label} crop preview`}
-          allow="autoplay; encrypted-media"
-        />
+      <div
+        className="tools-crop-stage"
+        style={{ width: PREVIEW_WINDOW.width, height: PREVIEW_WINDOW.height, overflow: "visible", marginBottom: 52 }}
+      >
+        {/* Twitch pauses any embed that is covered, and the selector has to cover the preview, so a
+            live channel is shown as Twitch's own still preview of the stream instead of a player. */}
+        {player.config.channel && !player.config.videoId ? (
+          thumbFailed ? (
+            <p className="tools-crop-offline">No live preview available. Is {player.config.channel} live?</p>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="tools-crop-video"
+              style={{
+                left: PREVIEW_LAYOUT.left,
+                top: PREVIEW_LAYOUT.top,
+                width: PREVIEW_LAYOUT.width,
+                height: PREVIEW_LAYOUT.height,
+              }}
+              src={liveThumbnail(player.config.channel, thumbStamp)}
+              alt=""
+              draggable={false}
+              onError={() => setThumbFailed(true)}
+            />
+          )
+        ) : (
+          <iframe
+            className="tools-crop-video"
+            style={{
+              left: PREVIEW_LAYOUT.left,
+              top: PREVIEW_LAYOUT.top,
+              width: PREVIEW_LAYOUT.width,
+              height: PREVIEW_LAYOUT.height,
+            }}
+            src={previewSrc(player.config, startAt)}
+            title={`${player.label} crop preview`}
+            allow="autoplay; encrypted-media"
+          />
+        )}
         <VodCropSelector
           win={PREVIEW_WINDOW}
           frame={PREVIEW_LAYOUT}
@@ -94,6 +126,7 @@ function CropPreview({
           fill={fill}
           backdrop={false}
           stageHeight={PREVIEW_WINDOW.height}
+          instructionsBelow
           onApply={(view) => {
             player.onChange(view)
             onDone()

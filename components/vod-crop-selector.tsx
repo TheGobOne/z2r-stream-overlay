@@ -28,6 +28,8 @@ type Props = {
   backdrop?: boolean
   /** Height of the area the instructions are positioned within. */
   stageHeight?: number
+  /** Put the instructions just below the window, even where the window leaves no room, so they never cover the video. */
+  instructionsBelow?: boolean
 }
 
 const MIN_SELECTION = 0.02
@@ -44,6 +46,7 @@ export function VodCropSelector({
   fill = true,
   backdrop = true,
   stageHeight = STAGE_HEIGHT,
+  instructionsBelow = false,
 }: Props) {
   const cropWin = target ?? win
   const [corner, setCorner] = useState<Point | null>(null)
@@ -121,7 +124,7 @@ export function VodCropSelector({
 
   const spaceBelow = stageHeight - (win.top + win.height)
   const instructionsStyle: React.CSSProperties =
-    spaceBelow >= INSTRUCTIONS_CLEARANCE
+    spaceBelow >= INSTRUCTIONS_CLEARANCE || instructionsBelow
       ? { left: win.left + win.width / 2, top: win.top + win.height + INSTRUCTIONS_GAP }
       : win.top >= INSTRUCTIONS_CLEARANCE
         ? { left: win.left + win.width / 2, bottom: stageHeight - win.top + INSTRUCTIONS_GAP }

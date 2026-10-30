@@ -1634,6 +1634,7 @@ export default function StreamOverlay() {
         .tools-crop-title { margin: 0; font-size: 10px; color: #8a9a9a; }
         .tools-crop-stage { position: relative; max-width: 100%; overflow: hidden; background: #000000; }
         .tools-crop-video { position: absolute; border: 0; }
+        .tools-crop-offline { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; color: #9aa0a6; font-size: 14px; }
 
         .vod-panel-header {
           display: flex;
