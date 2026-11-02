@@ -65,6 +65,8 @@ type Props = {
   onVolumeChange: (volume: number) => void
   /** Lift this player above the settings panel while it is being edited. */
   raised?: boolean
+  /** Black out around the crop where it actually sits, for layouts that slide or zoom the frame off-center. */
+  maskAtCrop?: boolean
 }
 
 /**
@@ -103,7 +105,7 @@ const YT_PLAYING = 1
 const YT_BUFFERING = 3
 
 const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodPlayer(
-  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false },
+  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false, maskAtCrop = false },
   ref,
 ) {
   const mountId = `youtube-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -267,13 +269,24 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
         <div
           className="vod-crop-mask"
           aria-hidden="true"
-          style={{
-            left: "50%",
-            top: "50%",
-            width: (config.crop.x1 - config.crop.x0) * layout.width,
-            height: (config.crop.y1 - config.crop.y0) * layout.height,
-            transform: "translate(-50%, -50%)",
-          }}
+          style={
+            maskAtCrop
+              ? {
+                  left: layout.left + config.crop.x0 * layout.width,
+                  top: layout.top + config.crop.y0 * layout.height,
+                  width: (config.crop.x1 - config.crop.x0) * layout.width,
+                  height: (config.crop.y1 - config.crop.y0) * layout.height,
+                }
+              : {
+                  // Anchored to the window center rather than the frame: the frame can be nudged
+                  // sideways to avoid covering the other Twitch embed, and the mask must not follow.
+                  left: "50%",
+                  top: "50%",
+                  width: (config.crop.x1 - config.crop.x0) * layout.width,
+                  height: (config.crop.y1 - config.crop.y0) * layout.height,
+                  transform: "translate(-50%, -50%)",
+                }
+          }
         />
       )}
       <div ref={audioRef} className={`vod-audio vod-audio-${side}`}>

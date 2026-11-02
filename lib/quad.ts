@@ -174,56 +174,81 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
     )
   }
   // Top of the stack first.
-  const stack = configs
+  const defaultStack = configs
     .map((_, i) => i)
     .filter((i) => isLiveTwitch[i])
     .sort((a, b) => overflow(b) - overflow(a) || a - b)
 
-  stack.forEach((i, depth) => {
-    const own = windows[i]
-    let { x, y } = frames[i]
-    const ownX: Span = { start: own.left, size: own.width }
-    const ownY: Span = { start: own.top, size: own.height }
-    {
-      // Limits from every Twitch window above are combined before fitting, so satisfying one
-      // can never push the frame back into another.
-      const bx: Bounds = { lo: -Infinity, hi: Infinity }
-      const by: Bounds = { lo: -Infinity, hi: Infinity }
-      const within = (span: Span, b: Bounds) => span.start >= b.lo - 1e-6 && span.start + span.size <= b.hi + 1e-6
-      const ownRight = own.left + own.width
-      const ownBottom = own.top + own.height
+  /** Frames with the given players stacked top to bottom; each lower frame yields to the windows above it. */
+  function solve(stack: number[]) {
+    const solved = frames.map((f) => ({ ...f }))
+    stack.forEach((i, depth) => {
+      const own = windows[i]
+      let { x, y } = frames[i]
+      const ownX: Span = { start: own.left, size: own.width }
+      const ownY: Span = { start: own.top, size: own.height }
+      {
+        // Limits from every Twitch window above are combined before fitting, so satisfying one
+        // can never push the frame back into another.
+        const bx: Bounds = { lo: -Infinity, hi: Infinity }
+        const by: Bounds = { lo: -Infinity, hi: Infinity }
+        const within = (span: Span, b: Bounds) => span.start >= b.lo - 1e-6 && span.start + span.size <= b.hi + 1e-6
+        const ownRight = own.left + own.width
+        const ownBottom = own.top + own.height
 
-      stack.slice(0, depth).forEach((j) => {
-        const win = windows[j]
-        const options: { axis: "x" | "y"; bounds: Bounds }[] = []
-        if (win.left >= ownRight) options.push({ axis: "x", bounds: { lo: -Infinity, hi: win.left } })
-        if (win.left + win.width <= own.left) options.push({ axis: "x", bounds: { lo: win.left + win.width, hi: Infinity } })
-        if (win.top >= ownBottom) options.push({ axis: "y", bounds: { lo: -Infinity, hi: win.top } })
-        if (win.top + win.height <= own.top) options.push({ axis: "y", bounds: { lo: win.top + win.height, hi: Infinity } })
+        stack.slice(0, depth).forEach((j) => {
+          const win = windows[j]
+          const options: { axis: "x" | "y"; bounds: Bounds }[] = []
+          if (win.left >= ownRight) options.push({ axis: "x", bounds: { lo: -Infinity, hi: win.left } })
+          if (win.left + win.width <= own.left) options.push({ axis: "x", bounds: { lo: win.left + win.width, hi: Infinity } })
+          if (win.top >= ownBottom) options.push({ axis: "y", bounds: { lo: -Infinity, hi: win.top } })
+          if (win.top + win.height <= own.top) options.push({ axis: "y", bounds: { lo: win.top + win.height, hi: Infinity } })
 
-        const merged = options.map((o) => {
-          const cur = o.axis === "x" ? bx : by
-          return { axis: o.axis, bounds: { lo: Math.max(cur.lo, o.bounds.lo), hi: Math.min(cur.hi, o.bounds.hi) } }
+          const merged = options.map((o) => {
+            const cur = o.axis === "x" ? bx : by
+            return { axis: o.axis, bounds: { lo: Math.max(cur.lo, o.bounds.lo), hi: Math.min(cur.hi, o.bounds.hi) } }
+          })
+          // Already clear of this neighbor on some axis: no new limit needed.
+          if (merged.some((o) => within(o.axis === "x" ? x : y, o.bounds))) return
+          const best = merged
+            .map((o) => ({ ...o, scale: (o.axis === "x" ? fitAxis(x, ownX, o.bounds) : fitAxis(y, ownY, o.bounds)).scale }))
+            .sort((a, b) => b.scale - a.scale)[0]
+          if (!best) return
+          Object.assign(best.axis === "x" ? bx : by, best.bounds)
         })
-        // Already clear of this neighbor on some axis: no new limit needed.
-        if (merged.some((o) => within(o.axis === "x" ? x : y, o.bounds))) return
-        const best = merged
-          .map((o) => ({ ...o, scale: (o.axis === "x" ? fitAxis(x, ownX, o.bounds) : fitAxis(y, ownY, o.bounds)).scale }))
-          .sort((a, b) => b.scale - a.scale)[0]
-        if (!best) return
-        Object.assign(best.axis === "x" ? bx : by, best.bounds)
-      })
 
-      if (!within(x, bx) || !within(y, by)) {
-        // Zoom both axes by the same amount so the picture keeps its shape.
-        const scale = Math.min(fitAxis(x, ownX, bx).scale, fitAxis(y, ownY, by).scale)
-        const fx = fitAxis(x, ownX, bx, scale, scale)
-        const fy = fitAxis(y, ownY, by, scale, scale)
-        x = { start: fx.start, size: fx.size }
-        y = { start: fy.start, size: fy.size }
+        if (!within(x, bx) || !within(y, by)) {
+          // Zoom both axes by the same amount so the picture keeps its shape.
+          const scale = Math.min(fitAxis(x, ownX, bx).scale, fitAxis(y, ownY, by).scale)
+          const fx = fitAxis(x, ownX, bx, scale, scale)
+          const fy = fitAxis(y, ownY, by, scale, scale)
+          x = { start: fx.start, size: fx.size }
+          y = { start: fy.start, size: fy.size }
+        }
       }
+      solved[i] = { x, y }
+    })
+    return solved
+  }
+
+  // Whichever frame sits lower has to shrink, so try every stacking order and keep the one that
+  // costs the least picture size overall (the default order wins ties).
+  let stack = defaultStack
+  let solved = solve(defaultStack)
+  const shrink = (order: number[], result: typeof frames) =>
+    order.reduce((total, i) => total + (1 - result[i].x.size / frames[i].x.size), 0)
+  let bestShrink = shrink(defaultStack, solved)
+  for (const order of permutations(defaultStack)) {
+    const result = solve(order)
+    const cost = shrink(order, result)
+    if (cost < bestShrink - 1e-6) {
+      bestShrink = cost
+      stack = order
+      solved = result
     }
-    frames[i] = { x, y }
+  }
+  solved.forEach((f, i) => {
+    frames[i] = f
   })
 
   return configs.map((config, i) => {
@@ -239,6 +264,13 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
       z: depth >= 0 ? QUAD_TWITCH_Z + stack.length - 1 - depth : undefined,
     }
   })
+}
+
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items]
+  return items.flatMap((item, i) =>
+    permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]),
+  )
 }
 
 /** Twitch frames take z-indexes from here up, one per frame, below the place badges. */
