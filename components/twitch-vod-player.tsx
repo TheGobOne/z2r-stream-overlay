@@ -290,7 +290,9 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
     // Stretched like the original crops (same size and place as the old black mask), but cut out
     // by clipping instead of a mask drawn over the video. Twitch may still pause a player it
     // started on its own once the stretch applies; the pause listener then asks for one real click.
-    const L = frameLayout
+    // Use the un-nudged frame: resolveVodLayouts slides a frame sideways to keep it out from under
+    // the other player, which shifted the crop off the chosen area. Clipping already keeps them apart.
+    const L = maskAtCrop ? frameLayout : { ...frameLayout, ...frameInWindow(win, config) }
     const width = (crop.x1 - crop.x0) * L.width
     const height = (crop.y1 - crop.y0) * L.height
     clip = maskAtCrop
