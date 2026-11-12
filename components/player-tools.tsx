@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, type RefObject } from "react"
-import { getParentDomains, type VodPlayerHandle } from "@/components/twitch-vod-player"
+import { useEffect, useRef, useState, type RefObject } from "react"
+import { getParentDomains, loadTwitchEmbed, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
 import { frameInWindow, toTwitchTime, UNCROPPED_VIEW, type VodConfig, type WindowRect } from "@/lib/vod"
@@ -37,8 +37,10 @@ const PREVIEW_LAYOUT = { ...frameInWindow(PREVIEW_WINDOW, UNCROPPED_VIEW), onTop
 function previewSrc(config: VodConfig, startSeconds: number) {
   if (config.platform === "youtube") {
     const params = new URLSearchParams({
-      autoplay: "0",
+      // Autoplay muted so the frame at `start` is drawn; paused right after via the JS API
+      autoplay: "1",
       mute: "1",
+      enablejsapi: "1",
       start: String(Math.floor(startSeconds)),
       controls: "0",
       disablekb: "1",
@@ -63,6 +65,70 @@ function liveThumbnail(channel: string, stamp: number) {
   return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${channel.toLowerCase()}-1280x720.jpg?t=${stamp}`
 }
 
+const SNAPSHOT_GIVE_UP_MS = 6000
+const YOUTUBE_SETTLE_MS = 1500
+
+/**
+ * Twitch shows the VOD's thumbnail, not the frame at `time`, until it plays. Play muted, then pause
+ * on the first frame so the crop is lined up against what the overlay shows.
+ */
+function TwitchSnapshot({ config, startAt, onReady }: { config: VodConfig; startAt: number; onReady: () => void }) {
+  const hostRef = useRef<HTMLDivElement>(null)
+  const onReadyRef = useRef(onReady)
+  onReadyRef.current = onReady
+
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host || !config.videoId) return
+    let cancelled = false
+    let done = false
+    const finish = () => {
+      if (cancelled || done) return
+      done = true
+      onReadyRef.current()
+    }
+    const giveUp = window.setTimeout(finish, SNAPSHOT_GIVE_UP_MS)
+    loadTwitchEmbed()
+      .then(() => {
+        if (cancelled || !window.Twitch) return
+        const player = new window.Twitch.Player(host, {
+          width: "100%",
+          height: "100%",
+          video: `v${config.videoId}`,
+          time: toTwitchTime(startAt),
+          autoplay: true,
+          muted: true,
+          controls: false,
+          parent: getParentDomains(),
+        })
+        player.addEventListener("playing", () => {
+          if (cancelled || done) return
+          player.pause()
+          player.seek(startAt)
+          // Give the seek a moment to draw before the selector covers the frame
+          window.setTimeout(finish, 400)
+        })
+      })
+      .catch((error) => {
+        console.error(error)
+        finish()
+      })
+    return () => {
+      cancelled = true
+      window.clearTimeout(giveUp)
+      host.replaceChildren()
+    }
+  }, [config.videoId, startAt])
+
+  return (
+    <div
+      ref={hostRef}
+      className="tools-crop-video"
+      style={{ left: PREVIEW_LAYOUT.left, top: PREVIEW_LAYOUT.top, width: PREVIEW_LAYOUT.width, height: PREVIEW_LAYOUT.height }}
+    />
+  )
+}
+
 /** A private, muted copy of the video where the crop is picked, so the live overlay never shows it uncropped. */
 function CropPreview({
   player,
@@ -76,6 +142,23 @@ function CropPreview({
   const [startAt] = useState(() => player.playerRef.current?.getCurrentTime() ?? player.config.startSeconds)
   const [thumbFailed, setThumbFailed] = useState(false)
   const [thumbStamp] = useState(() => Date.now())
+  const isTwitchVod = player.config.platform !== "youtube" && Boolean(player.config.videoId)
+  const isLive = Boolean(player.config.channel && !player.config.videoId)
+  // The selector waits until the preview shows the current frame, since covering a Twitch
+  // embed stops it from playing to that frame.
+  const [frameReady, setFrameReady] = useState(isLive)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  function pauseYouTube() {
+    const win = iframeRef.current?.contentWindow
+    const send = (func: string, args: unknown[] = []) =>
+      win?.postMessage(JSON.stringify({ event: "command", func, args }), "*")
+    window.setTimeout(() => {
+      send("pauseVideo")
+      send("seekTo", [startAt, true])
+      window.setTimeout(() => setFrameReady(true), 300)
+    }, YOUTUBE_SETTLE_MS)
+  }
 
   return (
     <div className="tools-crop">
@@ -86,7 +169,7 @@ function CropPreview({
       >
         {/* Twitch pauses any embed that is covered, and the selector has to cover the preview, so a
             live channel is shown as Twitch's own still preview of the stream instead of a player. */}
-        {player.config.channel && !player.config.videoId ? (
+        {isLive ? (
           thumbFailed ? (
             <p className="tools-crop-offline">No live preview available. Is {player.config.channel} live?</p>
           ) : (
@@ -99,14 +182,18 @@ function CropPreview({
                 width: PREVIEW_LAYOUT.width,
                 height: PREVIEW_LAYOUT.height,
               }}
-              src={liveThumbnail(player.config.channel, thumbStamp)}
+              src={liveThumbnail(player.config.channel ?? "", thumbStamp)}
               alt=""
               draggable={false}
               onError={() => setThumbFailed(true)}
             />
           )
+        ) : isTwitchVod ? (
+          <TwitchSnapshot config={player.config} startAt={startAt} onReady={() => setFrameReady(true)} />
         ) : (
           <iframe
+            ref={iframeRef}
+            onLoad={pauseYouTube}
             className="tools-crop-video"
             style={{
               left: PREVIEW_LAYOUT.left,
@@ -119,6 +206,13 @@ function CropPreview({
             allow="autoplay; encrypted-media"
           />
         )}
+        {/* Sits below the stage: anything over the Twitch frame stops it from playing to the current moment */}
+        {!frameReady && (
+          <p className="tools-crop-offline" style={{ inset: "auto", left: 0, right: 0, top: "100%", height: 40 }}>
+            Loading the current frame…
+          </p>
+        )}
+        {frameReady && (
         <VodCropSelector
           win={PREVIEW_WINDOW}
           frame={PREVIEW_LAYOUT}
@@ -133,6 +227,7 @@ function CropPreview({
           }}
           onCancel={onDone}
         />
+        )}
       </div>
     </div>
   )

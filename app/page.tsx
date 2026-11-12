@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
+import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { SetupForm } from "@/components/setup-form"
 import { assignPlace, PlaceBadge, type Placements } from "@/components/place-badge"
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
+import { TrackerTools } from "@/components/tracker-tools"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
 import { createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 
@@ -104,10 +106,28 @@ export default function StreamOverlay() {
   const [placements, setPlacements] = useState<Placements>(() => Array(4).fill(null))
   const [quadNames, setQuadNames] = useState<string[]>([])
 
+  // Trio and quad tracker state lives here (not in the overlay) so the tools window can edit it
+  const freshQuadSets = (ids: string[]) => Array.from({ length: 4 }, () => new Set(ids))
+  const [quadNotDefeated, setQuadNotDefeated] = useState(() => freshQuadSets(BOSSES.map((b) => b.id)))
+  const [quadNotCollected, setQuadNotCollected] = useState(() => freshQuadSets(ITEMS.map((i) => i.id)))
+
+  function toggleInRunner(sets: Set<string>[], runner: number, id: string) {
+    return sets.map((set, i) => {
+      if (i !== runner) return set
+      const next = new Set(set)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  const toggleQuadBoss = (runner: number, id: string) => setQuadNotDefeated((prev) => toggleInRunner(prev, runner, id))
+  const toggleQuadItem = (runner: number, id: string) => setQuadNotCollected((prev) => toggleInRunner(prev, runner, id))
+
   function applyRunnerCount(n: 2 | 3 | 4) {
     if (n !== runnerCount) {
       setPlacements(Array(4).fill(null))
       setQuadNames([])
+      setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
+      setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
     }
     setRunnerCount(n)
     setDraftRunnerCount(n)
@@ -165,6 +185,17 @@ export default function StreamOverlay() {
     rightVodRef.current?.pause()
   }
 
+  // Timer back to 0: stop every video and return it to the start time it was loaded with
+  function resetVods() {
+    if (runnerCount !== 2) {
+      quadRef.current?.resetAll()
+      return
+    }
+    pauseBothVods()
+    leftVodRef.current?.seekTo(vods.left.startSeconds)
+    rightVodRef.current?.seekTo(vods.right.startSeconds)
+  }
+
   function openVodPanel(side: VodSide, e: React.MouseEvent) {
     e.preventDefault()
     setToolsSide(side)
@@ -216,8 +247,8 @@ export default function StreamOverlay() {
   }
 
   function handleTimerClick() {
-    // 0 -> start, 1 -> pause, 2 -> reset
-    const next = timerPhase === 0 ? 1 : timerPhase === 1 ? 2 : 0
+    // Left click toggles: stopped or paused -> running, running -> paused. Middle click resets.
+    const next = timerPhase === 1 ? 2 : 1
     setTimerPhase(next)
     if (linkVodsToTimer) {
       if (runnerCount !== 2) {
@@ -228,12 +259,20 @@ export default function StreamOverlay() {
     }
   }
 
+  function handleTimerMiddleClick(e: React.MouseEvent) {
+    if (e.button !== 1) return
+    e.preventDefault()
+    setTimerPhase(0)
+    if (linkVodsToTimer) resetVods()
+  }
+
   function handleTimerRightClick(e: React.MouseEvent) {
     e.preventDefault()
     if (timerRef.current) clearInterval(timerRef.current)
     setTimerPhase(0)
     timerAccRef.current = 0
     setTimerMs(0)
+    if (linkVodsToTimer) resetVods()
     setTimerEditValue("")
     setTimerEditOpen(true)
   }
@@ -343,12 +382,74 @@ export default function StreamOverlay() {
     })
   }
 
+  // One master item set for marking locations; it greys icons in the tools window only
+  const [markedOff, setMarkedOff] = useState<Set<string>>(new Set())
+  function toggleMarked(itemId: string) {
+    setMarkedOff((prev) => {
+      const next = new Set(prev)
+      next.has(itemId) ? next.delete(itemId) : next.add(itemId)
+      return next
+    })
+  }
+
+  function setItemBadge(itemId: string, value: string | null) {
+    setItemBadges((prev) => {
+      const next = { ...prev }
+      if (value === null) delete next[itemId]
+      else next[itemId] = value
+      return next
+    })
+  }
+
+  const [markedBossesOff, setMarkedBossesOff] = useState<Set<string>>(new Set())
+  function toggleMarkedBoss(bossId: string) {
+    setMarkedBossesOff((prev) => {
+      const next = new Set(prev)
+      next.has(bossId) ? next.delete(bossId) : next.add(bossId)
+      return next
+    })
+  }
+
   function clearBossBadge(bossId: string) {
     setBossBadges((prev) => {
       const next = { ...prev }
       delete next[bossId]
       return next
     })
+  }
+
+  // Bumped to remount the trio/quad overlay, which keeps its own names, videos and tracker state
+  const [clearCount, setClearCount] = useState(0)
+
+  /** Resets everything per-race; runner/commentator counts and Max Rando stay as set up. */
+  function clearOverlay() {
+    if (!(toolsWin ?? window).confirm("Clear names, videos, timer, badges and tracker icons?")) return
+    setLeftText("")
+    setRightText("")
+    setCommentator1("")
+    setCommentator2("")
+    setTracking("")
+    setRaceInfo("")
+    setGemCount(null)
+    setLeftDefeated(new Set(BOSSES.map((b) => b.id)))
+    setRightDefeated(new Set(BOSSES.map((b) => b.id)))
+    setLeftCollected(new Set(ITEMS.map((i) => i.id)))
+    setRightCollected(new Set(ITEMS.map((i) => i.id)))
+    setBossBadges({})
+    setItemBadges({})
+    setItemMenu(null)
+    setPlacements(Array(4).fill(null))
+    setQuadNames([])
+    setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
+    setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
+    setMarkedOff(new Set())
+    setMarkedBossesOff(new Set())
+    setVods({ left: createVodConfig(), right: createVodConfig() })
+    setClearCount((n) => n + 1)
+    if (timerRef.current) clearInterval(timerRef.current)
+    setTimerPhase(0)
+    timerAccRef.current = 0
+    setTimerMs(0)
   }
 
   const itemMenuRef = useRef<HTMLDivElement>(null)
@@ -429,8 +530,18 @@ export default function StreamOverlay() {
     })
   }
 
+  // A timer that was running when the page reloaded gets its linked videos started again
+  const resumeVodsRef = useRef(false)
+
   // Restore what was on screen after a reload (OBS cache refresh, crash, accidental F5)
   const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    if (!hydrated || !resumeVodsRef.current) return
+    resumeVodsRef.current = false
+    if (!linkVodsToTimer) return
+    if (runnerCount !== 2) quadRef.current?.playAll()
+    else playBothVods()
+  }, [hydrated])
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STATE_STORAGE_KEY) ?? "null")
@@ -473,6 +584,7 @@ export default function StreamOverlay() {
         timerAccRef.current = ms
         setTimerMs(ms)
         if (timer.phase === 1 || timer.phase === 2) setTimerPhase(timer.phase)
+        if (timer.phase === 1) resumeVodsRef.current = true
       }
     } catch {}
     hydratedRef.current = true
@@ -1387,21 +1499,38 @@ export default function StreamOverlay() {
           z-index: 12;
         }
 
+        /* Audio badge sits at the inner end of a runner's name plate, off the video:
+           Twitch refuses script play() while anything covers its iframe. */
         .vod-audio {
           position: absolute;
           right: 6px;
-          bottom: 6px;
+          top: 50%;
+          transform: translateY(-50%);
           z-index: 2;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 6px;
         }
 
-        .vod-audio-right {
-          right: auto;
-          left: 6px;
-          align-items: flex-start;
+        .vod-volume-pop {
+          position: absolute;
+          right: 0;
+          bottom: calc(100% + 6px);
+          white-space: nowrap;
+        }
+
+        /* The video windows sit at z-index 13-14, which hid the volume box that opens above the
+           name plate. Lift the plate only while the box is open so nothing covers a Twitch frame otherwise. */
+        .text-box-left:has(.vod-volume-pop),
+        .text-box-right:has(.vod-volume-pop),
+        .quad-tracker:has(.vod-volume-pop),
+        .quad-rail:has(.vod-volume-pop) {
+          z-index: 905;
+        }
+
+        .text-box-left .zelda-input,
+        .text-box-right .zelda-input,
+        .quad-name .zelda-input {
+          padding-left: 34px;
+          padding-right: 34px;
+          box-sizing: border-box;
         }
 
         .vod-audio-badge {
@@ -1409,11 +1538,11 @@ export default function StreamOverlay() {
           display: flex;
           align-items: center;
           justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #ffffff;
   color: #000000;
   cursor: pointer;
@@ -1449,8 +1578,8 @@ export default function StreamOverlay() {
   }
 
   .vod-audio-badge svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   }
 
   .vod-audio-badge-muted::after {
@@ -1459,7 +1588,7 @@ export default function StreamOverlay() {
   left: 50%;
   top: 50%;
   width: 3px;
-  height: 30px;
+  height: 22px;
   background: #000000;
   box-shadow: 0 0 0 1.5px #ffffff;
   transform: translate(-50%, -50%) rotate(45deg);
@@ -1470,7 +1599,9 @@ export default function StreamOverlay() {
   transition: opacity 120ms ease;
   }
 
-  .vod-window:hover .vod-audio-badge-muted,
+  .text-box-left:hover .vod-audio-badge-muted,
+  .text-box-right:hover .vod-audio-badge-muted,
+  .quad-name:hover .vod-audio-badge-muted,
   .vod-audio:focus-within .vod-audio-badge-muted,
   .vod-audio-badge-muted[aria-expanded="true"] {
   opacity: 1;
@@ -1596,6 +1727,24 @@ export default function StreamOverlay() {
         }
 
         .tools-card-title { margin: 0; font-size: 12px; color: #2ec4b6; text-transform: uppercase; }
+
+        .tools-hint { margin: 0; font-size: 9px; color: #8a9a9a; line-height: 1.6; }
+        .tools-tracker-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tools-tracker-grid .item-btn.tools-picking { outline: 2px solid #2ec4b6; outline-offset: 2px; }
+        .tools-badge-menu { position: static; align-self: flex-start; }
+        .tools-badge-menu .tools-hint { padding: 4px; }
+
+        .tools-clear-btn {
+          align-self: flex-start;
+          padding: 10px 16px;
+          font-family: inherit;
+          font-size: 11px;
+          color: #ffffff;
+          background: #7a1d0d;
+          border: 2px solid #db2800;
+          cursor: pointer;
+        }
+        .tools-clear-btn:hover { background: #db2800; }
 
         .tools .setup-section { display: flex; flex-direction: column; gap: 8px; }
         .tools .setup-columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
@@ -1796,11 +1945,13 @@ export default function StreamOverlay() {
 
       <div
         className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}
-        style={stageScale < 1 ? { transform: `scale(${stageScale})` } : undefined}
+        // CSS zoom, not a scale() transform: Twitch refuses play() inside a scaled-down transform
+        // ("minimum requirements for autoplay were not met: style visibility")
+        style={stageScale < 1 ? { zoom: stageScale } : undefined}
       >
         {runnerCount !== 2 && (
           <FourPlayerOverlay
-            key={runnerCount}
+            key={`${runnerCount}-${clearCount}`}
             ref={quadRef}
             layout={runnerCount === 3 ? TRIO_LAYOUT : QUAD_LAYOUT}
             bosses={visibleBosses}
@@ -1819,6 +1970,10 @@ export default function StreamOverlay() {
             onRequestTools={showTools}
             placements={placements}
             onNamesChange={setQuadNames}
+            notDefeated={quadNotDefeated}
+            notCollected={quadNotCollected}
+            onToggleBoss={toggleQuadBoss}
+            onToggleItem={toggleQuadItem}
             sidePanel={{
               info: (
                 <div className="quad-side-group quad-side-info">
@@ -1882,11 +2037,13 @@ export default function StreamOverlay() {
                   type="button"
                   className={`timer-display quad-side-timer${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
                   onClick={handleTimerClick}
+                  onMouseDown={(e) => e.button === 1 && e.preventDefault()}
+                  onAuxClick={handleTimerMiddleClick}
                   onContextMenu={(e) => {
                     e.stopPropagation()
                     handleTimerRightClick(e)
                   }}
-                  title="Click: start/pause/reset | Right-click: edit start time"
+                  title="Click: start/pause/resume | Middle-click: reset to 0 | Right-click: edit start time"
                 >
                   {formatTimer(timerMs)}
                 </button>
@@ -1916,13 +2073,6 @@ export default function StreamOverlay() {
               config={vods[side]}
               layout={vodLayouts[side]}
               onAutoMute={() => updateVod(side, { muted: true })}
-              onSelectAudio={() =>
-                setVods((prev) => ({
-                  left: { ...prev.left, muted: side !== "left" },
-                  right: { ...prev.right, muted: side !== "right" },
-                }))
-              }
-              onVolumeChange={(volume) => updateVod(side, { volume })}
           />
         ))}
 
@@ -2000,10 +2150,15 @@ export default function StreamOverlay() {
               />
               <p className="setup-hint">
                 {popupBlocked
-                  ? "Your browser blocked the tools window. Allow popups for this page, then press OK again."
+                  ? "The tools window was blocked. OBS browser sources can't open it: open this page in Chrome and use Window Capture instead. In a normal browser, allow popups and press OK again."
                   : "OK opens a separate tools window for loading, syncing and cropping videos, so viewers never see it."}
               </p>
               <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
+              {popupBlocked && (
+                <button className="timer-edit-btn" style={{ marginLeft: 8 }} onClick={() => setSetupOpen(false)}>
+                  Continue without tools
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -2077,8 +2232,10 @@ export default function StreamOverlay() {
         <div
           className={`timer-display${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
           onClick={handleTimerClick}
+          onMouseDown={(e) => e.button === 1 && e.preventDefault()}
+          onAuxClick={handleTimerMiddleClick}
           onContextMenu={handleTimerRightClick}
-          title="Click: start/pause/reset | Right-click: edit start time"
+          title="Click: start/pause/resume | Middle-click: reset to 0 | Right-click: edit start time"
         >
           {formatTimer(timerMs)}
         </div>
@@ -2106,6 +2263,21 @@ export default function StreamOverlay() {
                   onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
                 />
               </section>
+              <TrackerTools
+                markedBossesOff={markedBossesOff}
+                onToggleMarkedBoss={toggleMarkedBoss}
+                bosses={visibleBosses}
+                items={ITEMS}
+                bossBadges={bossBadges}
+                bossBadgeLabels={BOSS_BADGES}
+                itemBadges={itemBadges}
+                onCycleBossBadge={cycleBadge}
+                onClearBossBadge={clearBossBadge}
+                onSetItemBadge={setItemBadge}
+                markedOff={markedOff}
+                onToggleMarked={toggleMarked}
+                badgeOptions={[CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)]}
+              />
               {runnerCount === 2 ? (
                 <PlayerTools
                   id="duo-tools"
@@ -2127,6 +2299,12 @@ export default function StreamOverlay() {
               ) : (
                 <div ref={setQuadToolsSlot} />
               )}
+              <section className="tools-card" aria-labelledby="tools-clear-title">
+                <h2 id="tools-clear-title" className="tools-card-title">Clear</h2>
+                <button type="button" className="tools-clear-btn" onClick={clearOverlay}>
+                  Clear overlay
+                </button>
+              </section>
             </main>
           </ToolsWindowPortal>
         )}
@@ -2170,6 +2348,20 @@ export default function StreamOverlay() {
             autoComplete="off"
             style={{ "--zelda-font-size": `${leftFontSize}px` } as React.CSSProperties}
           />
+          {hasSource(vods.left) && (
+            <AudioBadge
+              playerName={duoLabel("left")}
+              muted={vods.left.muted}
+              volume={vods.left.volume}
+              onSelectAudio={() =>
+                setVods((prev) => ({
+                  left: { ...prev.left, muted: false },
+                  right: { ...prev.right, muted: true },
+                }))
+              }
+              onVolumeChange={(volume) => updateVod("left", { volume })}
+            />
+          )}
         </div>
 
         {/* Right editable text box */}
@@ -2189,6 +2381,20 @@ export default function StreamOverlay() {
             autoComplete="off"
             style={{ "--zelda-font-size": `${rightFontSize}px` } as React.CSSProperties}
           />
+          {hasSource(vods.right) && (
+            <AudioBadge
+              playerName={duoLabel("right")}
+              muted={vods.right.muted}
+              volume={vods.right.volume}
+              onSelectAudio={() =>
+                setVods((prev) => ({
+                  left: { ...prev.left, muted: true },
+                  right: { ...prev.right, muted: false },
+                }))
+              }
+              onVolumeChange={(volume) => updateVod("right", { volume })}
+            />
+          )}
         </div>
 
               <PlaceBadge place={placements[0]} win={VOD_WINDOWS.left} edge="top" />

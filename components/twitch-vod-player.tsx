@@ -1,8 +1,7 @@
 "use client"
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
-import { Music } from "lucide-react"
-import { toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
+import { frameInWindow, toTwitchTime, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
 
 type TwitchPlayer = {
   play(): void
@@ -17,7 +16,7 @@ type TwitchPlayer = {
 }
 
 type TwitchPlayerConstructor = {
-  new (elementId: string, options: Record<string, unknown>): TwitchPlayer
+  new (element: string | HTMLElement, options: Record<string, unknown>): TwitchPlayer
   READY: string
 }
 
@@ -38,7 +37,7 @@ export type VodPlayerHandle = {
 
 let embedScript: Promise<void> | null = null
 
-function loadTwitchEmbed() {
+export function loadTwitchEmbed() {
   if (window.Twitch?.Player) return Promise.resolve()
   embedScript ??= new Promise<void>((resolve, reject) => {
     const script = document.createElement("script")
@@ -78,14 +77,9 @@ type Props = {
   side: string
   /** Window to render into; defaults to the two-runner window for `side`. */
   win?: WindowRect
-  /** Player name used in the audio badge's accessible label. */
-  label?: string
   config: VodConfig
   layout: VodFrameLayout
   onAutoMute: () => void
-  /** Make this runner the only one with audio. */
-  onSelectAudio: () => void
-  onVolumeChange: (volume: number) => void
   /** Lift this player above the settings panel while it is being edited. */
   raised?: boolean
   /** Black out around the crop where it actually sits, for layouts that slide or zoom the frame off-center. */
@@ -98,7 +92,7 @@ const EDGE_OVERSCAN_PX = 3
 
 // Twitch letterboxes inside a non-16:9 iframe, so the iframe stays 16:9 and a scaleY
 // transform stretches it to a cropped layout's height.
-function overscan(layout: VodFrameLayout): React.CSSProperties {
+function stretchedFrame(layout: VodFrameLayout): React.CSSProperties & { left: number; top: number } {
   const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
   const width = layout.width * scale
   const height = layout.height * scale
@@ -115,11 +109,27 @@ function overscan(layout: VodFrameLayout): React.CSSProperties {
   }
 }
 
+// Grow the frame a few pixels past the window (keeping 16:9) and center it. No scaleY stretch:
+// Twitch treats a squashed player as hidden and refuses or pauses playback.
+function flatFrame(layout: VodFrameLayout): React.CSSProperties {
+  const scale = (layout.height + EDGE_OVERSCAN_PX * 2) / layout.height
+  const width = layout.width * scale
+  const height = (width * 9) / 16
+  return {
+    width,
+    height,
+    left: layout.left - (width - layout.width) / 2,
+    top: layout.top + layout.height / 2 - height / 2,
+  }
+}
+
 const AUTOPLAY_CHECK_MS = 1200
+const START_SETTLE_MS = 250
+const START_GIVE_UP_MS = 8000
 const MAX_PLAY_ATTEMPTS = 4
 
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
-  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false, maskAtCrop = false },
+  { side, win: winProp, config, layout, onAutoMute, raised = false, maskAtCrop = false },
   ref,
 ) {
   const mountId = `twitch-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -127,6 +137,11 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   const playerRef = useRef<TwitchPlayer | null>(null)
   const readyRef = useRef(false)
   const pendingPlayRef = useRef(false)
+  // Twitch ignores script play() while anything covers or transforms its iframe, so the crop
+  // mask and the scaleY stretch are dropped from the moment play is asked until video runs.
+  const [starting, setStarting] = useState(false)
+  // Bumped on every play request so a repeat request re-runs the start effect
+  const [startTick, setStartTick] = useState(0)
   const latest = useRef(config)
   latest.current = config
   const onAutoMuteRef = useRef(onAutoMute)
@@ -138,8 +153,14 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       if (playerRef.current !== player || !pendingPlayRef.current) return
       // Twitch's isPaused() can report "playing" while the browser has blocked playback,
       // so check whether the playhead actually moved before retrying.
-      if (player.getCurrentTime() - startedAt > 0.25) return
-      if (attempt >= MAX_PLAY_ATTEMPTS) return
+      if (player.getCurrentTime() - startedAt > 0.25) {
+        setStarting(false)
+        return
+      }
+      if (attempt >= MAX_PLAY_ATTEMPTS) {
+        setStarting(false)
+        return
+      }
       if (attempt === 0 && !player.getMuted()) {
         player.setMuted(true)
         onAutoMuteRef.current()
@@ -190,6 +211,9 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         player.addEventListener(window.Twitch.Player.READY, markReady)
         player.addEventListener("playing", markReady)
         player.addEventListener("play", markReady)
+        player.addEventListener("playing", () => {
+          if (!cancelled) setStarting(false)
+        })
       })
       .catch((error) => console.error(error))
 
@@ -198,6 +222,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       playerRef.current = null
       readyRef.current = false
       pendingPlayRef.current = false
+      setStarting(false)
       host.replaceChildren()
     }
   }, [videoId, channel, loadKey, mountId])
@@ -210,34 +235,35 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
     playerRef.current?.setVolume(volume)
   }, [volume])
 
-  const [volumeOpen, setVolumeOpen] = useState(false)
-  const audioRef = useRef<HTMLDivElement>(null)
-
+  // Let the unmasked, untransformed frame paint and Twitch's visibility check see it
+  // before sending play(); give up on the clean frame if video never starts.
   useEffect(() => {
-    if (!volumeOpen) return
-    const close = (e: PointerEvent) => {
-      if (!audioRef.current?.contains(e.target as Node)) setVolumeOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVolumeOpen(false)
-    }
-    document.addEventListener("pointerdown", close)
-    document.addEventListener("keydown", onKey)
+    if (!startTick) return
+    const playTimer = window.setTimeout(() => {
+      const player = playerRef.current
+      if (player && readyRef.current && pendingPlayRef.current) attemptPlay(player)
+    }, START_SETTLE_MS)
+    const giveUp = window.setTimeout(() => setStarting(false), START_GIVE_UP_MS)
     return () => {
-      document.removeEventListener("pointerdown", close)
-      document.removeEventListener("keydown", onKey)
+      window.clearTimeout(playTimer)
+      window.clearTimeout(giveUp)
     }
-  }, [volumeOpen])
+  }, [startTick])
 
   useImperativeHandle(ref, () => ({
     play: () => {
       pendingPlayRef.current = true
+      // Always go through the clean frame: Twitch's isPaused() can report false after a
+      // seek, and skipping the clean frame then leaves the mask up and play() blocked.
       const player = playerRef.current
-      if (player && readyRef.current) attemptPlay(player)
+      setStarting(true)
+      setStartTick((n) => n + 1)
     },
     pause: () => {
       pendingPlayRef.current = false
-      if (readyRef.current) playerRef.current?.pause()
+      setStarting(false)
+      const player = playerRef.current
+      if (readyRef.current && player) player.pause()
     },
     seekTo: (seconds) => {
       if (readyRef.current && !isLive) playerRef.current?.seek(Math.max(0, seconds))
@@ -253,7 +279,30 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   if (!videoId && !channel) return null
 
   const win = winProp ?? VOD_WINDOWS[side as VodSide]
-  const playerName = label ?? (side === "right" ? "Player 2" : "Player 1")
+  const frameLayout = layout
+
+  // Crop by clipping, never by covering or transforming the iframe: Twitch keeps checking that
+  // nothing sits over its player or squashes it, and pauses autoplayed video when that fails.
+  const crop = config.crop
+  let clip: React.CSSProperties = { left: 0, top: 0, width: win.width, height: win.height }
+  let frame: React.CSSProperties = flatFrame(frameLayout)
+  if (crop) {
+    // Stretched like the original crops (same size and place as the old black mask), but cut out
+    // by clipping instead of a mask drawn over the video. Twitch may still pause a player it
+    // started on its own once the stretch applies; the pause listener then asks for one real click.
+    const L = frameLayout
+    const width = (crop.x1 - crop.x0) * L.width
+    const height = (crop.y1 - crop.y0) * L.height
+    clip = maskAtCrop
+      ? { left: L.left + crop.x0 * L.width, top: L.top + crop.y0 * L.height, width, height }
+      : { left: (win.width - width) / 2, top: (win.height - height) / 2, width, height }
+    const stretched = stretchedFrame(L)
+    frame = {
+      ...stretched,
+      left: (stretched.left as number) - (clip.left as number),
+      top: (stretched.top as number) - (clip.top as number),
+    }
+  }
 
   return (
     <div
@@ -267,65 +316,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         zIndex: raised ? 902 : (layout.z ?? (layout.onTop ? 14 : 13)),
       }}
     >
-      <div
-        ref={hostRef}
-        className="vod-frame"
-        style={overscan(layout)}
-      />
-      {config.crop && (
-        <div
-          className="vod-crop-mask"
-          aria-hidden="true"
-          style={
-            maskAtCrop
-              ? {
-                  left: layout.left + config.crop.x0 * layout.width,
-                  top: layout.top + config.crop.y0 * layout.height,
-                  width: (config.crop.x1 - config.crop.x0) * layout.width,
-                  height: (config.crop.y1 - config.crop.y0) * layout.height,
-                }
-              : {
-                  // Anchored to the window center rather than the frame: the frame can be nudged
-                  // sideways to avoid covering the other Twitch embed, and the mask must not follow.
-                  left: "50%",
-                  top: "50%",
-                  width: (config.crop.x1 - config.crop.x0) * layout.width,
-                  height: (config.crop.y1 - config.crop.y0) * layout.height,
-                  transform: "translate(-50%, -50%)",
-                }
-          }
-        />
-      )}
-      <div ref={audioRef} className={`vod-audio vod-audio-${side}`}>
-        {volumeOpen && (
-          <div className="vod-volume-pop">
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={volume}
-              aria-label={`${playerName} volume`}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-            />
-            <span className="vod-volume-value">{Math.round(volume * 100)}</span>
-          </div>
-        )}
-        <button
-          type="button"
-          className={`vod-audio-badge${muted ? " vod-audio-badge-muted" : ""}`}
-          aria-label={muted ? `Switch to ${playerName} audio` : `Listening to ${playerName} audio`}
-          aria-expanded={volumeOpen}
-          title="Click: listen to this runner. Right-click: volume"
-          onClick={() => onSelectAudio()}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setVolumeOpen((open) => !open)
-          }}
-        >
-          <Music aria-hidden="true" />
-        </button>
+      <div className="vod-clip" style={{ position: "absolute", overflow: "hidden", ...clip }}>
+        <div ref={hostRef} className="vod-frame" style={frame} />
       </div>
     </div>
   )

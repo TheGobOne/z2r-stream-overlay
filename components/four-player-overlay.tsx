@@ -3,6 +3,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
+import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
@@ -13,6 +14,8 @@ type TrackerIcon = { id: string; src: string; alt: string }
 export type QuadOverlayHandle = {
   playAll(): void
   pauseAll(): void
+  /** Pause every video and send it back to its start time. */
+  resetAll(): void
 }
 
 type Props = {
@@ -37,6 +40,11 @@ type Props = {
   onRequestTools: () => void
   placements: Placements
   onNamesChange?: (names: string[]) => void
+  /** Per runner, ids greyed out; held by the page so the tools window can edit them too. */
+  notCollected: Set<string>[]
+  notDefeated: Set<string>[]
+  onToggleItem: (runner: number, itemId: string) => void
+  onToggleBoss: (runner: number, bossId: string) => void
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
@@ -51,16 +59,6 @@ function nameFontSize(name: string) {
   if (length <= 8) return 11
   if (length <= 11) return 8
   return 6
-}
-
-function toggleIn(sets: Set<string>[], index: number, id: string) {
-  return sets.map((set, i) => {
-    if (i !== index) return set
-    const next = new Set(set)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    return next
-  })
 }
 
 export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function FourPlayerOverlay(
@@ -83,6 +81,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     onRequestTools,
     placements,
     onNamesChange,
+    notCollected,
+    notDefeated,
+    onToggleItem,
+    onToggleBoss,
   },
   ref,
 ) {
@@ -90,13 +92,6 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const [names, setNames] = useState(() => Array<string>(count).fill(""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
     Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
-  )
-  // Ids in these sets are greyed out; clicking an icon lights it up
-  const [notCollected, setNotCollected] = useState(() =>
-    Array.from({ length: count }, () => new Set(items.map((item) => item.id))),
-  )
-  const [notDefeated, setNotDefeated] = useState(() =>
-    Array.from({ length: count }, () => new Set(bosses.map((boss) => boss.id))),
   )
   const [selected, setSelected] = useState(0)
 
@@ -118,7 +113,12 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     playerRefs.forEach((r) => r.current?.pause())
   }
 
-  useImperativeHandle(ref, () => ({ playAll, pauseAll }))
+  function resetAll() {
+    pauseAll()
+    playerRefs.forEach((r, i) => r.current?.seekTo(vods[i].startSeconds))
+  }
+
+  useImperativeHandle(ref, () => ({ playAll, pauseAll, resetAll }))
 
   function openPanel(index: number, e: React.MouseEvent) {
     e.preventDefault()
@@ -181,6 +181,15 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               autoComplete="off"
               style={{ "--zelda-font-size": `${nameFontSize(names[i])}px` } as React.CSSProperties}
             />
+            {hasSource(vods[i]) && (
+              <AudioBadge
+                playerName={labelFor(i)}
+                muted={vods[i].muted}
+                volume={vods[i].volume}
+                onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
+                onVolumeChange={(volume) => updateVod(i, { volume })}
+              />
+            )}
           </div>
 
           <div
@@ -195,7 +204,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
                 <button
                   key={boss.id}
                   className={`boss-btn ${off ? "defeated" : "active"}`}
-                  onClick={() => setNotDefeated((prev) => toggleIn(prev, i, boss.id))}
+                  onClick={() => onToggleBoss(i, boss.id)}
                   onContextMenu={(e) => {
                     e.preventDefault()
                     onBossContextMenu(boss.id)
@@ -224,7 +233,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
                 <button
                   key={item.id}
                   className={`item-btn ${off ? "collected" : "active"}`}
-                  onClick={() => setNotCollected((prev) => toggleIn(prev, i, item.id))}
+                  onClick={() => onToggleItem(i, item.id)}
                   onContextMenu={(e) => onItemContextMenu(e, item.id, index < NUMBER_BADGE_ITEMS ? "number" : "letter")}
                   onAuxClick={(e) => {
                     if (e.button === 1) {
@@ -785,13 +794,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           ref={playerRefs[i]}
           side={`quad-${i}`}
           win={windows[i]}
-          label={labelFor(i)}
           config={config}
           layout={layouts[i]}
           maskAtCrop
               onAutoMute={() => updateVod(i, { muted: true })}
-              onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
-              onVolumeChange={(volume) => updateVod(i, { volume })}
         />
       ))}
 

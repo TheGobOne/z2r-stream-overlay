@@ -58,6 +58,11 @@ export function ToolsWindowPortal({ win, children }: { win: Window; children: Re
     doc.body.replaceChildren()
     doc.body.style.margin = "0"
     doc.body.style.background = "#050505"
+    // The overlay's global styles can lock page scrolling; the tools list is taller than the window
+    doc.documentElement.style.overflowY = "auto"
+    doc.documentElement.style.height = "auto"
+    doc.body.style.overflowY = "auto"
+    doc.body.style.height = "auto"
 
     const syncStyles = () => {
       doc.head.querySelectorAll(`[${COPIED_ATTR}]`).forEach((node) => node.remove())

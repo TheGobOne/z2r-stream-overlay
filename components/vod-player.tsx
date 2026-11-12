@@ -1,7 +1,6 @@
 "use client"
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
-import { Music } from "lucide-react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
 
@@ -55,14 +54,9 @@ type Props = {
   side: string
   /** Window to render into; defaults to the two-runner window for `side`. */
   win?: WindowRect
-  /** Player name used in the audio badge's accessible label. */
-  label?: string
   config: VodConfig
   layout: VodFrameLayout
   onAutoMute: () => void
-  /** Make this runner the only one with audio. */
-  onSelectAudio: () => void
-  onVolumeChange: (volume: number) => void
   /** Lift this player above the settings panel while it is being edited. */
   raised?: boolean
   /** Black out around the crop where it actually sits, for layouts that slide or zoom the frame off-center. */
@@ -105,7 +99,7 @@ const YT_PLAYING = 1
 const YT_BUFFERING = 3
 
 const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodPlayer(
-  { side, win: winProp, label, config, layout, onAutoMute, onSelectAudio, onVolumeChange, raised = false, maskAtCrop = false },
+  { side, win: winProp, config, layout, onAutoMute, raised = false, maskAtCrop = false },
   ref,
 ) {
   const mountId = `youtube-vod-${side}-${useId().replace(/[^a-zA-Z0-9]/g, "")}`
@@ -199,25 +193,6 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
     if (readyRef.current) playerRef.current?.setVolume(Math.round(volume * 100))
   }, [volume])
 
-  const [volumeOpen, setVolumeOpen] = useState(false)
-  const audioRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!volumeOpen) return
-    const close = (e: PointerEvent) => {
-      if (!audioRef.current?.contains(e.target as Node)) setVolumeOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVolumeOpen(false)
-    }
-    document.addEventListener("pointerdown", close)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("pointerdown", close)
-      document.removeEventListener("keydown", onKey)
-    }
-  }, [volumeOpen])
-
   useImperativeHandle(ref, () => ({
     play: () => {
       pendingPlayRef.current = true
@@ -247,7 +222,6 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
   if (!videoId) return null
 
   const win = winProp ?? VOD_WINDOWS[side as VodSide]
-  const playerName = label ?? (side === "right" ? "Player 2" : "Player 1")
 
   return (
     <div
@@ -289,37 +263,6 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
           }
         />
       )}
-      <div ref={audioRef} className={`vod-audio vod-audio-${side}`}>
-        {volumeOpen && (
-          <div className="vod-volume-pop">
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={volume}
-              aria-label={`${playerName} volume`}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-            />
-            <span className="vod-volume-value">{Math.round(volume * 100)}</span>
-          </div>
-        )}
-        <button
-          type="button"
-          className={`vod-audio-badge${muted ? " vod-audio-badge-muted" : ""}`}
-          aria-label={muted ? `Switch to ${playerName} audio` : `Listening to ${playerName} audio`}
-          aria-expanded={volumeOpen}
-          title="Click: listen to this runner. Right-click: volume"
-          onClick={() => onSelectAudio()}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setVolumeOpen((open) => !open)
-          }}
-        >
-          <Music aria-hidden="true" />
-        </button>
-      </div>
     </div>
   )
 })
