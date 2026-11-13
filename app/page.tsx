@@ -1756,6 +1756,7 @@ export default function StreamOverlay() {
             0 0 34px 12px rgba(var(--glow), 0.45);
         }
 
+        .setup-help-link { color: #FFE040; }
         .setup-hint {
           margin: 0 0 24px;
           font-size: 10px;
@@ -2837,7 +2838,11 @@ export default function StreamOverlay() {
               <p className="setup-hint">
                 {popupBlocked
                   ? "The tools window was blocked. OBS browser sources can't open it: open this page in Chrome and use Window Capture instead. In a normal browser, allow popups and press OK again."
-                  : "OK opens a separate tools window for loading, syncing and cropping videos, so viewers never see it."}
+                  : "OK opens a private tools window for videos and setup. It stays hidden from viewers."}
+                {" "}
+                <a href="https://github.com/TheGobOne/z2r-stream-overlay#readme" target="_blank" rel="noreferrer" className="setup-help-link">
+                  Help: README
+                </a>
               </p>
               <button className="timer-edit-btn" onClick={confirmSetup} autoFocus>OK</button>
               {popupBlocked && (
