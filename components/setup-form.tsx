@@ -87,7 +87,7 @@ export function SetupForm({
       </div>
       {placements && onPlacementChange && (
         <div className="setup-section setup-column">
-          <h2 className="tools-card-title">Placements</h2>
+          <h2 className="tools-card-title tools-card-title-sub">Placements</h2>
           <div className="setup-places">
             {players.map((player) => {
               const current = placements[player] ?? null

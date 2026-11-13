@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 
 const TOOLS_WINDOW_NAME = "z2r-overlay-tools"
-const TOOLS_WINDOW_FEATURES = "popup,width=880,height=1120"
+const TOOLS_WINDOW_FEATURES = "popup,width=1500,height=950"
 const COPIED_ATTR = "data-tools-copied"
 // A real same-origin page rather than about:blank, so embeds (YouTube) receive a referrer
 const TOOLS_PAGE = "/tools.html"

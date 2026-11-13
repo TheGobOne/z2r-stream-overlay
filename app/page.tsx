@@ -7,6 +7,8 @@ import { PlayerTools } from "@/components/player-tools"
 import { SetupForm } from "@/components/setup-form"
 import { assignPlace, PlaceBadge, type Place, type Placements } from "@/components/place-badge"
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
+import { ProgramMonitor } from "@/components/program-monitor"
+import { BoothLayout } from "@/components/booth-layout"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { TrackerTools } from "@/components/tracker-tools"
 import { RacetimeTools } from "@/components/racetime-tools"
@@ -238,11 +240,15 @@ export default function StreamOverlay() {
     }
   }
 
+  function resetTimer() {
+    setTimerPhase(0)
+    if (linkVodsToTimer) resetVods()
+  }
+
   function handleTimerMiddleClick(e: React.MouseEvent) {
     if (e.button !== 1) return
     e.preventDefault()
-    setTimerPhase(0)
-    if (linkVodsToTimer) resetVods()
+    resetTimer()
   }
 
   function handleTimerRightClick(e: React.MouseEvent) {
@@ -2049,6 +2055,45 @@ export default function StreamOverlay() {
         }
 
         .tools-header { display: flex; flex-direction: column; gap: 6px; }
+
+        /* Booth: program monitor and timer stay pinned left, controls scroll on the right */
+        .tools.booth { height: 100vh; min-height: 0; overflow: hidden; }
+        .booth-toolbar { display: flex; justify-content: flex-end; margin: -28px 0 0; }
+        .booth-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); gap: 20px; }
+        .booth-column { display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; overflow-y: auto; padding: 0 6px 24px 0; }
+        .booth-panel { display: flex; flex-direction: column; flex: none; }
+        .booth-panel.dragging { opacity: 0.4; }
+        .booth-panel-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: #14142a; border: 2px solid #55557A; cursor: grab; }
+        .booth-panel:not(.collapsed) > .booth-panel-head { border-bottom: 0; }
+        .booth-panel-head:active { cursor: grabbing; }
+        .booth-panel-title { margin: 0; flex: 1; font-size: 11px; letter-spacing: 2px; color: #FFE040; text-transform: uppercase; }
+        .booth-panel-grip, .booth-panel-toggle { font: inherit; font-size: 12px; line-height: 1; min-width: 28px; padding: 6px 4px; background: #000; color: #8A8AA8; border: 2px solid #55557A; cursor: pointer; }
+        .booth-panel-grip { cursor: grab; letter-spacing: 1px; }
+        .booth-panel-grip:hover, .booth-panel-toggle:hover { color: #000; background: #30E0FF; border-color: #30E0FF; }
+        .booth-panel-grip:focus-visible, .booth-panel-toggle:focus-visible { outline: 2px solid #FF4040; outline-offset: 2px; }
+        .booth-panel-body[hidden] { display: none; }
+        .booth-panel-body > .tools-card { margin: 0; }
+        .booth-panel-body .tools-card-title:not(.tools-card-title-sub) { display: none; }
+        .booth-drop-marker { height: 6px; flex: none; background: #30E0FF; }
+        .tools.booth { height: 100vh; min-height: 0; overflow: hidden; }
+        .booth-monitor { display: flex; flex-direction: column; gap: 10px; }
+        .booth-monitor-screen { position: relative; aspect-ratio: 1456 / 816; max-height: calc(100vh - 260px); background: #000; border: 2px solid #55557A; }
+        .booth-monitor-screen video { display: block; width: 100%; height: 100%; object-fit: contain; }
+        .booth-monitor-empty { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; color: #55557A; font-size: 12px; }
+        .booth-monitor-live { position: absolute; top: 8px; left: 8px; padding: 3px 8px; background: #FF4040; color: #000; font-size: 9px; letter-spacing: 1px; }
+        .booth-monitor-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .booth-monitor-status { flex: 1 1 200px; }
+        .booth-timer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border: 2px solid #55557A; background: #000; }
+        .booth-timer-time { margin: 0; font-size: 28px; font-variant-numeric: tabular-nums; color: #fff; }
+        .booth-timer-time.running { color: #FFE040; }
+        .booth-timer-time.paused { color: #8A8AA8; }
+        .booth-timer-buttons { display: flex; gap: 8px; }
+        @media (max-width: 1000px) {
+          .tools.booth { height: auto; overflow: visible; }
+          .booth-grid { grid-template-columns: minmax(0, 1fr); }
+          .booth-column { overflow: visible; }
+          .booth-toolbar { margin: 0; }
+        }
         .tools-heading { margin: 0; font-size: 18px; color: #2ec4b6; letter-spacing: 1px; }
         .tools-subheading { margin: 0; font-size: 9px; color: #8a9a9a; line-height: 1.6; }
 
@@ -2953,11 +2998,37 @@ export default function StreamOverlay() {
 
         {toolsWin && (
           <ToolsWindowPortal win={toolsWin}>
-            <main className="tools">
+            <main className="tools booth">
               <header className="tools-header">
-                <h1 className="tools-heading">Overlay tools</h1>
+                <h1 className="tools-heading">Booth</h1>
                 <p className="tools-subheading">Only you can see this window. Changes apply to the overlay instantly.</p>
               </header>
+              <BoothLayout
+                panels={[
+                  { id: "monitor", title: "Program monitor", node: <ProgramMonitor win={toolsWin} /> },
+                  {
+                    id: "timer",
+                    title: "Race timer",
+                    node: (
+                <section className="booth-timer" aria-label="Race timer">
+                  <p className={`booth-timer-time${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}>
+                    {formatTimer(timerMs)}
+                  </p>
+                  <div className="booth-timer-buttons">
+                    <button type="button" className="vod-btn vod-btn-primary" onClick={handleTimerClick}>
+                      {timerPhase === 1 ? "Pause" : timerPhase === 2 ? "Resume" : "Start"}
+                    </button>
+                    <button type="button" className="vod-btn" onClick={resetTimer}>
+                      Reset
+                    </button>
+                  </div>
+                </section>
+                    ),
+                  },
+                  {
+                    id: "setup",
+                    title: "Setup",
+                    node: (
               <section className="tools-card" aria-labelledby="tools-setup-title">
                 <SetupForm
                   id="tools-setup"
@@ -2973,6 +3044,12 @@ export default function StreamOverlay() {
                   onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
                 />
               </section>
+                    ),
+                  },
+                  {
+                    id: "series",
+                    title: "Series score",
+                    node: (
               <SeriesTools
                 names={runnerCount === 2 ? [leftText, rightText] : Array.from({ length: runnerCount }, (_, i) => quadNames[i] ?? "")}
                 wins={seriesWins}
@@ -2980,6 +3057,12 @@ export default function StreamOverlay() {
                 onBestOfChange={changeSeriesBestOf}
                 onChange={changeSeriesWins}
               />
+                    ),
+                  },
+                  {
+                    id: "racetime",
+                    title: "Racetime.gg room",
+                    node: (
               <RacetimeTools
                 room={racetimeRoom}
                 summary={racetimeSummary}
@@ -2989,6 +3072,12 @@ export default function StreamOverlay() {
                 onUnlink={unlinkRacetime}
                 onSwap={swapRacetimeRunners}
               />
+                    ),
+                  },
+                  {
+                    id: "remote",
+                    title: "Remote trackers",
+                    node: (
               <RemoteTrackerTools
                 code={trackerCode}
                 sharing={trackerSharing}
@@ -2999,6 +3088,12 @@ export default function StreamOverlay() {
                 onStop={stopTrackerSharing}
                 onNewCode={makeNewTrackerCode}
               />
+                    ),
+                  },
+                  {
+                    id: "trackers",
+                    title: "Bosses and items",
+                    node: (
               <TrackerTools
                 bosses={visibleBosses}
                 items={ITEMS}
@@ -3010,6 +3105,13 @@ export default function StreamOverlay() {
                 onSetItemBadge={setItemBadge}
                 badgeOptions={[CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)]}
               />
+                    ),
+                  },
+                  {
+                    id: "videos",
+                    title: "Videos",
+                    node: (
+              <>
               {runnerCount === 2 ? (
                 <PlayerTools
                   id="duo-tools"
@@ -3031,12 +3133,23 @@ export default function StreamOverlay() {
               ) : (
                 <div ref={setQuadToolsSlot} />
               )}
+              </>
+                    ),
+                  },
+                  {
+                    id: "clear",
+                    title: "Clear",
+                    node: (
               <section className="tools-card" aria-labelledby="tools-clear-title">
                 <h2 id="tools-clear-title" className="tools-card-title">Clear</h2>
                 <button type="button" className="tools-clear-btn" onClick={clearOverlay}>
                   Clear overlay
                 </button>
               </section>
+                    ),
+                  },
+                ]}
+              />
             </main>
           </ToolsWindowPortal>
         )}
