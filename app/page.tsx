@@ -5,55 +5,25 @@ import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { SetupForm } from "@/components/setup-form"
-import { assignPlace, PlaceBadge, type Placements } from "@/components/place-badge"
+import { assignPlace, PlaceBadge, type Place, type Placements } from "@/components/place-badge"
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { TrackerTools } from "@/components/tracker-tools"
+import { RacetimeTools } from "@/components/racetime-tools"
+import { SeriesPips } from "@/components/series-pips"
+import { SeriesTools } from "@/components/series-tools"
+import { RemoteTrackerTools } from "@/components/remote-tracker-tools"
+import { hostTrackers, newJoinCode, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
+import { fetchRace, parseRoom, type RacetimeRace, type RacetimeRunner } from "@/lib/racetime"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
-import { createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { BOSSES, ITEMS } from "@/lib/tracker-catalog"
+import { ARCADE_WINDOWS, createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { ArcadeDecor } from "@/components/arcade-decor"
+import { useFitFontSize } from "@/lib/use-fit-font"
 
 const STATE_STORAGE_KEY = "z2r-overlay-state"
 const TIMER_STORAGE_KEY = "z2r-overlay-timer"
 
-const BOSSES = [
-  { id: "horsehead",   src: "/icons/horsehead.png",   alt: "Horsehead" },
-  { id: "helmethead",  src: "/icons/helmethead.png",  alt: "Helmethead" },
-  { id: "rebonack",    src: "/icons/rebonack.png",    alt: "Rebonack" },
-  { id: "karock",      src: "/icons/karock.png",      alt: "Karock" },
-  { id: "gooma",       src: "/icons/gooma.png",       alt: "Gooma" },
-  { id: "barba",       src: "/icons/barba.png",       alt: "Barba" },
-  { id: "thunderbird", src: "/icons/thunderbird.png", alt: "Thunderbird" },
-]
-
-// Row 1: candle, glove, raft, boots, flute, cross, downstab, upstab
-// Row 2: hammer, magickey, trophy, mirror, noteforriverman, wateroflife, water, kid
-// Row 3: shield, jump, life, fairy, fire, reflect, spell, thunder
-const ITEMS = [
-  { id: "candle",          src: "/icons/candle.png",          alt: "Candle" },
-  { id: "glove",           src: "/icons/glove.png",           alt: "Glove" },
-  { id: "raft",            src: "/icons/raft.png",            alt: "Raft" },
-  { id: "boots",           src: "/icons/boots.png",           alt: "Boots" },
-  { id: "flute",           src: "/icons/flute.png",           alt: "Flute" },
-  { id: "cross",           src: "/icons/cross.png",           alt: "Cross" },
-  { id: "downstab",        src: "/icons/downstab.png",        alt: "Downstab" },
-  { id: "upstab",          src: "/icons/upstab.png",          alt: "Upstab" },
-  { id: "hammer",          src: "/icons/hammer.png",          alt: "Hammer" },
-  { id: "magickey",        src: "/icons/magickey.png",        alt: "Magic Key" },
-  { id: "trophy",          src: "/icons/trophy.png",          alt: "Trophy" },
-  { id: "mirror",          src: "/icons/mirror.png",          alt: "Mirror" },
-  { id: "noteforriverman", src: "/icons/bagusletter.png", alt: "Note for Riverman" },
-  { id: "wateroflife",     src: "/icons/wateroflife.png",     alt: "Water of Life" },
-  { id: "water",           src: "/icons/water.png",           alt: "Water" },
-  { id: "kid",             src: "/icons/kid.png",             alt: "Child" },
-  { id: "shield",          src: "/icons/shield.png",          alt: "Shield" },
-  { id: "jump",            src: "/icons/jump.png",            alt: "Jump" },
-  { id: "life",            src: "/icons/life.png",            alt: "Life" },
-  { id: "fairy",           src: "/icons/fairy.png",           alt: "Fairy" },
-  { id: "fire",            src: "/icons/fire.png",            alt: "Fire" },
-  { id: "reflect",         src: "/icons/reflect.png",         alt: "Reflect" },
-  { id: "spell",           src: "/icons/spell.png",           alt: "Spell" },
-  { id: "thunder",         src: "/icons/thunder.png",         alt: "Thunder" },
-]
 
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
@@ -70,6 +40,8 @@ export default function StreamOverlay() {
   const [setupOpen, setSetupOpen] = useState(true)
   const [commentatorCount, setCommentatorCount] = useState<1 | 2>(2)
   const [isMaxRando, setIsMaxRando] = useState(false)
+  // Arcade is the only look for now; the Classic brick art is still in the code for when it's wanted back
+  const [theme] = useState<"classic" | "arcade">("arcade")
   const [draftCommentatorCount, setDraftCommentatorCount] = useState<1 | 2>(2)
   const [draftMaxRando, setDraftMaxRando] = useState(false)
   const [runnerCount, setRunnerCount] = useState<2 | 3 | 4>(2)
@@ -166,7 +138,7 @@ export default function StreamOverlay() {
     right: createVodConfig(),
   }))
   const [toolsSide, setToolsSide] = useState<VodSide>("left")
-  const [linkVodsToTimer, setLinkVodsToTimer] = useState(true)
+  const [linkVodsToTimer, setLinkVodsToTimer] = useState(false)
   const leftVodRef = useRef<VodPlayerHandle>(null)
   const rightVodRef = useRef<VodPlayerHandle>(null)
   const vodRefs = { left: leftVodRef, right: rightVodRef }
@@ -202,7 +174,14 @@ export default function StreamOverlay() {
     showTools()
   }
 
-  const vodLayouts = resolveVodLayouts(vods)
+  const duoWindows = theme === "arcade" ? ARCADE_WINDOWS : VOD_WINDOWS
+  // Arcade names stay full size until they fill their box, then shrink just enough to fit
+  const leftNameRef = useRef<HTMLInputElement>(null)
+  const rightNameRef = useRef<HTMLInputElement>(null)
+  const arcadeNameOpts = { base: 24, min: 10, letterSpacing: 2, enabled: theme === "arcade" }
+  const leftArcadeSize = useFitFontSize(leftNameRef, leftText, arcadeNameOpts)
+  const rightArcadeSize = useFitFontSize(rightNameRef, rightText, arcadeNameOpts)
+  const vodLayouts = resolveVodLayouts(vods, duoWindows)
   const duoLabel = (side: VodSide) =>
     (side === "left" ? leftText : rightText) || (side === "left" ? "Player 1" : "Player 2")
 
@@ -307,6 +286,204 @@ export default function StreamOverlay() {
     return negative ? -ms : ms
   }
   const timerEditInvalid = parseTimerInput(timerEditValue) === null
+
+  // Racetime.gg room: names, live channels and the race clock come from the room's public feed
+  const [racetimeRoom, setRacetimeRoom] = useState<string | null>(null)
+  const [racetimeSummary, setRacetimeSummary] = useState("")
+  const [racetimeError, setRacetimeError] = useState("")
+  const [racetimeBusy, setRacetimeBusy] = useState(false)
+  const racetimeRunnersRef = useRef<RacetimeRunner[]>([])
+  const racetimeEndedRef = useRef(false)
+  // Best-of series: games already won per runner, shown as squares on the name plates
+  const SERIES_KEY = "z2r-series"
+  const [seriesBestOf, setSeriesBestOf] = useState<1 | 3 | 5>(3)
+  const [seriesWins, setSeriesWins] = useState<number[]>([0, 0, 0, 0])
+  const seriesAwardedRef = useRef<Set<string>>(new Set())
+  const seriesToWin = Math.ceil(seriesBestOf / 2)
+  const seriesShown = seriesBestOf > 1 ? seriesToWin : 0
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SERIES_KEY) ?? "null")
+      if (saved?.bestOf === 1 || saved?.bestOf === 3 || saved?.bestOf === 5) setSeriesBestOf(saved.bestOf)
+      if (Array.isArray(saved?.wins)) setSeriesWins([0, 1, 2, 3].map((i) => Math.max(0, Number(saved.wins[i]) || 0)))
+      if (Array.isArray(saved?.awarded)) seriesAwardedRef.current = new Set(saved.awarded.map(String))
+    } catch {}
+  }, [])
+  function saveSeries(bestOf: number, wins: number[]) {
+    try {
+      localStorage.setItem(SERIES_KEY, JSON.stringify({ bestOf, wins, awarded: [...seriesAwardedRef.current] }))
+    } catch {}
+  }
+  function changeSeriesWins(runner: number, value: number) {
+    setSeriesWins((prev) => {
+      const next = prev.map((w, i) => (i === runner ? value : w))
+      saveSeries(seriesBestOf, next)
+      return next
+    })
+  }
+  function changeSeriesBestOf(value: 1 | 3 | 5) {
+    setSeriesBestOf(value)
+    const cap = Math.ceil(value / 2)
+    setSeriesWins((prev) => {
+      const next = prev.map((w) => Math.min(w, cap))
+      saveSeries(value, next)
+      return next
+    })
+  }
+  // Last place set from racetime per runner name, so a hand-set badge is only replaced when racetime changes
+  const racetimePlacesRef = useRef<Record<string, Place | null>>({})
+  const timerPhaseRef = useRef(timerPhase)
+  timerPhaseRef.current = timerPhase
+
+  function applyRunners(runners: RacetimeRunner[]) {
+    if (runnerCount === 2) {
+      const sides = ["left", "right"] as const
+      sides.forEach((side, i) => {
+        const runner = runners[i]
+        if (!runner) return
+        if (side === "left") handleLeftTextChange(runner.name)
+        else handleRightTextChange(runner.name)
+        const channel = runner.channel
+        if (!channel) return
+        setVods((prev) => ({
+          ...prev,
+          [side]: {
+            ...prev[side],
+            url: `https://twitch.tv/${channel}`,
+            platform: "twitch",
+            videoId: null,
+            channel,
+            startSeconds: 0,
+            loadKey: prev[side].loadKey + 1,
+          },
+        }))
+      })
+    } else {
+      quadRef.current?.setRunners(runners.map((r) => ({ name: r.name, channel: r.channel })))
+    }
+  }
+
+  /** Sets each runner's place badge from racetime: their place when done, DNF when they forfeit or are disqualified. */
+  function syncPlaces(race: RacetimeRace) {
+    const order = racetimeRunnersRef.current
+    order.forEach((known, index) => {
+      if (index >= runnerCount) return
+      const runner = race.runners.find((r) => r.name.toLowerCase() === known.name.toLowerCase())
+      if (!runner) return
+      const place: Place | null =
+        runner.status === "dnf" || runner.status === "dq"
+          ? "dnf"
+          : runner.status === "done" && runner.place !== null && runner.place >= 1 && runner.place <= 4
+            ? (runner.place as Place)
+            : null
+      const key = runner.name.toLowerCase()
+      if (place === null || racetimePlacesRef.current[key] === place) return
+      racetimePlacesRef.current[key] = place
+      setPlacements((prev) => assignPlace(prev, index, place))
+      // The winner of this room takes a game in the series, once per room
+      const award = `${race.room}:${key}`
+      if (place === 1 && !seriesAwardedRef.current.has(award)) {
+        seriesAwardedRef.current.add(award)
+        setSeriesWins((prev) => {
+          const next = prev.map((w, i) => (i === index ? Math.min(w + 1, seriesToWin) : w))
+          saveSeries(seriesBestOf, next)
+          return next
+        })
+      }
+    })
+  }
+
+  function syncRace(race: RacetimeRace) {
+    syncPlaces(race)
+    const label = race.status.replace(/_/g, " ")
+    setRacetimeSummary(`${label ? label[0].toUpperCase() + label.slice(1) : "Unknown"}, ${race.runners.length} runner${race.runners.length === 1 ? "" : "s"}.`)
+    if (race.startMs === null) return
+    const now = Date.now()
+    if (race.endMs !== null) {
+      if (racetimeEndedRef.current) return
+      racetimeEndedRef.current = true
+      const final = race.endMs - race.startMs
+      timerAccRef.current = final
+      timerStartRef.current = 0
+      setTimerMs(final)
+      setTimerPhase(2)
+      return
+    }
+    racetimeEndedRef.current = false
+    const elapsed = now - race.startMs
+    if (timerPhaseRef.current !== 1) {
+      timerAccRef.current = elapsed
+      setTimerPhase(1)
+      if (linkVodsToTimer) {
+        if (runnerCount !== 2) quadRef.current?.playAll()
+        else playBothVods()
+      }
+    } else if (Math.abs(timerAccRef.current + (now - timerStartRef.current) - elapsed) > 1000) {
+      timerAccRef.current = elapsed
+      timerStartRef.current = now
+    }
+  }
+  const syncRaceRef = useRef(syncRace)
+  syncRaceRef.current = syncRace
+
+  async function importRacetime(input: string) {
+    const room = parseRoom(input)
+    if (!room) {
+      setRacetimeError("Paste a racetime.gg room link, like https://racetime.gg/z2r/room-name-1234")
+      return
+    }
+    setRacetimeBusy(true)
+    setRacetimeError("")
+    try {
+      const race = await fetchRace(room)
+      if (race.runners.length === 0) {
+        setRacetimeError("Nobody has joined that room yet")
+        return
+      }
+      if (room !== racetimeRoom && !(toolsWin ?? window).confirm("Importing a new room clears the tracker (bosses, items and badges). Continue?")) return
+      if (room !== racetimeRoom) clearTrackers()
+      racetimeRunnersRef.current = race.runners
+      racetimeEndedRef.current = false
+      racetimePlacesRef.current = {}
+      setRacetimeRoom(room)
+      applyRunners(race.runners)
+      syncRace(race)
+    } catch (error) {
+      setRacetimeError(error instanceof Error ? error.message : "Could not import that room")
+    } finally {
+      setRacetimeBusy(false)
+    }
+  }
+
+  function swapRacetimeRunners() {
+    racetimeRunnersRef.current = [...racetimeRunnersRef.current].reverse()
+    applyRunners(racetimeRunnersRef.current)
+  }
+
+  function unlinkRacetime() {
+    setRacetimeRoom(null)
+    setRacetimeSummary("")
+    setRacetimeError("")
+  }
+
+  useEffect(() => {
+    if (!racetimeRoom) return
+    let stopped = false
+    const poll = window.setInterval(async () => {
+      try {
+        const race = await fetchRace(racetimeRoom)
+        if (stopped) return
+        setRacetimeError("")
+        syncRaceRef.current(race)
+      } catch (error) {
+        if (!stopped) setRacetimeError(error instanceof Error ? error.message : "Lost the connection to racetime.gg")
+      }
+    }, 5000)
+    return () => {
+      stopped = true
+      window.clearInterval(poll)
+    }
+  }, [racetimeRoom])
 
   const [leftDefeated, setLeftDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
   const [rightDefeated, setRightDefeated] = useState<Set<string>>(new Set(BOSSES.map(b => b.id)))
@@ -421,6 +598,21 @@ export default function StreamOverlay() {
   // Bumped to remount the trio/quad overlay, which keeps its own names, videos and tracker state
   const [clearCount, setClearCount] = useState(0)
 
+  /** Resets bosses, items, badges and marks on every layout; names, videos and the timer stay. */
+  function clearTrackers() {
+    setLeftDefeated(new Set(BOSSES.map((b) => b.id)))
+    setRightDefeated(new Set(BOSSES.map((b) => b.id)))
+    setLeftCollected(new Set(ITEMS.map((i) => i.id)))
+    setRightCollected(new Set(ITEMS.map((i) => i.id)))
+    setBossBadges({})
+    setItemBadges({})
+    setItemMenu(null)
+    setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
+    setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
+    setMarkedOff(new Set())
+    setMarkedBossesOff(new Set())
+  }
+
   /** Resets everything per-race; runner/commentator counts and Max Rando stay as set up. */
   function clearOverlay() {
     if (!(toolsWin ?? window).confirm("Clear names, videos, timer, badges and tracker icons?")) return
@@ -444,6 +636,9 @@ export default function StreamOverlay() {
     setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
     setMarkedOff(new Set())
     setMarkedBossesOff(new Set())
+    setSeriesWins([0, 0, 0, 0])
+    seriesAwardedRef.current = new Set()
+    saveSeries(seriesBestOf, [0, 0, 0, 0])
     setVods({ left: createVodConfig(), right: createVodConfig() })
     setClearCount((n) => n + 1)
     if (timerRef.current) clearInterval(timerRef.current)
@@ -451,6 +646,101 @@ export default function StreamOverlay() {
     timerAccRef.current = 0
     setTimerMs(0)
   }
+
+
+  // Remote trackers: other people mark items and bosses from their own browser with a join code
+  const TRACKER_CODE_KEY = "z2r-tracker-code"
+  const [trackerCode, setTrackerCode] = useState("")
+  const [trackerSharing, setTrackerSharing] = useState(false)
+  const [trackerBusy, setTrackerBusy] = useState(false)
+  const [trackerError, setTrackerError] = useState("")
+  const [trackerCount, setTrackerCount] = useState(0)
+  const trackerHostRef = useRef<TrackerHost | null>(null)
+
+  useEffect(() => {
+    let code = ""
+    try {
+      code = localStorage.getItem(TRACKER_CODE_KEY) ?? ""
+    } catch {}
+    if (!code) {
+      code = newJoinCode()
+      try {
+        localStorage.setItem(TRACKER_CODE_KEY, code)
+      } catch {}
+    }
+    setTrackerCode(code)
+  }, [])
+
+  const trackerRunners: TrackerSnapshot["runners"] =
+    runnerCount === 2
+      ? [
+          { name: leftText, bossesGreyed: [...leftDefeated], itemsGreyed: [...leftCollected] },
+          { name: rightText, bossesGreyed: [...rightDefeated], itemsGreyed: [...rightCollected] },
+        ]
+      : Array.from({ length: runnerCount }, (_, i) => ({
+          name: quadNames[i] ?? "",
+          bossesGreyed: [...(quadNotDefeated[i] ?? [])],
+          itemsGreyed: [...(quadNotCollected[i] ?? [])],
+        }))
+  const trackerSnapshot: TrackerSnapshot = {
+    runners: trackerRunners,
+    bossBadges,
+    bossBadgeLabels: BOSS_BADGES,
+    itemBadges,
+    badgeOptions: [CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)],
+  }
+  const trackerSnapshotJson = JSON.stringify(trackerSnapshot)
+  useEffect(() => {
+    trackerHostRef.current?.broadcast(JSON.parse(trackerSnapshotJson))
+  }, [trackerSnapshotJson, trackerSharing])
+
+  const trackerActionRef = useRef<(action: TrackerAction) => void>(() => {})
+  trackerActionRef.current = (action) => {
+    if (action.type === "cycleBossBadge" || action.type === "clearBossBadge") {
+      return action.type === "cycleBossBadge" ? cycleBadge(action.id) : clearBossBadge(action.id)
+    }
+    if (action.type === "setItemBadge") return setItemBadge(action.id, action.value)
+    const { type, runner, id } = action
+    if (runnerCount === 2) {
+      if (type === "toggleBoss") (runner === 0 ? toggleLeftBoss : toggleRightBoss)(id)
+      else (runner === 0 ? toggleLeftItem : toggleRightItem)(id)
+    } else if (type === "toggleBoss") toggleQuadBoss(runner, id)
+    else toggleQuadItem(runner, id)
+  }
+
+  async function startTrackerSharing(code = trackerCode) {
+    if (!code || trackerBusy) return
+    setTrackerBusy(true)
+    setTrackerError("")
+    try {
+      trackerHostRef.current = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount)
+      setTrackerSharing(true)
+    } catch (error) {
+      setTrackerError(error instanceof Error ? error.message : "Could not start sharing")
+    } finally {
+      setTrackerBusy(false)
+    }
+  }
+
+  function stopTrackerSharing() {
+    trackerHostRef.current?.stop()
+    trackerHostRef.current = null
+    setTrackerSharing(false)
+  }
+
+  function makeNewTrackerCode() {
+    const code = newJoinCode()
+    try {
+      localStorage.setItem(TRACKER_CODE_KEY, code)
+    } catch {}
+    setTrackerCode(code)
+    if (trackerSharing) {
+      stopTrackerSharing()
+      void startTrackerSharing(code)
+    }
+  }
+
+  useEffect(() => () => trackerHostRef.current?.stop(), [])
 
   const itemMenuRef = useRef<HTMLDivElement>(null)
 
@@ -717,7 +1007,8 @@ export default function StreamOverlay() {
         .text-box-left .zelda-input,
         .text-box-right .zelda-input {
           line-height: 36px;
-          top: -4px;
+          /* The font's letters sit about 0.2em below the line's middle, so the lift grows with the size */
+          top: calc(var(--zelda-font-size, 18px) * -0.2);
         }
 
         .zelda-input {
@@ -1501,13 +1792,51 @@ export default function StreamOverlay() {
 
         /* Audio badge sits at the inner end of a runner's name plate, off the video:
            Twitch refuses script play() while anything covers its iframe. */
+        .series-pips {
+          position: absolute;
+          left: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: flex;
+          gap: 2px;
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        .series-pip {
+          width: 16px;
+          height: 14px;
+          display: block;
+          fill: transparent;
+          stroke: #f8b800;
+          stroke-width: 1.2;
+          stroke-linejoin: miter;
+          opacity: 0.6;
+        }
+
+        .series-pip.won {
+          fill: #f8b800;
+          opacity: 1;
+        }
+
         .vod-audio {
           position: absolute;
           right: 6px;
           top: 50%;
           transform: translateY(-50%);
           z-index: 2;
+          display: inline-flex;
+          padding: 0;
+          border: 0;
+          background: none;
+          cursor: pointer;
+          user-select: none;
+          color: #FFE040;
         }
+        .vod-audio svg { display: block; }
+        .vod-audio-muted { color: #55557A; }
+        .vod-audio-muted:hover { color: #FFE040; }
+        .vod-audio:focus-visible { outline: 2px solid #FF4040; outline-offset: 2px; }
 
         .vod-volume-pop {
           position: absolute;
@@ -1528,9 +1857,14 @@ export default function StreamOverlay() {
         .text-box-left .zelda-input,
         .text-box-right .zelda-input,
         .quad-name .zelda-input {
-          padding-left: 34px;
+          padding-left: 46px;
           padding-right: 34px;
           box-sizing: border-box;
+        }
+
+        /* The font's letters sit about 0.2em below the line's middle; lift them by the same share */
+        .quad-name .zelda-input {
+          transform: translateY(calc(var(--zelda-font-size, 13px) * -0.2));
         }
 
         .vod-audio-badge {
@@ -1935,16 +2269,362 @@ export default function StreamOverlay() {
           color: #ff6b6b;
         }
 
+        /* ===== Tools window in the Arcade look: black starfield, striped bars, stepped cyan frames ===== */
+        .tools {
+          background:
+            linear-gradient(180deg, #FF4040 0 2px, #000 2px 3px, #FF9020 3px 5px, #000 5px 6px, #FFE040 6px 8px, #000 8px) top / 100% 9px no-repeat,
+            radial-gradient(1px 1px at 8% 12%, #fff 99%, transparent),
+            radial-gradient(1px 1px at 23% 41%, #FFE040 99%, transparent),
+            radial-gradient(2px 2px at 41% 8%, #fff 99%, transparent),
+            radial-gradient(1px 1px at 57% 63%, #30E0FF 99%, transparent),
+            radial-gradient(1px 1px at 72% 22%, #FF50D0 99%, transparent),
+            radial-gradient(2px 2px at 88% 47%, #fff 99%, transparent),
+            radial-gradient(1px 1px at 15% 81%, #fff 99%, transparent),
+            radial-gradient(1px 1px at 63% 91%, #FFE040 99%, transparent),
+            radial-gradient(2px 2px at 94% 85%, #30E0FF 99%, transparent),
+            #000;
+          padding-top: 32px;
+        }
+        .tools-heading { color: #FFE040; font-size: 20px; letter-spacing: 3px; }
+        .tools-subheading { color: #8A8AA8; }
+        .tools-card {
+          position: relative;
+          border: 0;
+          padding: 22px;
+          background: #000;
+          --frame: #30E0FF;
+          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
+          box-shadow: inset 0 0 0 4px var(--frame);
+        }
+        .tools-card:nth-of-type(3n+1) { --frame: #FF4040; }
+        .tools-card:nth-of-type(3n+2) { --frame: #30E0FF; }
+        .tools-card:nth-of-type(3n) { --frame: #FF50D0; }
+        .tools-card-title { color: #FFE040; font-size: 13px; letter-spacing: 2px; }
+        .tools-hint { color: #8A8AA8; }
+        .tools .gem-modal-title,
+        .tools .vod-label { color: #FFE040; }
+        .tools-tab { border-color: #55557A; color: #8A8AA8; }
+        .tools-tab:hover { color: #fff; border-color: #FFE040; }
+        .tools-tab[aria-selected="true"] { color: #000; background: #FFE040; border-color: #FFE040; }
+        .tools-tab:focus-visible,
+        .vod-btn:focus-visible { outline-color: #FF4040; }
+        .tools-tab-dot { background: #30E0FF; }
+        .tools .vod-input { border-color: #30E0FF; }
+        .tools .vod-input:focus-visible { border-color: #FFE040; }
+        .tools .vod-btn { background: #000; border-color: #30E0FF; color: #fff; }
+        .tools .vod-btn:hover:not(:disabled) { background: #30E0FF; color: #000; }
+        .tools .vod-btn-primary:not(:disabled) { background: #FFE040; border-color: #FFE040; color: #000; }
+        .tools .vod-btn-primary:hover:not(:disabled) { background: #fff; border-color: #fff; }
+        .tools .gem-modal-opt.selected { background: #FFE040; color: #000; border-color: #FFE040; }
+        .tools .vod-range,
+        .tools .vod-check input { accent-color: #FFE040; }
+        .tools .vod-panel.vod-panel-inline { border-color: #55557A; }
+        .tools-clear-btn { background: #000; border-color: #FF4040; color: #FF4040; }
+        .tools-clear-btn:hover { background: #FF4040; color: #000; }
+        .tools .vod-error { color: #FF4040; }
+        .tools-tracker-grid .item-btn.tools-picking { outline-color: #FFE040; }
+
+
+        /* ===== Pop-ups (setup, gem count, start time) in the Arcade look ===== */
+        .gem-modal-box {
+          position: relative;
+          border: 0;
+          background: #000;
+          box-shadow: inset 0 0 0 4px #30E0FF;
+          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
+          padding-top: 40px;
+        }
+        .gem-modal-box::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: 0;
+          height: 9px;
+          background: linear-gradient(180deg, #FF4040 0 2px, #000 2px 3px, #FF9020 3px 5px, #000 5px 6px, #FFE040 6px 8px, #000 8px);
+        }
+        .gem-modal-title { color: #FFE040; }
+        .gem-modal-opt { background: #000; border-color: #30E0FF; }
+        .gem-modal-opt:hover { background: #30E0FF; color: #000; }
+        .gem-modal-opt.selected { background: #FFE040; border-color: #FFE040; color: #000; }
+        .setup-checkbox input { border-color: #30E0FF; background: #000; }
+        .setup-checkbox input:checked { background: #FFE040; border-color: #FFE040; }
+        .setup-hint { color: #8A8AA8; }
+        .timer-edit-btn { background: #FFE040; border-color: #FFE040; color: #000; }
+        .timer-edit-btn:hover { background: #fff; border-color: #fff; color: #000; }
+
+        /* Race info line under the two credit columns */
+        .arcade-race-title {
+          position: absolute;
+          top: 752px;
+          left: 728px;
+          transform: translateX(-50%) scale(1.5);
+          transform-origin: center;
+          font-family: 'ZeldaII', monospace;
+          font-size: 11px;
+          letter-spacing: 1px;
+          color: #FFE040;
+          pointer-events: none;
+          user-select: none;
+        }
+        .arcade-race-container {
+          position: absolute;
+          top: 768px;
+          left: 448px;
+          width: 560px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .arcade-race-input {
+          width: 100%;
+          background: transparent;
+          border: none;
+          outline: none;
+          color: #ffffff;
+          font-family: 'ZeldaII', monospace;
+          font-size: 15px;
+          letter-spacing: 1px;
+          text-align: center;
+          text-transform: uppercase;
+          caret-color: #FFE040;
+        }
+        .arcade-race-input::placeholder { color: rgba(255, 255, 255, 0.2); }
+
+        /* ===== Arcade look for the 3- and 4-runner layouts: same grid, restyled ===== */
+        .theme-arcade-multi { background: #000; }
+        .theme-arcade-multi .quad-cell,
+        .theme-arcade-multi .quad-side,
+        .theme-arcade-multi .quad-rail { background: #000; }
+        .theme-arcade-multi .quad-name {
+          border: 0;
+          outline: 0;
+          background: transparent;
+          border-bottom: 3px solid var(--pc, #FFE040);
+          height: 36px;
+        }
+        .theme-arcade-multi .quad-name::before,
+        .theme-arcade-multi .quad-name::after { display: none; }
+        .theme-arcade-multi .quad-name .zelda-input { color: #fff; padding-left: 34px; padding-right: 26px; }
+        .theme-arcade-multi .quad-name .series-pips { left: 4px; gap: 1px; }
+        .theme-arcade-multi .quad-name .series-pip { width: 12px; height: 11px; }
+        .theme-arcade-multi .quad-name .vod-audio { right: 3px; }
+        .theme-arcade-multi .quad-name .vod-audio svg { width: 16px; height: 16px; }
+        .theme-arcade-multi .quad-side-title { color: #FFE040; text-decoration: none; }
+        .theme-arcade-multi .quad-side-info-input { border-color: #55557A; color: #FFE040; }
+        .theme-arcade-multi .quad-rail-middle .quad-side-info { border-color: #55557A; }
+        .theme-arcade-multi .quad-rail-middle .quad-side-info:focus-within { border-color: #FFE040; }
+
         /* Single commentator: collapse COM 2 and re-center the section */
         .single-com .commentary-title { top: 613px; }
         .single-com .commentary-container { top: 628px; height: 20px; }
         .single-com .tracking-title { top: 673px; }
         .single-com .tracking-container { top: 691px; }
         .single-com .timer-display { top: 732px; }
+
+        /* ===== Arcade theme, 2 runners: same controls as Classic, moved and restyled ===== */
+        .theme-arcade { background: #000; }
+        .theme-arcade .transparent-overlay-left,
+        .theme-arcade .transparent-overlay-right { display: none; }
+
+        .arcade-decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+        .arcade-decor > * { position: absolute; }
+        .arcade-sky { left: 0; top: 0; opacity: 0.75; }
+        .arcade-stripes {
+          left: 0;
+          width: 1456px;
+          height: 9px;
+          background: linear-gradient(180deg, #FF4040 0 2px, #000 2px 3px, #FF9020 3px 5px, #000 5px 6px, #FFE040 6px 8px, #000 8px);
+        }
+        .arcade-frame {
+          background: var(--c);
+          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
+        }
+        .arcade-frame-in {
+          position: absolute;
+          inset: 4px;
+          background: #000;
+          clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px);
+        }
+
+        /* Name plates become the top HUD: player tag, series triforces, name, audio icon */
+        .theme-arcade .text-box-left,
+        .theme-arcade .text-box-right {
+          top: 20px;
+          width: 588px;
+          height: 48px;
+          background: transparent;
+          box-shadow: none;
+          justify-content: flex-start;
+          z-index: 6;
+        }
+        .theme-arcade .text-box-left { left: 16px; }
+        .theme-arcade .text-box-right { left: auto; right: 16px; }
+        .theme-arcade .text-box-left::before,
+        .theme-arcade .text-box-right::before {
+          content: "1P";
+          inset: auto;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          color: #FF4040;
+          font-family: 'ZeldaII', monospace;
+          font-size: 16px;
+          line-height: 1;
+        }
+        .theme-arcade .text-box-right::before { content: "2P"; color: #30E0FF; }
+        /* Row order: tag, name, music note, triforces (player 2 mirrored) */
+        .theme-arcade .text-box-left .zelda-input,
+        .theme-arcade .text-box-right .zelda-input { order: 1; flex: 1 1 auto; }
+        .theme-arcade .text-box-left .vod-audio,
+        .theme-arcade .text-box-right .vod-audio { order: 2; }
+        .theme-arcade .text-box-left .series-pips,
+        .theme-arcade .text-box-right .series-pips {
+          order: 3;
+          position: static;
+          transform: none;
+          flex: none;
+          gap: 8px;
+          /* Kept clear of the timer */
+          margin: 0 24px 0 0;
+        }
+        .theme-arcade .text-box-right .series-pips { margin: 0 0 0 24px; }
+        /* The music note stays put at the inner end, beside the triforces, however long the name is */
+        .theme-arcade .text-box-left .vod-audio { margin: 0 30px 0 auto; }
+        .theme-arcade .text-box-right .vod-audio { margin: 0 auto 0 30px; }
+        .theme-arcade .text-box-left .series-pip,
+        .theme-arcade .text-box-right .series-pip { width: 34px; height: 30px; }
+        .theme-arcade .text-box-left .zelda-input,
+        .theme-arcade .text-box-right .zelda-input {
+          text-align: left;
+          padding-left: 52px;
+          color: #ffffff;
+          line-height: 48px;
+          font-size: var(--arcade-name-size, 24px);
+          top: calc(var(--arcade-name-size, 24px) * -0.2);
+        }
+
+        /* Player 2 mirrors player 1: tag and triforces on the right, name right-aligned, audio icon on the left */
+        .theme-arcade .text-box-right::before { left: auto; right: 0; }
+        .theme-arcade .text-box-right .series-pips { flex-direction: row-reverse; }
+        .theme-arcade .text-box-right .zelda-input { text-align: right; padding-left: 0; padding-right: 52px; }
+        .theme-arcade .text-box-left .zelda-input,
+        .theme-arcade .text-box-right .zelda-input {
+          width: 100%;
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+        .theme-arcade .text-box-left .vod-audio,
+        .theme-arcade .text-box-right .vod-audio {
+          position: static;
+          transform: none;
+          flex: none;
+        }
+        .theme-arcade .text-box-left .vod-audio svg,
+        .theme-arcade .text-box-right .vod-audio svg { width: 30px; height: 30px; }
+        .theme-arcade .text-box-right { flex-direction: row-reverse; }
+
+        /* Place badge sits in the gap between the HUD and the game window */
+        .theme-arcade .place-badge { transform: translate(-50%, -50%); z-index: 7; box-shadow: none; }
+
+        /* Timer centred in the HUD */
+        .theme-arcade .timer-display,
+        .theme-arcade.single-com .timer-display {
+          top: 22px;
+          font-size: 32px;
+          line-height: 1;
+          text-align: center;
+          filter: none;
+        }
+
+        /* Commentary and tracking as centred credits between the tracker boxes */
+        .theme-arcade .center-panel-hitbox { top: 620px; left: 440px; width: 576px; height: 182px; }
+        .theme-arcade .commentary-title,
+        .theme-arcade .tracking-title { color: #FFE040; text-decoration: none; }
+        /* Commentary on the left half, tracking on the right half, gem count below both */
+        .theme-arcade .commentary-title,
+        .theme-arcade.single-com .commentary-title { top: 646px; left: 584px; }
+        .theme-arcade .commentary-container,
+        .theme-arcade.single-com .commentary-container { top: 666px; left: 584px; }
+        .theme-arcade.single-com .commentary-container { height: 20px; }
+        .theme-arcade .tracking-title,
+        .theme-arcade.single-com .tracking-title { top: 646px; left: 872px; }
+        .theme-arcade .tracking-container,
+        .theme-arcade.single-com .tracking-container { top: 666px; left: 872px; }
+
+        /* Max Rando: race info shifts left and the gem and count sit side by side to its right */
+        .theme-arcade .gem-image {
+          top: 750px;
+          left: 900px;
+          transform: none;
+          z-index: 6;
+          filter: none;
+        }
+        .theme-arcade .gem-count {
+          /* Gem is 44px tall from 750px (middle 772px); this font draws about 0.2em below its line's middle */
+          top: 754px;
+          line-height: 28px;
+          left: 940px;
+          transform: none;
+          z-index: 6;
+          font-size: 28px;
+          letter-spacing: 0;
+          filter: none;
+        }
+        .theme-arcade.max-rando .arcade-race-title { left: 664px; }
+        .theme-arcade.max-rando .arcade-race-container { left: 448px; width: 432px; }
+
+        /* Trackers fill the framed boxes under each game */
+        .theme-arcade .boss-row,
+        .theme-arcade .boss-row-right,
+        .theme-arcade .item-row-1,
+        .theme-arcade .item-row-2,
+        .theme-arcade .item-row-3,
+        .theme-arcade .item-row-1-right,
+        .theme-arcade .item-row-2-right,
+        .theme-arcade .item-row-3-right {
+          width: 400px;
+          justify-content: center;
+          gap: 8px;
+          z-index: 6;
+        }
+        .theme-arcade .boss-row,
+        .theme-arcade .item-row-1,
+        .theme-arcade .item-row-2,
+        .theme-arcade .item-row-3 { left: 20px; }
+        .theme-arcade .boss-row-right,
+        .theme-arcade .item-row-1-right,
+        .theme-arcade .item-row-2-right,
+        .theme-arcade .item-row-3-right { left: auto; right: 20px; }
+        .theme-arcade .boss-row,
+        .theme-arcade .boss-row-right { top: 624px; gap: 12px; }
+        .theme-arcade .item-row-1,
+        .theme-arcade .item-row-1-right { top: 675px; }
+        .theme-arcade .item-row-2,
+        .theme-arcade .item-row-2-right { top: 717px; }
+        .theme-arcade .item-row-3,
+        .theme-arcade .item-row-3-right { top: 759px; }
+        .theme-arcade .boss-btn img { width: 42px; height: 42px; }
+        .theme-arcade .item-btn img { width: 40px; height: 40px; }
+        .theme-arcade .boss-row::after,
+        .theme-arcade .boss-row-right::after {
+          content: "";
+          position: absolute;
+          left: 6%;
+          right: 6%;
+          bottom: -6px;
+          height: 3px;
+          background: repeating-linear-gradient(90deg, #FF4040 0 6px, transparent 6px 12px);
+        }
+        .theme-arcade .boss-row-right::after {
+          background: repeating-linear-gradient(90deg, #30E0FF 0 6px, transparent 6px 12px);
+        }
       `}</style>
 
       <div
-        className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}`}
+        className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}${theme === "arcade" && runnerCount === 2 ? " theme-arcade" : ""}${theme === "arcade" && runnerCount !== 2 ? " theme-arcade-multi" : ""}${isMaxRando ? " max-rando" : ""}`}
         // CSS zoom, not a scale() transform: Twitch refuses play() inside a scaled-down transform
         // ("minimum requirements for autoplay were not met: style visibility")
         style={stageScale < 1 ? { zoom: stageScale } : undefined}
@@ -1954,6 +2634,7 @@ export default function StreamOverlay() {
             key={`${runnerCount}-${clearCount}`}
             ref={quadRef}
             layout={runnerCount === 3 ? TRIO_LAYOUT : QUAD_LAYOUT}
+            arcade={theme === "arcade"}
             bosses={visibleBosses}
             items={ITEMS}
             bossBadges={bossBadges}
@@ -1974,6 +2655,8 @@ export default function StreamOverlay() {
             notCollected={quadNotCollected}
             onToggleBoss={toggleQuadBoss}
             onToggleItem={toggleQuadItem}
+            seriesWins={seriesWins}
+            seriesToWin={seriesShown}
             sidePanel={{
               info: (
                 <div className="quad-side-group quad-side-info">
@@ -2070,19 +2753,22 @@ export default function StreamOverlay() {
             key={side}
             ref={vodRefs[side]}
             side={side}
+            win={duoWindows[side]}
               config={vods[side]}
               layout={vodLayouts[side]}
               onAutoMute={() => updateVod(side, { muted: true })}
           />
         ))}
 
+        {theme === "arcade" && <ArcadeDecor windows={duoWindows} />}
+
         {/* Background overlay image */}
-        <img
+        {theme === "classic" && <img
           src="/overlays/z2r-overlay-flush.png"
           alt="Zelda II Randomizer Restream Overlay"
           className="overlay-bg"
           draggable={false}
-        />
+        />}
 
         {/* Transparent overlay for top-left black box */}
         <div className="transparent-overlay-left" />
@@ -2167,7 +2853,7 @@ export default function StreamOverlay() {
         {/* Right-click an empty game window (or the frame around a loaded one) to set up that player's VOD.
             Nothing may cover a loaded VOD during playback, so the full-window hitbox only exists for empty windows. */}
         {(["left", "right"] as const).map((side) => {
-          const win = VOD_WINDOWS[side]
+          const win = duoWindows[side]
           if (hasSource(vods[side])) return null
           return (
             <div
@@ -2228,6 +2914,25 @@ export default function StreamOverlay() {
           />
         </div>
 
+        {/* Race info, under commentary and tracking (Arcade only) */}
+        {theme === "arcade" && (
+          <>
+            <div className="arcade-race-title">RACE INFO</div>
+            <div className="arcade-race-container" onContextMenu={reopenSetup}>
+              <input
+                type="text"
+                className="arcade-race-input"
+                value={raceInfo}
+                onChange={(e) => setRaceInfo(e.target.value)}
+                placeholder="RACE INFO"
+                aria-label="Race info"
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+          </>
+        )}
+
         {/* Timer */}
         <div
           className={`timer-display${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}
@@ -2263,9 +2968,33 @@ export default function StreamOverlay() {
                   onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
                 />
               </section>
+              <SeriesTools
+                names={runnerCount === 2 ? [leftText, rightText] : Array.from({ length: runnerCount }, (_, i) => quadNames[i] ?? "")}
+                wins={seriesWins}
+                bestOf={seriesBestOf}
+                onBestOfChange={changeSeriesBestOf}
+                onChange={changeSeriesWins}
+              />
+              <RacetimeTools
+                room={racetimeRoom}
+                summary={racetimeSummary}
+                error={racetimeError}
+                busy={racetimeBusy}
+                onImport={importRacetime}
+                onUnlink={unlinkRacetime}
+                onSwap={swapRacetimeRunners}
+              />
+              <RemoteTrackerTools
+                code={trackerCode}
+                sharing={trackerSharing}
+                busy={trackerBusy}
+                error={trackerError}
+                count={trackerCount}
+                onStart={() => startTrackerSharing()}
+                onStop={stopTrackerSharing}
+                onNewCode={makeNewTrackerCode}
+              />
               <TrackerTools
-                markedBossesOff={markedBossesOff}
-                onToggleMarkedBoss={toggleMarkedBoss}
                 bosses={visibleBosses}
                 items={ITEMS}
                 bossBadges={bossBadges}
@@ -2274,8 +3003,6 @@ export default function StreamOverlay() {
                 onCycleBossBadge={cycleBadge}
                 onClearBossBadge={clearBossBadge}
                 onSetItemBadge={setItemBadge}
-                markedOff={markedOff}
-                onToggleMarked={toggleMarked}
                 badgeOptions={[CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)]}
               />
               {runnerCount === 2 ? (
@@ -2286,7 +3013,7 @@ export default function StreamOverlay() {
                     config: vods[side],
                     onChange: (patch) => updateVod(side, patch),
                     playerRef: vodRefs[side],
-                    cropTarget: VOD_WINDOWS[side],
+                    cropTarget: duoWindows[side],
                   }))}
                   selected={toolsSide === "left" ? 0 : 1}
                   onSelect={(i) => setToolsSide(i === 0 ? "left" : "right")}
@@ -2338,28 +3065,23 @@ export default function StreamOverlay() {
               if (hasSource(vods.left)) openVodPanel("left", e)
             }}
           >
+          <SeriesPips wins={seriesWins[0]} toWin={seriesShown} />
           <input
             type="text"
             className="zelda-input"
+            ref={leftNameRef}
             value={leftText}
             onChange={(e) => handleLeftTextChange(e.target.value)}
             placeholder="PLAYER 1"
             spellCheck={false}
             autoComplete="off"
-            style={{ "--zelda-font-size": `${leftFontSize}px` } as React.CSSProperties}
+            style={{ "--zelda-font-size": `${leftFontSize}px`, "--arcade-name-size": `${leftArcadeSize}px` } as React.CSSProperties}
           />
           {hasSource(vods.left) && (
             <AudioBadge
               playerName={duoLabel("left")}
               muted={vods.left.muted}
-              volume={vods.left.volume}
-              onSelectAudio={() =>
-                setVods((prev) => ({
-                  left: { ...prev.left, muted: false },
-                  right: { ...prev.right, muted: true },
-                }))
-              }
-              onVolumeChange={(volume) => updateVod("left", { volume })}
+              onSelectAudio={() => setVods((prev) => ({ left: { ...prev.left, muted: false }, right: { ...prev.right, muted: true } }))}
             />
           )}
         </div>
@@ -2371,34 +3093,29 @@ export default function StreamOverlay() {
               if (hasSource(vods.right)) openVodPanel("right", e)
             }}
           >
+          <SeriesPips wins={seriesWins[1]} toWin={seriesShown} />
           <input
             type="text"
             className="zelda-input"
+            ref={rightNameRef}
             value={rightText}
             onChange={(e) => handleRightTextChange(e.target.value)}
             placeholder="PLAYER 2"
             spellCheck={false}
             autoComplete="off"
-            style={{ "--zelda-font-size": `${rightFontSize}px` } as React.CSSProperties}
+            style={{ "--zelda-font-size": `${rightFontSize}px`, "--arcade-name-size": `${rightArcadeSize}px` } as React.CSSProperties}
           />
           {hasSource(vods.right) && (
             <AudioBadge
               playerName={duoLabel("right")}
               muted={vods.right.muted}
-              volume={vods.right.volume}
-              onSelectAudio={() =>
-                setVods((prev) => ({
-                  left: { ...prev.left, muted: true },
-                  right: { ...prev.right, muted: false },
-                }))
-              }
-              onVolumeChange={(volume) => updateVod("right", { volume })}
+              onSelectAudio={() => setVods((prev) => ({ left: { ...prev.left, muted: true }, right: { ...prev.right, muted: false } }))}
             />
           )}
         </div>
 
-              <PlaceBadge place={placements[0]} win={VOD_WINDOWS.left} edge="top" />
-              <PlaceBadge place={placements[1]} win={VOD_WINDOWS.right} edge="top" />
+              <PlaceBadge place={placements[0]} win={theme === "arcade" ? { left: 524, top: 44, width: 0, height: 0 } : duoWindows.left} edge={theme === "arcade" ? "bottom" : "top"} />
+              <PlaceBadge place={placements[1]} win={theme === "arcade" ? { left: 932, top: 44, width: 0, height: 0 } : duoWindows.right} edge={theme === "arcade" ? "bottom" : "top"} />
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
@@ -2447,7 +3164,7 @@ export default function StreamOverlay() {
               key={item.id}
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
-              onContextMenu={(e) => openItemMenu(e, "left", item.id, "number")}
+              onContextMenu={(e) => e.preventDefault()}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
@@ -2465,7 +3182,7 @@ export default function StreamOverlay() {
               key={item.id}
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
-              onContextMenu={(e) => openItemMenu(e, "left", item.id, "letter")}
+              onContextMenu={(e) => e.preventDefault()}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
@@ -2483,7 +3200,7 @@ export default function StreamOverlay() {
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
-              onContextMenu={(e) => openItemMenu(e, "right", item.id, "number")}
+              onContextMenu={(e) => e.preventDefault()}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
@@ -2501,7 +3218,7 @@ export default function StreamOverlay() {
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
-              onContextMenu={(e) => openItemMenu(e, "right", item.id, "letter")}
+              onContextMenu={(e) => e.preventDefault()}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
@@ -2519,7 +3236,7 @@ export default function StreamOverlay() {
               key={item.id}
               className={`item-btn ${leftCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleLeftItem(item.id)}
-              onContextMenu={(e) => openItemMenu(e, "left", item.id, "letter")}
+              onContextMenu={(e) => e.preventDefault()}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
@@ -2537,7 +3254,7 @@ export default function StreamOverlay() {
               key={`right-${item.id}`}
               className={`item-btn ${rightCollected.has(item.id) ? "collected" : "active"}`}
               onClick={() => toggleRightItem(item.id)}
-              onContextMenu={(e) => openItemMenu(e, "right", item.id, "letter")}
+              onContextMenu={(e) => e.preventDefault()}
               onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearItemBadge(item.id) } }}
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}

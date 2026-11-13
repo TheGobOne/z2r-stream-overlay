@@ -66,6 +66,7 @@ function liveThumbnail(channel: string, stamp: number) {
 }
 
 const SNAPSHOT_GIVE_UP_MS = 6000
+const FRESH_FRAME_STEP_S = 10
 const YOUTUBE_SETTLE_MS = 1500
 
 /**
@@ -139,15 +140,26 @@ function CropPreview({
   fill: boolean
   onDone: () => void
 }) {
-  const [startAt] = useState(() => player.playerRef.current?.getCurrentTime() ?? player.config.startSeconds)
+  const [startAt, setStartAt] = useState(() => player.playerRef.current?.getCurrentTime() ?? player.config.startSeconds)
   const [thumbFailed, setThumbFailed] = useState(false)
-  const [thumbStamp] = useState(() => Date.now())
+  const [thumbStamp, setThumbStamp] = useState(() => Date.now())
   const isTwitchVod = player.config.platform !== "youtube" && Boolean(player.config.videoId)
   const isLive = Boolean(player.config.channel && !player.config.videoId)
   // The selector waits until the preview shows the current frame, since covering a Twitch
   // embed stops it from playing to that frame.
   const [frameReady, setFrameReady] = useState(isLive)
   const iframeRef = useRef<HTMLIFrameElement>(null)
+
+  // A moment where the game is hard to see (a fade, a menu) can be swapped for one a bit later
+  function anotherMoment() {
+    if (isLive) {
+      setThumbFailed(false)
+      setThumbStamp(Date.now())
+      return
+    }
+    setFrameReady(false)
+    setStartAt((t) => t + FRESH_FRAME_STEP_S)
+  }
 
   function pauseYouTube() {
     const win = iframeRef.current?.contentWindow
@@ -162,7 +174,18 @@ function CropPreview({
 
   return (
     <div className="tools-crop">
-      <p className="tools-crop-title">Crop {player.label}</p>
+      <div className="vod-row" style={{ justifyContent: "space-between" }}>
+        <p className="tools-crop-title">Crop {player.label}</p>
+        <button
+          type="button"
+          className="vod-btn"
+          disabled={!frameReady}
+          onClick={anotherMoment}
+          title={isLive ? "Fetch Twitch's newest preview image" : `Show the video ${FRESH_FRAME_STEP_S} seconds later`}
+        >
+          {isLive ? "Fresh frame" : `+${FRESH_FRAME_STEP_S}s frame`}
+        </button>
+      </div>
       <div
         className="tools-crop-stage"
         style={{ width: PREVIEW_WINDOW.width, height: PREVIEW_WINDOW.height, overflow: "visible", marginBottom: 52 }}
@@ -189,7 +212,7 @@ function CropPreview({
             />
           )
         ) : isTwitchVod ? (
-          <TwitchSnapshot config={player.config} startAt={startAt} onReady={() => setFrameReady(true)} />
+          <TwitchSnapshot key={startAt} config={player.config} startAt={startAt} onReady={() => setFrameReady(true)} />
         ) : (
           <iframe
             ref={iframeRef}
@@ -201,6 +224,7 @@ function CropPreview({
               width: PREVIEW_LAYOUT.width,
               height: PREVIEW_LAYOUT.height,
             }}
+            key={startAt}
             src={previewSrc(player.config, startAt)}
             title={`${player.label} crop preview`}
             allow="autoplay; encrypted-media"
@@ -275,6 +299,19 @@ export function PlayerTools({
       </div>
 
       <div id={`${id}-tabpanel`} role="tabpanel" aria-labelledby={`${id}-tab-${index}`}>
+        {players.length > 1 && (
+          <div className="vod-row" style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              className="vod-btn vod-btn-primary"
+              disabled={!(player.config.videoId || player.config.channel)}
+              onClick={() => players.forEach((p, i) => p.onChange({ muted: i !== index }))}
+              title="Unmute this runner and mute the others. The note by each name shows who is on."
+            >
+              Listen to {player.label} only
+            </button>
+          </div>
+        )}
         {cropMode && (player.config.videoId || player.config.channel) ? (
           <CropPreview key={`${index}-${player.config.loadKey}`} player={player} fill={fillCrop} onDone={() => setCropMode(false)} />
         ) : (

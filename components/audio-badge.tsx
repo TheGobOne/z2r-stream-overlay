@@ -1,72 +1,46 @@
-"use client"
-
-import { useEffect, useRef, useState } from "react"
-import { Music } from "lucide-react"
-
 type Props = {
   playerName: string
   muted: boolean
-  volume: number
-  /** Make this runner the only one with audio. */
+  /** Left-click: make this runner the only one with audio. Volume is set from the tools window. */
   onSelectAudio: () => void
-  onVolumeChange: (volume: number) => void
 }
 
+// A pixel music note on an 8x8 grid
+const NOTE_PIXELS: [number, number, number, number][] = [
+  [3, 0, 4, 1],
+  [3, 1, 1, 1],
+  [6, 1, 1, 1],
+  [3, 2, 1, 1],
+  [6, 2, 1, 1],
+  [3, 3, 1, 1],
+  [6, 3, 1, 1],
+  [1, 4, 3, 1],
+  [5, 4, 2, 1],
+  [0, 5, 7, 1],
+  [0, 6, 3, 1],
+  [4, 6, 3, 1],
+]
+
 /**
- * Audio badge shown inside a runner's name plate. It used to sit over the video, but Twitch
- * refuses script play() while any element covers its iframe, so it lives outside the video now.
+ * Shows which runner's audio is on: a lit note beside the name, dim when muted. Left-click switches
+ * to this runner; volume is set from the tools window only. It sits outside the video because Twitch
+ * refuses script play() while anything covers its iframe.
  */
-export function AudioBadge({ playerName, muted, volume, onSelectAudio, onVolumeChange }: Props) {
-  const [volumeOpen, setVolumeOpen] = useState(false)
-  const audioRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!volumeOpen) return
-    const close = (e: PointerEvent) => {
-      if (!audioRef.current?.contains(e.target as Node)) setVolumeOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVolumeOpen(false)
-    }
-    document.addEventListener("pointerdown", close)
-    document.addEventListener("keydown", onKey)
-    return () => {
-      document.removeEventListener("pointerdown", close)
-      document.removeEventListener("keydown", onKey)
-    }
-  }, [volumeOpen])
-
+export function AudioBadge({ playerName, muted, onSelectAudio }: Props) {
   return (
-    <div ref={audioRef} className="vod-audio">
-      {volumeOpen && (
-        <div className="vod-volume-pop">
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={volume}
-            aria-label={`${playerName} volume`}
-            onChange={(e) => onVolumeChange(Number(e.target.value))}
-          />
-          <span className="vod-volume-value">{Math.round(volume * 100)}</span>
-        </div>
-      )}
-      <button
-        type="button"
-        className={`vod-audio-badge${muted ? " vod-audio-badge-muted" : ""}`}
-        aria-label={muted ? `Switch to ${playerName} audio` : `Listening to ${playerName} audio`}
-        aria-expanded={volumeOpen}
-        title="Click: listen to this runner. Right-click: volume"
-        onClick={() => onSelectAudio()}
-        onContextMenu={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          setVolumeOpen((open) => !open)
-        }}
-      >
-        <Music aria-hidden="true" />
-      </button>
-    </div>
+    <button
+      type="button"
+      className={`vod-audio${muted ? " vod-audio-muted" : ""}`}
+      aria-label={muted ? `Switch to ${playerName} audio` : `Listening to ${playerName}`}
+      title={muted ? "Click: listen to this runner" : "Listening to this runner"}
+      onClick={onSelectAudio}
+      onContextMenu={(e) => e.stopPropagation()}
+    >
+      <svg viewBox="0 0 8 8" width="20" height="20" shapeRendering="crispEdges" aria-hidden="true">
+        {NOTE_PIXELS.map(([x, y, w, h], i) => (
+          <rect key={i} x={x} y={y} width={w} height={h} fill="currentColor" />
+        ))}
+      </svg>
+    </button>
   )
 }

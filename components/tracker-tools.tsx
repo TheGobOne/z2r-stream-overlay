@@ -16,14 +16,9 @@ type Props = {
   /** null clears the badge. */
   onSetItemBadge: (itemId: string, value: string | null) => void
   badgeOptions: string[][]
-  /** One shared item set for marking locations; greyed here only, never on the overlay. */
-  markedOff: Set<string>
-  onToggleMarked: (itemId: string) => void
-  markedBossesOff: Set<string>
-  onToggleMarkedBoss: (bossId: string) => void
 }
 
-/** One master boss and item set for marking locations and setting badges without a menu appearing on stream. */
+/** One master boss and item set for setting badges without a menu appearing on stream. */
 export function TrackerTools({
   bosses,
   items,
@@ -34,10 +29,6 @@ export function TrackerTools({
   onClearBossBadge,
   onSetItemBadge,
   badgeOptions,
-  markedOff,
-  onToggleMarked,
-  markedBossesOff,
-  onToggleMarkedBoss,
 }: Props) {
   const [pickerItem, setPickerItem] = useState<string | null>(null)
 
@@ -46,18 +37,16 @@ export function TrackerTools({
       <h2 id="tools-tracker-title" className="tools-card-title">
         Bosses and items
       </h2>
-      <p className="tools-hint">One master set for marking locations. Not shown on the overlay. Click: toggle. Right-click: set badge. Middle-click: clear badge.</p>
+      <p className="tools-hint">Badges set here show on the overlay. Right-click: set badge. Middle-click: clear badge.</p>
 
       <div className="tools-tracker-grid" role="group" aria-label="Master boss set">
         {bosses.map((boss) => {
-          const off = markedBossesOff.has(boss.id)
           const badge = bossBadges[boss.id]
           return (
             <button
               key={boss.id}
               type="button"
-              className={`boss-btn ${off ? "defeated" : "active"}`}
-              onClick={() => onToggleMarkedBoss(boss.id)}
+              className="boss-btn active"
               onContextMenu={(e) => {
                 e.preventDefault()
                 onCycleBossBadge(boss.id)
@@ -68,7 +57,7 @@ export function TrackerTools({
                   onClearBossBadge(boss.id)
                 }
               }}
-              aria-label={`${boss.alt}: ${off ? "alive" : "defeated"}`}
+              aria-label={`${boss.alt}: right-click to set badge`}
               title={boss.alt}
             >
               <img src={boss.src} alt="" />
@@ -80,14 +69,12 @@ export function TrackerTools({
 
       <div className="tools-tracker-grid" role="group" aria-label="Master item set">
         {items.map((item) => {
-          const off = markedOff.has(item.id)
           const badge = itemBadges[item.id]
           return (
             <button
               key={item.id}
               type="button"
-              className={`item-btn ${off ? "collected" : "active"}${pickerItem === item.id ? " tools-picking" : ""}`}
-              onClick={() => onToggleMarked(item.id)}
+              className={`item-btn active${pickerItem === item.id ? " tools-picking" : ""}`}
               onContextMenu={(e) => {
                 e.preventDefault()
                 setPickerItem((current) => (current === item.id ? null : item.id))
@@ -98,7 +85,7 @@ export function TrackerTools({
                   onSetItemBadge(item.id, null)
                 }
               }}
-              aria-label={`${item.alt}: ${off ? "not collected" : "collected"}`}
+              aria-label={`${item.alt}: right-click to set badge`}
               title={item.alt}
             >
               <img src={item.src} alt="" />

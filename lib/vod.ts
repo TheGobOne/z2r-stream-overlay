@@ -131,7 +131,11 @@ export type VodFrameLayout = {
   z?: number
 }
 
-const WINDOW_GAP = VOD_WINDOWS.right.left - (VOD_WINDOWS.left.left + VOD_WINDOWS.left.width)
+/** Game windows of the Arcade theme's 2-runner layout: two 704x528 (4:3) screens under a top HUD. */
+export const ARCADE_WINDOWS: Record<VodSide, WindowRect> = {
+  left: { left: 16, top: 80, width: 704, height: 528 },
+  right: { left: 736, top: 80, width: 704, height: 528 },
+}
 
 /**
  * A saved crop is re-derived from its selection so crops made under older rules (such as the
@@ -154,8 +158,8 @@ const FOCUS_WIDTH = (816 * 16) / 9
 export const CROP_FOCUS_WINDOW: WindowRect = { left: (1456 - FOCUS_WIDTH) / 2, top: 0, width: FOCUS_WIDTH, height: 816 }
 export const CROP_FOCUS_LAYOUT: VodFrameLayout = { ...frameInWindow(CROP_FOCUS_WINDOW, UNCROPPED_VIEW), onTop: true }
 
-function frameFor(side: VodSide, config: VodConfig) {
-  const win = VOD_WINDOWS[side]
+function frameFor(side: VodSide, config: VodConfig, windows: Record<VodSide, WindowRect>) {
+  const win = windows[side]
   const { left, top, width, height } = frameInWindow(win, config)
   const innerOverflow = side === "left" ? left + width - win.width : -left
   return { left, top, width, height, innerOverflow }
@@ -166,16 +170,20 @@ function frameFor(side: VodSide, config: VodConfig) {
  * even where it's clipped away. The frame reaching further toward the middle goes on top; the
  * other may only overflow into the gap between windows, never under the top window.
  */
-export function resolveVodLayouts(configs: Record<VodSide, VodConfig>): Record<VodSide, VodFrameLayout> {
-  const left = frameFor("left", configs.left)
-  const right = frameFor("right", configs.right)
+export function resolveVodLayouts(
+  configs: Record<VodSide, VodConfig>,
+  windows: Record<VodSide, WindowRect> = VOD_WINDOWS,
+): Record<VodSide, VodFrameLayout> {
+  const left = frameFor("left", configs.left, windows)
+  const right = frameFor("right", configs.right, windows)
+  const gap = windows.right.left - (windows.left.left + windows.left.width)
   const bothLoaded = hasSource(configs.left) && hasSource(configs.right)
   const leftOnTop = left.innerOverflow >= right.innerOverflow
 
   if (bothLoaded && leftOnTop) {
-    right.left = Math.max(right.left, -WINDOW_GAP)
+    right.left = Math.max(right.left, -gap)
   } else if (bothLoaded) {
-    left.left = Math.min(left.left, VOD_WINDOWS.left.width + WINDOW_GAP - left.width)
+    left.left = Math.min(left.left, windows.left.width + gap - left.width)
   }
 
   const toLayout = ({ left: l, top, width, height }: ReturnType<typeof frameFor>, onTop: boolean) => ({

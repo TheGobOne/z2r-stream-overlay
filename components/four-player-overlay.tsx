@@ -3,6 +3,8 @@
 import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
+import { SeriesPips } from "@/components/series-pips"
+import { ARCADE_COLORS, ARCADE_YELLOW, ArcadeFrame, ArcadeSky } from "@/components/arcade-decor"
 import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
@@ -16,6 +18,8 @@ export type QuadOverlayHandle = {
   pauseAll(): void
   /** Pause every video and send it back to its start time. */
   resetAll(): void
+  /** Fill runner names and live Twitch channels, in order. */
+  setRunners(runners: { name: string; channel: string | null }[]): void
 }
 
 type Props = {
@@ -45,6 +49,11 @@ type Props = {
   notDefeated: Set<string>[]
   onToggleItem: (runner: number, itemId: string) => void
   onToggleBoss: (runner: number, bossId: string) => void
+  /** Series games won per runner and the wins needed (0 hides the squares). */
+  seriesWins: number[]
+  seriesToWin: number
+  /** Draw the Arcade look (starfield, coloured frames) instead of the brick art. */
+  arcade?: boolean
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
@@ -85,6 +94,9 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     notDefeated,
     onToggleItem,
     onToggleBoss,
+    seriesWins,
+    seriesToWin,
+    arcade = false,
   },
   ref,
 ) {
@@ -118,7 +130,21 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     playerRefs.forEach((r, i) => r.current?.seekTo(vods[i].startSeconds))
   }
 
-  useImperativeHandle(ref, () => ({ playAll, pauseAll, resetAll }))
+  /** Fills names and live Twitch channels in order; a runner without a channel keeps their current video. */
+  function setRunners(runners: { name: string; channel: string | null }[]) {
+    const nextNames = Array.from({ length: count }, (_, i) => runners[i]?.name ?? names[i])
+    setNames(nextNames)
+    onNamesChange?.(nextNames)
+    setVods((prev) =>
+      prev.map((config, i) => {
+        const channel = runners[i]?.channel
+        if (!channel) return config
+        return { ...config, url: `https://twitch.tv/${channel}`, platform: "twitch", videoId: null, channel, startSeconds: 0, loadKey: config.loadKey + 1 }
+      }),
+    )
+  }
+
+  useImperativeHandle(ref, () => ({ playAll, pauseAll, resetAll, setRunners }))
 
   function openPanel(index: number, e: React.MouseEvent) {
     e.preventDefault()
@@ -162,10 +188,12 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     <>
           <div
             className="quad-name"
+            style={{ ["--pc" as string]: ARCADE_COLORS[i] }}
             onContextMenu={(e) => {
               if (hasSource(vods[i])) openPanel(i, e)
             }}
           >
+            <SeriesPips wins={seriesWins[i] ?? 0} toWin={seriesToWin} />
             <input
               type="text"
               className="zelda-input"
@@ -185,9 +213,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               <AudioBadge
                 playerName={labelFor(i)}
                 muted={vods[i].muted}
-                volume={vods[i].volume}
                 onSelectAudio={() => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== i })))}
-                onVolumeChange={(volume) => updateVod(i, { volume })}
               />
             )}
           </div>
@@ -234,7 +260,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
                   key={item.id}
                   className={`item-btn ${off ? "collected" : "active"}`}
                   onClick={() => onToggleItem(i, item.id)}
-                  onContextMenu={(e) => onItemContextMenu(e, item.id, index < NUMBER_BADGE_ITEMS ? "number" : "letter")}
+                  onContextMenu={(e) => e.preventDefault()}
                   onAuxClick={(e) => {
                     if (e.button === 1) {
                       e.preventDefault()
@@ -777,7 +803,24 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         }
       `}</style>
 
-      <div className="quad-bricks" aria-hidden="true" />
+      {arcade ? (
+        <div className="arcade-decor" aria-hidden="true" style={{ position: "absolute", inset: 0 }}>
+          <ArcadeSky />
+          {cells.map((cell, i) => (
+            <ArcadeFrame key={i} box={cell} color={ARCADE_COLORS[i]} pad={5} />
+          ))}
+          {rails ? (
+            <>
+              <ArcadeFrame box={rails.left} color={ARCADE_COLORS[0]} pad={5} />
+              <ArcadeFrame box={rails.right} color={ARCADE_COLORS[1]} pad={5} />
+            </>
+          ) : (
+            <ArcadeFrame box={panel} color={ARCADE_YELLOW} pad={5} />
+          )}
+        </div>
+      ) : (
+        <div className="quad-bricks" aria-hidden="true" />
+      )}
       {cells.map((cell, i) => (
           // Cells start on fractional pixels; reach 1px up and left so neighboring brick highlights can't bleed through
           <div
