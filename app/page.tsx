@@ -2654,19 +2654,6 @@ export default function StreamOverlay() {
         .theme-arcade .item-row-3-right { top: 759px; }
         .theme-arcade .boss-btn img { width: 42px; height: 42px; }
         .theme-arcade .item-btn img { width: 40px; height: 40px; }
-        .theme-arcade .boss-row::after,
-        .theme-arcade .boss-row-right::after {
-          content: "";
-          position: absolute;
-          left: 6%;
-          right: 6%;
-          bottom: -6px;
-          height: 3px;
-          background: repeating-linear-gradient(90deg, #FF4040 0 6px, transparent 6px 12px);
-        }
-        .theme-arcade .boss-row-right::after {
-          background: repeating-linear-gradient(90deg, #30E0FF 0 6px, transparent 6px 12px);
-        }
       `}</style>
 
       <div
