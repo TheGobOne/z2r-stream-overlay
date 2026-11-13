@@ -2527,8 +2527,8 @@ export default function StreamOverlay() {
         .theme-arcade .text-box-right .vod-audio svg { width: 30px; height: 30px; }
         .theme-arcade .text-box-right { flex-direction: row-reverse; }
 
-        /* Place badge sits in the gap between the HUD and the game window */
-        .theme-arcade .place-badge { transform: translate(-50%, -50%); z-index: 7; box-shadow: none; }
+        /* Place badge sits inside the top edge of each game window, with its glow */
+        .theme-arcade .place-badge { z-index: 7; }
 
         /* Timer centred in the HUD */
         .theme-arcade .timer-display,
@@ -3119,8 +3119,8 @@ export default function StreamOverlay() {
           )}
         </div>
 
-              <PlaceBadge place={placements[0]} win={theme === "arcade" ? { left: 524, top: 44, width: 0, height: 0 } : duoWindows.left} edge={theme === "arcade" ? "bottom" : "top"} />
-              <PlaceBadge place={placements[1]} win={theme === "arcade" ? { left: 932, top: 44, width: 0, height: 0 } : duoWindows.right} edge={theme === "arcade" ? "bottom" : "top"} />
+              <PlaceBadge place={placements[0]} win={duoWindows.left} edge="top" />
+              <PlaceBadge place={placements[1]} win={duoWindows.right} edge="top" />
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">
