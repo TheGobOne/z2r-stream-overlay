@@ -139,9 +139,6 @@ export default function StartingSoonQuadPage() {
         <div className="ss-title">
           <input className="ss-input" value={data.title} onChange={(e) => set("title")(e.target.value)} spellCheck={false} aria-label="Title" />
         </div>
-        <div className="ss-line">
-          <input className="ss-input" value={data.line} onChange={(e) => set("line")(e.target.value)} placeholder="RACE INFO" spellCheck={false} aria-label="Race info" />
-        </div>
 
         {SLOTS.map((slot) => (
           <Fragment key={slot.key}>
