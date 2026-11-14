@@ -126,7 +126,8 @@ export async function joinTracker(
   await new Promise<void>((resolve, reject) => {
     const timer = window.setTimeout(() => {
       peer.destroy()
-      reject(new Error("No overlay is sharing that code right now."))
+      // The code is registered (else PeerJS reports peer-unavailable), but the direct link never opened
+      reject(new Error("Found the overlay but could not connect to it. A firewall or strict network may be blocking the link."))
     }, 12000)
     conn.once("open", () => {
       window.clearTimeout(timer)

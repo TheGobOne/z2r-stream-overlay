@@ -676,6 +676,8 @@ export default function StreamOverlay() {
 
   // Remote trackers: other people mark items and bosses from their own browser with a join code
   const TRACKER_CODE_KEY = "z2r-tracker-code"
+  /** Set while sharing, so a reload of the overlay picks sharing back up and shared links keep working. */
+  const TRACKER_SHARING_KEY = "z2r-tracker-sharing"
   const [trackerCode, setTrackerCode] = useState("")
   const [trackerSharing, setTrackerSharing] = useState(false)
   const [trackerBusy, setTrackerBusy] = useState(false)
@@ -695,6 +697,12 @@ export default function StreamOverlay() {
       } catch {}
     }
     setTrackerCode(code)
+    let resume = false
+    try {
+      resume = localStorage.getItem(TRACKER_SHARING_KEY) === "1"
+    } catch {}
+    if (resume) void startTrackerSharing(code)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const trackerRunners: TrackerSnapshot["runners"] =
@@ -741,6 +749,9 @@ export default function StreamOverlay() {
     try {
       trackerHostRef.current = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount)
       setTrackerSharing(true)
+      try {
+        localStorage.setItem(TRACKER_SHARING_KEY, "1")
+      } catch {}
     } catch (error) {
       setTrackerError(error instanceof Error ? error.message : "Could not start sharing")
     } finally {
@@ -752,6 +763,9 @@ export default function StreamOverlay() {
     trackerHostRef.current?.stop()
     trackerHostRef.current = null
     setTrackerSharing(false)
+    try {
+      localStorage.removeItem(TRACKER_SHARING_KEY)
+    } catch {}
   }
 
   function makeNewTrackerCode() {
