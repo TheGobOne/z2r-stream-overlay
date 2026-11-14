@@ -433,6 +433,17 @@ export default function StreamOverlay() {
   }
   const syncRaceRef = useRef(syncRace)
   syncRaceRef.current = syncRace
+  const applyRunnersRef = useRef(applyRunners)
+  applyRunnersRef.current = applyRunners
+  /** A room imported while the layout had too few slots; applied after the bigger layout renders. */
+  const pendingImportRef = useRef<RacetimeRace | null>(null)
+  useEffect(() => {
+    const race = pendingImportRef.current
+    if (!race) return
+    pendingImportRef.current = null
+    applyRunnersRef.current(race.runners)
+    syncRaceRef.current(race)
+  }, [runnerCount])
 
   async function importRacetime(input: string) {
     const room = parseRoom(input)
@@ -454,6 +465,13 @@ export default function StreamOverlay() {
       racetimeEndedRef.current = false
       racetimePlacesRef.current = {}
       setRacetimeRoom(room)
+      // More racers than the current layout holds: grow to 3 or 4 runners, then fill it once it mounts
+      const wanted = Math.min(4, race.runners.length)
+      if (wanted >= 3 && wanted > runnerCount) {
+        pendingImportRef.current = race
+        applyRunnerCount(wanted as 3 | 4)
+        return
+      }
       applyRunners(race.runners)
       syncRace(race)
     } catch (error) {
