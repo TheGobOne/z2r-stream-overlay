@@ -9,7 +9,7 @@ import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
-import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, betterArrangement, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
+import { BRICK_W, QUAD_TRACKER_WIDTH, betterArrangement, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 import "./four-player-overlay.css"
 
 type TrackerIcon = { id: string; src: string; alt: string }
@@ -170,7 +170,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
   const fillCrop = true
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
-  const layouts = resolveQuadLayouts(windows, vods, fillCrop)
+  // Up to 24 stacking solves with bisection; only redo it when the videos change, not on every keystroke
+  const layouts = useMemo(() => resolveQuadLayouts(windows, vods, fillCrop), [windows, vods, fillCrop])
   const arrangement = useMemo(() => betterArrangement(windows, vods, fillCrop, pairs), [windows, vods, fillCrop, pairs])
 
   /** Moves each runner, with their video, crop and trackers, into the slot `order` gives them. */
@@ -184,7 +185,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       order.map((r) => {
         const config = prev[r]
         const time = times[r]
-        return config.videoId && time !== null ? { ...config, startSeconds: Math.floor(time) } : config
+        // Pick up where it was without moving the start point that resets go back to
+        return config.videoId && time !== null ? { ...config, resumeSeconds: Math.floor(time) } : config
       }),
     )
     setSelected(order.indexOf(selected))

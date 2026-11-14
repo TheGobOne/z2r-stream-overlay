@@ -4,7 +4,7 @@
   --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-/* The overlay's pixel font. Preloaded in app/layout.tsx; "block" keeps text hidden briefly
+/* The overlay's pixel font. Preloaded by each overlay page (lib/fonts.ts); "block" keeps text hidden briefly
    instead of flashing a fallback font on stream. */
 @font-face {
   font-family: 'ZeldaII';

@@ -14,7 +14,7 @@ export type RacetimeRace = {
   status: string
   info: string
   runners: RacetimeRunner[]
-  /** Scheduled or actual start as a local-clock epoch (ms), corrected for clock drift; null before one is set. */
+  /** Start of the race as a local-clock epoch (ms), corrected for clock drift; null before it starts. */
   startMs: number | null
   /** End of the race as a local-clock epoch (ms), or null while it is still running. A cancel counts as the end. */
   endMs: number | null
@@ -54,7 +54,6 @@ type RawRace = {
   status?: { value?: string }
   info?: string
   started_at?: string | null
-  starts_at?: string | null
   ended_at?: string | null
   cancelled_at?: string | null
   entrants?: RawEntrant[]
@@ -116,7 +115,7 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
     status,
     info,
     runners,
-    startMs: toLocal(data.started_at ?? data.starts_at),
+    startMs: toLocal(data.started_at),
     // A cancelled race has cancelled_at and no ended_at; stop the clock there too
     endMs: toLocal(data.ended_at) ?? toLocal(data.cancelled_at),
     over: status === "finished" || status === "cancelled",

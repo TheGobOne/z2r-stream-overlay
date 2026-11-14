@@ -30,14 +30,22 @@ export function useFitFontSize(
       measureCtx ??= document.createElement("canvas").getContext("2d")
       if (!measureCtx || avail <= 0 || !shown) return setSize(base)
       measureCtx.font = `${base}px ${style.fontFamily}`
-      const width = measureCtx.measureText(shown.toUpperCase()).width + letterSpacing * shown.length
-      setSize(width <= avail ? base : Math.max(min, Math.floor((base * avail) / width)))
+      const glyphs = measureCtx.measureText(shown.toUpperCase()).width
+      const spacing = letterSpacing * shown.length
+      // Letter spacing is fixed px; only the glyphs shrink with the font size
+      setSize(glyphs + spacing <= avail ? base : Math.max(min, Math.floor((base * Math.max(0, avail - spacing)) / glyphs)))
     }
+    let current = true
     fit()
-    void document.fonts?.ready.then(fit)
+    void document.fonts?.ready.then(() => {
+      if (current) fit()
+    })
     const observer = new ResizeObserver(fit)
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      current = false
+      observer.disconnect()
+    }
   }, [el, text, base, min, letterSpacing, enabled])
 
   return size

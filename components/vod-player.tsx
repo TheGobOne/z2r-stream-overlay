@@ -1,8 +1,11 @@
 "use client"
 
-import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef } from "react"
 import { TwitchVodPlayer, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
+
+/** How long a play() request survives a player reload. */
+const PLAY_CARRY_MS = 3000
 
 export type { VodPlayerHandle }
 
@@ -108,6 +111,8 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
   const playerRef = useRef<YouTubePlayer | null>(null)
   const readyRef = useRef(false)
   const pendingPlayRef = useRef(false)
+  /** When play() was last asked for; a reload only keeps a play request this fresh. */
+  const playAskedAtRef = useRef(0)
   const latest = useRef(config)
   latest.current = config
   const onAutoMuteRef = useRef(onAutoMute)
@@ -152,7 +157,7 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
           playerVars: {
             autoplay: 0,
             mute: latest.current.muted ? 1 : 0,
-            start: Math.floor(latest.current.startSeconds),
+            start: Math.floor(latest.current.resumeSeconds ?? latest.current.startSeconds),
             playsinline: 1,
             controls: 0,
             disablekb: 1,
@@ -182,7 +187,9 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
       } catch {}
       playerRef.current = null
       readyRef.current = false
-      // Keep pendingPlayRef: a play() asked for just before a reload (racetime import) applies to the new player
+      // A play() asked for just before this reload (racetime import of a running race) applies to the new
+      // player; an older one (last race's, before Clear) must not autoplay the next video
+      if (Date.now() - playAskedAtRef.current > PLAY_CARRY_MS) pendingPlayRef.current = false
       host.replaceChildren()
     }
   }, [videoId, loadKey, mountId])
@@ -201,6 +208,7 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
   useImperativeHandle(ref, () => ({
     play: () => {
       pendingPlayRef.current = true
+      playAskedAtRef.current = Date.now()
       const player = playerRef.current
       if (player && readyRef.current) attemptPlay(player)
     },

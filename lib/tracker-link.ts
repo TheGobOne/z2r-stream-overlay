@@ -28,7 +28,8 @@ export type TrackerAction =
   | { type: "setBossBadge"; id: string; value: number | null }
   | { type: "setItemBadge"; id: string; value: string | null }
 
-type Message = { kind: "snapshot"; snapshot: TrackerSnapshot } | { kind: "action"; action: TrackerAction }
+/** "full": the overlay already has MAX_TRACKERS helpers; the helper should stop retrying. */
+type Message = { kind: "snapshot"; snapshot: TrackerSnapshot } | { kind: "action"; action: TrackerAction } | { kind: "full" }
 
 const PEER_PREFIX = "z2r-restream-"
 const ACTIONS_PER_SECOND = 20
@@ -104,11 +105,18 @@ async function createPeer(id?: string): Promise<PeerType> {
   const peer = id ? new Peer(id, options) : new Peer(options)
   await new Promise<void>((resolve, reject) => {
     // Both listeners only cover startup: left attached, a later network blip would destroy a working peer
+    // A hung signalling socket would otherwise leave the UI "busy" until the browser gives up.
+    // Cleared once settled: a later blip sets peer.open false and must not destroy a working peer.
+    const timer = window.setTimeout(() => {
+      if (!peer.open && !peer.destroyed) onError({ type: "network" })
+    }, PEER_OPEN_TIMEOUT_MS)
     const onOpen = () => {
+      window.clearTimeout(timer)
       peer.off("error", onError)
       resolve()
     }
     const onError = (error: { type: string }) => {
+      window.clearTimeout(timer)
       peer.off("open", onOpen)
       peer.destroy()
       reject(
@@ -124,11 +132,6 @@ async function createPeer(id?: string): Promise<PeerType> {
     }
     peer.once("open", onOpen)
     peer.once("error", onError)
-    // A hung signalling socket would otherwise leave the UI "busy" until the browser gives up
-    window.setTimeout(() => {
-      if (peer.open || peer.destroyed) return
-      onError({ type: "network" })
-    }, PEER_OPEN_TIMEOUT_MS)
   })
   return peer
 }
@@ -157,7 +160,10 @@ export async function hostTrackers(
   let refilledAt = Date.now()
   peer.on("connection", (conn) => {
     if (connections.size >= MAX_TRACKERS) {
-      conn.on("open", () => conn.close())
+      conn.on("open", () => {
+        conn.send({ kind: "full" } satisfies Message)
+        window.setTimeout(() => conn.close(), 500)
+      })
       return
     }
     conn.on("open", () => {
@@ -242,7 +248,8 @@ export type TrackerClient = { send: (action: TrackerAction) => void; stop: () =>
 export async function joinTracker(
   code: string,
   onSnapshot: (snapshot: TrackerSnapshot) => void,
-  onClose: () => void,
+  /** The link closed; `full` when the overlay refused this helper because it already has the maximum. */
+  onClose: (full: boolean) => void,
   /** True while the link is interrupted (ICE "disconnected"); Chrome takes ~30 s before it closes for good. */
   onUnstable?: (unstable: boolean) => void,
 ): Promise<TrackerClient> {
@@ -267,12 +274,14 @@ export async function joinTracker(
     })
     peer.once("error", onError)
   })
+  let full = false
   conn.on("data", (data) => {
     const message = data as Message
     if (message?.kind === "snapshot" && isSnapshot(message.snapshot)) onSnapshot(message.snapshot)
+    if (message?.kind === "full") full = true
   })
   conn.on("iceStateChanged", (state) => onUnstable?.(state === "disconnected" || state === "failed"))
-  conn.on("close", onClose)
+  conn.on("close", () => onClose(full))
   return {
     send(action) {
       if (conn.open) conn.send({ kind: "action", action } satisfies Message)

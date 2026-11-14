@@ -1,30 +1,33 @@
 "use client"
 
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { SetupForm } from "@/components/setup-form"
 import { assignPlace, PlaceBadge, type Place, type Placements } from "@/components/place-badge"
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
-import { ProgramMonitor } from "@/components/program-monitor"
-import { BoothLayout } from "@/components/booth-layout"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
-import { TrackerTools } from "@/components/tracker-tools"
-import { RacetimeTools } from "@/components/racetime-tools"
 import { SeriesPips } from "@/components/series-pips"
-import { SeriesTools } from "@/components/series-tools"
-import { RemoteTrackerTools } from "@/components/remote-tracker-tools"
 import { hostTrackers, newJoinCode, TrackerLinkError, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
 import { fetchRace, parseRoom, type RacetimeRace, type RacetimeRunner } from "@/lib/racetime"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
 import { BOSSES, ITEMS } from "@/lib/tracker-catalog"
-import { ARCADE_WINDOWS, createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
+import { ARCADE_WINDOWS, createVodConfig, restoreVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 import { ArcadeDecor } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
 import "./overlay.css"
 import { preload } from "react-dom"
 import { ZELDA_FONT } from "@/lib/fonts"
+import dynamic from "next/dynamic"
+
+// Tools-window panels: loaded only when the popup opens, so OBS sources (which never open it) skip them
+const ProgramMonitor = dynamic(() => import("@/components/program-monitor").then((m) => m.ProgramMonitor), { ssr: false })
+const BoothLayout = dynamic(() => import("@/components/booth-layout").then((m) => m.BoothLayout), { ssr: false })
+const TrackerTools = dynamic(() => import("@/components/tracker-tools").then((m) => m.TrackerTools), { ssr: false })
+const RacetimeTools = dynamic(() => import("@/components/racetime-tools").then((m) => m.RacetimeTools), { ssr: false })
+const SeriesTools = dynamic(() => import("@/components/series-tools").then((m) => m.SeriesTools), { ssr: false })
+const RemoteTrackerTools = dynamic(() => import("@/components/remote-tracker-tools").then((m) => m.RemoteTrackerTools), { ssr: false })
 
 const STATE_STORAGE_KEY = "z2r-overlay-state"
 const TIMER_STORAGE_KEY = "z2r-overlay-timer"
@@ -60,7 +63,8 @@ function TimerText({
   // startRef is 0 for a moment around starting and stopping; show the stored time then
   const read = () => (running ? (startRef.current ? accRef.current + (Date.now() - startRef.current) : accRef.current) : pausedMs)
   const [text, setText] = useState(() => formatTimer(read()))
-  useEffect(() => {
+  // Layout effect: when racetime starts the clock from a timer callback, the right time paints in the same frame
+  useLayoutEffect(() => {
     if (!running) return
     // Wake once per shown second, just after the displayed value changes
     let id = 0
@@ -326,26 +330,32 @@ export default function StreamOverlay() {
     resetTimer()
   }
 
+  /** Right-click only opens the dialog; nothing changes until Set, so an accidental right-click mid-race is harmless. */
   function handleTimerRightClick(e: React.MouseEvent) {
     e.preventDefault()
-    setTimerPhase(0)
-    timerAccRef.current = 0
-    timerStartRef.current = 0
-    setTimerMs(0)
-    saveTimer(0)
-    if (linkVodsToTimer) resetVods()
     setTimerEditValue("")
-    setTimerEditOpen(true)
+    openOperatorPopup(() => setTimerEditOpen(true))
+  }
+
+  /** Popups open in the tools window (opened or brought forward by this click), never over the live stage. */
+  function openOperatorPopup(open: () => void) {
+    showTools()
+    open()
   }
 
 
   function applyTimerEdit() {
     const ms = parseTimerInput(timerEditValue)
     if (ms === null) return
+    // The edited time replaces the clock and waits paused (or stopped) for the next click to start
+    const phase = timerPhase === 0 ? 0 : 2
     timerAccRef.current = ms
+    timerStartRef.current = 0
     setTimerMs(ms)
+    setTimerPhase(phase)
+    saveTimer(phase)
+    if (linkVodsToTimer) resetVods()
     setTimerEditOpen(false)
-    saveTimer()
   }
 
   /** Parses "h:mm:ss", "m:ss" or plain seconds (optionally negative); null if invalid. */
@@ -476,7 +486,8 @@ export default function StreamOverlay() {
     if (race.endMs !== null) {
       if (racetimeEndedRef.current) return
       racetimeEndedRef.current = true
-      const final = race.endMs - race.startMs
+      // Cancelled during the countdown: cancelled_at is before the start, so clamp to 0
+      const final = Math.max(0, race.endMs - race.startMs)
       timerAccRef.current = final
       timerStartRef.current = 0
       setTimerMs(final)
@@ -583,7 +594,12 @@ export default function StreamOverlay() {
     setRightDefeated(ld)
     setLeftCollected(rc)
     setRightCollected(lc)
-    setVods((prev) => ({ left: prev.right, right: prev.left }))
+    // A VOD picks up where it was (resumeSeconds) and keeps its start point for resets
+    const resume = (config: VodConfig, time: number | null | undefined) =>
+      config.videoId && time != null ? { ...config, resumeSeconds: Math.floor(time) } : config
+    const leftTime = leftVodRef.current?.getCurrentTime()
+    const rightTime = rightVodRef.current?.getCurrentTime()
+    setVods((prev) => ({ left: resume(prev.right, rightTime), right: resume(prev.left, leftTime) }))
     setPlacements((prev) => [prev[1], prev[0], ...prev.slice(2)])
     setSeriesWins((prev) => {
       const next = [prev[1], prev[0], ...prev.slice(2)]
@@ -647,13 +663,15 @@ export default function StreamOverlay() {
   // Item badge menus
   const CODE_OPTIONS = ["RA", "RU", "SA", "MD", "NA", "DA", "NK", "OK"]
   const NUMBER_OPTIONS = ["1", "2", "3", "4", "5", "6"]
-  const LETTER_OPTIONS: { label: string; src?: string; clear?: boolean }[] = [
-    { label: "W", src: "/overlays/letter-w.png" },
-    { label: "E", src: "/overlays/letter-e.png" },
-    { label: "MI", src: "/overlays/letter-mi.png" },
-    { label: "DM", src: "/overlays/letter-dm.png" },
+  const LETTER_OPTIONS: { label: string; clear?: boolean }[] = [
+    { label: "W" },
+    { label: "E" },
+    { label: "MI" },
+    { label: "DM" },
     { label: "", clear: true },
   ]
+  /** Badge choices offered for an item, one row per kind; also what remote trackers may send. */
+  const BADGE_OPTIONS = [CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)]
 
   // Badge values keyed by item id, per side
   const [itemBadges, setItemBadges] = useState<Record<string, string>>({})
@@ -754,6 +772,8 @@ export default function StreamOverlay() {
   /** Resets everything per-race; runner/commentator counts and Max Rando stay as set up. */
   function clearOverlay() {
     if (!(toolsWin ?? window).confirm("Clear names, videos, timer, badges and tracker icons?")) return
+    pauseBothVods()
+    quadRef.current?.pauseAll()
     setLeftText("")
     setRightText("")
     setCommentator1("")
@@ -816,12 +836,16 @@ export default function StreamOverlay() {
     try {
       resume = localStorage.getItem(TRACKER_SHARING_KEY) === "1"
     } catch {}
-    if (resume) void startTrackerSharing(code, true)
+    // A tick later, so dev StrictMode's throwaway first mount cancels it instead of claiming the code twice
+    const resumeTimer = resume ? window.setTimeout(() => void startTrackerSharing(code, true), 0) : undefined
+    return () => window.clearTimeout(resumeTimer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const trackerRunners: TrackerSnapshot["runners"] =
-    runnerCount === 2
+  // Copying every tracker Set is only worth it while someone can receive the snapshot
+  const trackerRunners: TrackerSnapshot["runners"] = !trackerSharing
+    ? []
+    : runnerCount === 2
       ? [
           { name: leftText, bossesGreyed: [...leftDefeated], itemsGreyed: [...leftCollected] },
           { name: rightText, bossesGreyed: [...rightDefeated], itemsGreyed: [...rightCollected] },
@@ -836,7 +860,7 @@ export default function StreamOverlay() {
     bossBadges,
     bossBadgeLabels: BOSS_BADGES,
     itemBadges,
-    badgeOptions: [CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)],
+    badgeOptions: BADGE_OPTIONS,
   }
   // Nobody reads it while sharing is off, so skip the work
   const trackerSnapshotJson = trackerSharing ? JSON.stringify(trackerSnapshot) : ""
@@ -864,7 +888,7 @@ export default function StreamOverlay() {
       case "setBossBadge":
         return isBoss && (a.value === null || (Number.isInteger(a.value) && (a.value as number) >= 0 && (a.value as number) < BOSS_BADGES.length))
       case "setItemBadge":
-        return isItem && (a.value === null || (typeof a.value === "string" && trackerSnapshot.badgeOptions.some((row) => row.includes(a.value as string))))
+        return isItem && (a.value === null || (typeof a.value === "string" && BADGE_OPTIONS.some((row) => row.includes(a.value as string))))
       default:
         return false
     }
@@ -887,13 +911,29 @@ export default function StreamOverlay() {
       })
     }
     const { type, runner, id, greyed } = action
-    // `greyed` says what the helper wants; skip if it's already that way, so two helpers can't cancel out
+    // `greyed` says what the helper wants. It's checked inside the state updater, against the latest
+    // state, so two helpers (or a laggy double click) asking for the same thing can't cancel out.
     if (greyed !== undefined) {
-      const sets =
-        runnerCount === 2
-          ? type === "toggleBoss" ? [leftDefeated, rightDefeated] : [leftCollected, rightCollected]
-          : type === "toggleBoss" ? quadNotDefeated : quadNotCollected
-      if ((sets[runner]?.has(id) ?? false) === greyed) return
+      const setTo = (prev: Set<string>) => {
+        if (prev.has(id) === greyed) return prev
+        const next = new Set(prev)
+        if (greyed) next.add(id)
+        else next.delete(id)
+        return next
+      }
+      if (runnerCount === 2) {
+        const setter =
+          type === "toggleBoss" ? (runner === 0 ? setLeftDefeated : setRightDefeated) : runner === 0 ? setLeftCollected : setRightCollected
+        setter(setTo)
+      } else {
+        const setter = type === "toggleBoss" ? setQuadNotDefeated : setQuadNotCollected
+        setter((prev) => {
+          const current = prev[runner] ?? new Set<string>()
+          const next = setTo(current)
+          return next === current ? prev : prev.map((set, i) => (i === runner ? next : set))
+        })
+      }
+      return
     }
     if (runnerCount === 2) {
       if (type === "toggleBoss") (runner === 0 ? toggleLeftBoss : toggleRightBoss)(id)
@@ -1110,10 +1150,12 @@ export default function StreamOverlay() {
           setIsMaxRando(saved.isMaxRando)
           setDraftMaxRando(saved.isMaxRando)
         }
-        if (Array.isArray(saved.leftDefeated)) setLeftDefeated(new Set(saved.leftDefeated))
-        if (Array.isArray(saved.rightDefeated)) setRightDefeated(new Set(saved.rightDefeated))
-        if (Array.isArray(saved.leftCollected)) setLeftCollected(new Set(saved.leftCollected))
-        if (Array.isArray(saved.rightCollected)) setRightCollected(new Set(saved.rightCollected))
+        const bossIds = (list: unknown) => new Set((Array.isArray(list) ? list : []).filter((id) => BOSSES.some((b) => b.id === id)) as string[])
+        const itemIds = (list: unknown) => new Set((Array.isArray(list) ? list : []).filter((id) => ITEMS.some((i) => i.id === id)) as string[])
+        if (Array.isArray(saved.leftDefeated)) setLeftDefeated(bossIds(saved.leftDefeated))
+        if (Array.isArray(saved.rightDefeated)) setRightDefeated(bossIds(saved.rightDefeated))
+        if (Array.isArray(saved.leftCollected)) setLeftCollected(itemIds(saved.leftCollected))
+        if (Array.isArray(saved.rightCollected)) setRightCollected(itemIds(saved.rightCollected))
         // Saved data may be old or hand-edited; bad values would make every remote tracker reject the state
         if (saved.bossBadges && typeof saved.bossBadges === "object") {
           setBossBadges(Object.fromEntries(Object.entries(saved.bossBadges).filter(([id, n]) =>
@@ -1128,9 +1170,11 @@ export default function StreamOverlay() {
           setPlacements(Array.from({ length: 4 }, (_, i) => (valid(saved.placements[i]) ? saved.placements[i] : null)))
         }
         if (saved.vods?.left && saved.vods?.right) {
-          setVods({ left: { ...createVodConfig(), ...saved.vods.left }, right: { ...createVodConfig(), ...saved.vods.right } })
+          setVods({ left: restoreVodConfig(saved.vods.left), right: restoreVodConfig(saved.vods.right) })
         }
         if (typeof saved.linkVodsToTimer === "boolean") setLinkVodsToTimer(saved.linkVodsToTimer)
+        // A reload (OBS refresh, crash) must not put the setup dialog over the stream; right-click reopens tools
+        setSetupOpen(false)
         const quad = saved.quad
         if (quad && quad.count === saved.runnerCount && quad.count !== 2) {
           const strings = (list: unknown) => (Array.isArray(list) ? list.filter((v): v is string => typeof v === "string") : [])
@@ -1138,7 +1182,7 @@ export default function StreamOverlay() {
             Array.from({ length: 4 }, (_, i) => (Array.isArray(list) && Array.isArray(list[i]) ? new Set(strings(list[i])) : new Set(fresh)))
           const names = strings(quad.names)
           const vods: VodConfig[] = Array.isArray(quad.vods)
-            ? quad.vods.map((v: Partial<VodConfig>) => ({ ...createVodConfig(), ...v }))
+            ? quad.vods.map((v: unknown) => restoreVodConfig(v))
             : []
           restoredQuadRef.current = { count: quad.count, names, vods }
           setQuadNames(names)
@@ -1423,7 +1467,7 @@ export default function StreamOverlay() {
                   <TimerText phase={timerPhase} pausedMs={timerMs} accRef={timerAccRef} startRef={timerStartRef} />
                 </button>
                 {isMaxRando && (
-                  <button type="button" className="quad-side-gem" onClick={() => setGemPopupOpen(true)} aria-label="Set gem count">
+                  <button type="button" className="quad-side-gem" onClick={() => openOperatorPopup(() => setGemPopupOpen(true))} aria-label="Set gem count">
                     <img
                       src="/icons/s_gem_overlay_0.png"
                       alt=""
@@ -1475,7 +1519,7 @@ export default function StreamOverlay() {
             alt="Gem"
             className="gem-image"
             draggable={false}
-            onClick={() => setGemPopupOpen(true)}
+            onClick={() => openOperatorPopup(() => setGemPopupOpen(true))}
           />
         )}
 
@@ -1635,7 +1679,7 @@ export default function StreamOverlay() {
                   alt="Gem"
                   className="gem-image"
                   draggable={false}
-                  onClick={() => setGemPopupOpen(true)}
+                  onClick={() => openOperatorPopup(() => setGemPopupOpen(true))}
                 />
               )}
               {isMaxRando && gemCount !== null && <span className="gem-count">{gemCount}</span>}
@@ -1767,7 +1811,7 @@ export default function StreamOverlay() {
                 onCycleBossBadge={cycleBadge}
                 onClearBossBadge={clearBossBadge}
                 onSetItemBadge={setItemBadge}
-                badgeOptions={[CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)]}
+                badgeOptions={BADGE_OPTIONS}
               />
                     ),
                   },

@@ -1,7 +1,10 @@
 "use client"
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
-import { frameInWindow, toTwitchTime, UNCROPPED_VIEW, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
+import { frameInWindow, toTwitchTime, VOD_WINDOWS, type VodConfig, type VodFrameLayout, type VodSide, type WindowRect } from "@/lib/vod"
+
+/** How long a play() request survives a player reload. */
+const PLAY_CARRY_MS = 3000
 
 type TwitchPlayer = {
   play(): void
@@ -125,7 +128,6 @@ function flatFrame(layout: VodFrameLayout): React.CSSProperties {
 
 const AUTOPLAY_CHECK_MS = 1200
 const START_SETTLE_MS = 250
-const START_GIVE_UP_MS = 8000
 const MAX_PLAY_ATTEMPTS = 4
 
 export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function TwitchVodPlayer(
@@ -137,9 +139,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   const playerRef = useRef<TwitchPlayer | null>(null)
   const readyRef = useRef(false)
   const pendingPlayRef = useRef(false)
-  // Twitch ignores script play() while anything covers or transforms its iframe, so the crop
-  // mask and the scaleY stretch are dropped from the moment play is asked until video runs.
-  const [starting, setStarting] = useState(false)
+  /** When play() was last asked for; a reload only keeps a play request this fresh. */
+  const playAskedAtRef = useRef(0)
   // Bumped on every play request so a repeat request re-runs the start effect
   const [startTick, setStartTick] = useState(0)
   const latest = useRef(config)
@@ -153,14 +154,8 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       if (playerRef.current !== player || !pendingPlayRef.current) return
       // Twitch's isPaused() can report "playing" while the browser has blocked playback,
       // so check whether the playhead actually moved before retrying.
-      if (player.getCurrentTime() - startedAt > 0.25) {
-        setStarting(false)
-        return
-      }
-      if (attempt >= MAX_PLAY_ATTEMPTS) {
-        setStarting(false)
-        return
-      }
+      if (player.getCurrentTime() - startedAt > 0.25) return
+      if (attempt >= MAX_PLAY_ATTEMPTS) return
       if (attempt === 0 && !player.getMuted()) {
         player.setMuted(true)
         onAutoMuteRef.current()
@@ -192,7 +187,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
           width: "100%",
           height: "100%",
           ...(videoId
-            ? { video: `v${videoId}`, time: toTwitchTime(latest.current.startSeconds) }
+            ? { video: `v${videoId}`, time: toTwitchTime(latest.current.resumeSeconds ?? latest.current.startSeconds) }
             : { channel }),
           autoplay: false,
           controls: false,
@@ -212,7 +207,6 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         player.addEventListener("playing", markReady)
         player.addEventListener("play", markReady)
         player.addEventListener("playing", () => {
-          if (!cancelled) setStarting(false)
         })
       })
       .catch((error) => console.error(error))
@@ -221,8 +215,9 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       cancelled = true
       playerRef.current = null
       readyRef.current = false
-      // Keep pendingPlayRef: a play() asked for just before a reload (racetime import) applies to the new player
-      setStarting(false)
+      // A play() asked for just before this reload (racetime import of a running race) applies to the new
+      // player; an older one (last race's, before Clear) must not autoplay the next video
+      if (Date.now() - playAskedAtRef.current > PLAY_CARRY_MS) pendingPlayRef.current = false
       host.replaceChildren()
     }
   }, [videoId, channel, loadKey, mountId])
@@ -243,25 +238,18 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       const player = playerRef.current
       if (player && readyRef.current && pendingPlayRef.current) attemptPlay(player)
     }, START_SETTLE_MS)
-    const giveUp = window.setTimeout(() => setStarting(false), START_GIVE_UP_MS)
-    return () => {
-      window.clearTimeout(playTimer)
-      window.clearTimeout(giveUp)
-    }
+    return () => window.clearTimeout(playTimer)
   }, [startTick])
 
   useImperativeHandle(ref, () => ({
     play: () => {
       pendingPlayRef.current = true
-      // Always go through the clean frame: Twitch's isPaused() can report false after a
-      // seek, and skipping the clean frame then leaves the mask up and play() blocked.
-      const player = playerRef.current
-      setStarting(true)
+      playAskedAtRef.current = Date.now()
+      // Always go through the settle delay: Twitch's isPaused() can report false after a seek
       setStartTick((n) => n + 1)
     },
     pause: () => {
       pendingPlayRef.current = false
-      setStarting(false)
       const player = playerRef.current
       if (readyRef.current && player) player.pause()
     },
@@ -289,7 +277,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
   if (crop) {
     // Stretched like the original crops (same size and place as the old black mask), but cut out
     // by clipping instead of a mask drawn over the video. Twitch may still pause a player it
-    // started on its own once the stretch applies; the pause listener then asks for one real click.
+    // started on its own once the stretch applies.
     // Use the un-nudged frame: resolveVodLayouts slides a frame sideways to keep it out from under
     // the other player, which shifted the crop off the chosen area. Clipping already keeps them apart.
     const L = maskAtCrop ? frameLayout : { ...frameLayout, ...frameInWindow(win, config) }

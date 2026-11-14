@@ -9,6 +9,8 @@ export type VodConfig = {
   /** Set instead of videoId when showing a live Twitch channel. */
   channel: string | null
   startSeconds: number
+  /** Where to pick up on the next load only (after a slot swap), without moving the start point. */
+  resumeSeconds?: number | null
   loadKey: number
   zoom: number
   /** Vertical scale on top of zoom, so a crop stretches to fill the window exactly. */
@@ -49,7 +51,37 @@ export const VOD_WINDOWS: Record<
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 6
 // Zoom at which a 16:9 VOD exactly fills the window height
-export const DEFAULT_ZOOM = Math.round((511 / ((655 * 9) / 16)) * 100) / 100
+/** Zoom that fills a 2-runner Arcade window (704x528) with a 16:9 video. */
+export const DEFAULT_ZOOM = Math.round((528 / ((704 * 9) / 16)) * 100) / 100
+
+/** A saved config with every number checked: NaN round-trips through JSON as null, which would zero a frame. */
+export function restoreVodConfig(saved: unknown): VodConfig {
+  const base = createVodConfig()
+  if (!saved || typeof saved !== "object") return base
+  const v = saved as Record<string, unknown>
+  const num = (key: keyof VodConfig, fallback: number) => (typeof v[key] === "number" && Number.isFinite(v[key]) ? (v[key] as number) : fallback)
+  const str = (key: keyof VodConfig) => (typeof v[key] === "string" ? (v[key] as string) : null)
+  const crop = v.crop as Record<string, unknown> | null | undefined
+  const cropOk =
+    !!crop && typeof crop === "object" && ["x0", "y0", "x1", "y1"].every((k) => typeof crop[k] === "number" && Number.isFinite(crop[k]))
+  return {
+    ...base,
+    url: str("url") ?? base.url,
+    platform: v.platform === "youtube" ? "youtube" : "twitch",
+    videoId: str("videoId"),
+    channel: str("channel"),
+    startSeconds: Math.max(0, num("startSeconds", 0)),
+    resumeSeconds: null,
+    loadKey: num("loadKey", 0),
+    zoom: num("zoom", base.zoom) > 0 ? num("zoom", base.zoom) : base.zoom,
+    centerX: num("centerX", base.centerX),
+    centerY: num("centerY", base.centerY),
+    ...(typeof v.stretchY === "number" && Number.isFinite(v.stretchY) && v.stretchY > 0 ? { stretchY: v.stretchY } : {}),
+    muted: typeof v.muted === "boolean" ? v.muted : base.muted,
+    volume: num("volume", base.volume),
+    crop: cropOk ? (crop as unknown as VodConfig["crop"]) : null,
+  }
+}
 
 export function createVodConfig(): VodConfig {
   return {
@@ -286,9 +318,10 @@ export type VodSource =
 
 /** Tries Twitch first (VOD, channel, or bare id), then YouTube (VOD links only). */
 export function parseVodSource(input: string): VodSource | null {
-  // Twitch channel names are case-insensitive words; an 11-character id with upper and lower case is a YouTube video
+  // A bare 11-character id with a "-" can't be a Twitch channel (letters, digits and _ only), so it's YouTube.
+  // Anything else bare is read as a Twitch channel; paste a youtu.be link for those YouTube ids.
   const bare = input.trim()
-  if (/^[a-zA-Z0-9_-]{11}$/.test(bare) && /[a-z]/.test(bare) && /[A-Z]/.test(bare)) {
+  if (/^[a-zA-Z0-9_-]{11}$/.test(bare) && bare.includes("-")) {
     const youtube = parseYouTubeSource(`https://youtu.be/${bare}`)
     if (youtube) return { platform: "youtube", ...youtube }
   }

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   async headers() {
     // A day fresh, then served from cache while it refreshes: OBS reloads skip the download,
     // and a changed icon or font still shows up within a day without renaming the file

@@ -116,11 +116,17 @@ export default function TrackPage() {
     clientRef.current = null
     old?.stop()
     setStatus("joining")
+    setUnstable(false)
     if (attempt === 0) setError("")
     try {
-      const client: TrackerClient = await joinTracker(code, setSnapshot, () => {
+      const client: TrackerClient = await joinTracker(code, setSnapshot, (full) => {
         if (clientRef.current !== client) return
         clientRef.current = null
+        if (full) {
+          setStatus("idle")
+          setError("This overlay already has the most trackers it allows. Ask the host to free a spot, then join again.")
+          return
+        }
         retry(code, 0)
       }, setUnstable)
       if (gen !== joinGenRef.current) {

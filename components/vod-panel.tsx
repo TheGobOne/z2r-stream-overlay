@@ -98,6 +98,7 @@ export function VodPanel({
         videoId: null,
         channel: parsed.channel,
         startSeconds: 0,
+        resumeSeconds: null,
         loadKey: config.loadKey + 1,
       })
       return
@@ -116,7 +117,8 @@ export function VodPanel({
       videoId: parsed.videoId,
       channel: null,
       startSeconds,
-      loadKey: config.loadKey + 1,
+      resumeSeconds: null,
+        loadKey: config.loadKey + 1,
     })
   }
 
@@ -133,7 +135,7 @@ export function VodPanel({
 
   function removeVod() {
     const fresh = createVodConfig()
-    onChange({ ...fresh, zoom: defaultZoom, loadKey: config.loadKey + 1 })
+    onChange({ ...fresh, zoom: defaultZoom, resumeSeconds: null, loadKey: config.loadKey + 1 })
     setUrlDraft("")
     setStartDraft("")
   }

@@ -94,7 +94,8 @@ export function BoothLayout({ panels }: { panels: BoothPanelDef[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsKey])
 
-  useEffect(() => {
+  // Before paint, so the popup never shows the default arrangement first (moving a panel reloads iframes)
+  useLayoutEffect(() => {
     setLayout(readLayout(ids))
     setLoaded(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
