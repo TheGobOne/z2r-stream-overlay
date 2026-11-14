@@ -64,30 +64,42 @@ async function createPeer(id?: string): Promise<PeerType> {
   const options = { config: { iceServers: iceServers() } }
   const peer = id ? new Peer(id, options) : new Peer(options)
   await new Promise<void>((resolve, reject) => {
-    peer.once("open", () => resolve())
-    peer.once("error", (error) => {
+    // Both listeners only cover startup: left attached, a later network blip would destroy a working peer
+    const onOpen = () => {
+      peer.off("error", onError)
+      resolve()
+    }
+    const onError = (error: { type: string }) => {
+      peer.off("open", onOpen)
       peer.destroy()
       reject(
         new Error(
           error.type === "unavailable-id"
-            ? "That join code is already in use. Make a new code."
+            ? "That join code is still held by an earlier session. Wait a minute and try again."
             : error.type === "peer-unavailable"
               ? "No overlay is sharing that code right now."
               : "Could not reach the connection service. Check your internet.",
         ),
       )
-    })
+    }
+    peer.once("open", onOpen)
+    peer.once("error", onError)
   })
   return peer
 }
 
 export type TrackerHost = { broadcast: (snapshot: TrackerSnapshot) => void; stop: () => void }
 
-/** Lets trackers join this overlay under `code`. */
+/** Signalling server trouble: the peer and its open tracker links survive, only new joins wait. */
+const RECOVERABLE_ERRORS = new Set(["network", "server-error", "socket-error", "socket-closed", "disconnected", "unavailable-id"])
+const RECONNECT_MS = 5000
+
+/** Lets trackers join this overlay under `code`. `onLost` fires if sharing stops for good. */
 export async function hostTrackers(
   code: string,
   onAction: (action: TrackerAction) => void,
   onCount: (count: number) => void,
+  onLost: (message: string) => void,
 ): Promise<TrackerHost> {
   const peer = await createPeer(PEER_PREFIX + code)
   const connections = new Set<DataConnection>()
@@ -111,9 +123,31 @@ export async function hostTrackers(
     conn.on("close", drop)
     conn.on("error", drop)
   })
-  // The signalling link drops now and then; existing tracker links keep working, new joins need it back
-  peer.on("disconnected", () => {
-    if (!stopped && !peer.destroyed) peer.reconnect()
+  // The signalling link drops now and then; existing tracker links keep working, new joins need it back.
+  // A failed reconnect reports an error and stays disconnected, so keep retrying.
+  let retry: number | undefined
+  const reconnect = () => {
+    if (stopped || peer.destroyed || !peer.disconnected) return
+    try {
+      peer.reconnect()
+    } catch {}
+  }
+  peer.on("disconnected", reconnect)
+  peer.on("error", (error) => {
+    if (stopped) return
+    if (RECOVERABLE_ERRORS.has(error.type)) {
+      window.clearTimeout(retry)
+      retry = window.setTimeout(reconnect, RECONNECT_MS)
+      return
+    }
+    // One tracker's link failed; its own close/error handlers drop it
+    if (error.type === "webrtc" || error.type === "peer-unavailable") return
+    stopped = true
+    window.clearTimeout(retry)
+    connections.clear()
+    peer.destroy()
+    onCount(0)
+    onLost("Tracker sharing stopped. Press Start sharing to try again.")
   })
 
   return {
@@ -123,6 +157,7 @@ export async function hostTrackers(
     },
     stop() {
       stopped = true
+      window.clearTimeout(retry)
       connections.clear()
       peer.destroy()
       onCount(0)
@@ -146,15 +181,18 @@ export async function joinTracker(
       // The code is registered (else PeerJS reports peer-unavailable), but the direct link never opened
       reject(new Error("Found the overlay but could not connect to it. A firewall or strict network may be blocking the link."))
     }, 12000)
-    conn.once("open", () => {
-      window.clearTimeout(timer)
-      resolve()
-    })
-    peer.once("error", (error) => {
+    const onError = (error: { type: string }) => {
       window.clearTimeout(timer)
       peer.destroy()
       reject(new Error(error.type === "peer-unavailable" ? "No overlay is sharing that code right now." : "Could not connect."))
+    }
+    conn.once("open", () => {
+      window.clearTimeout(timer)
+      // Once linked, signalling errors don't matter: the data channel runs peer to peer
+      peer.off("error", onError)
+      resolve()
     })
+    peer.once("error", onError)
   })
   conn.on("data", (data) => {
     const message = data as Message

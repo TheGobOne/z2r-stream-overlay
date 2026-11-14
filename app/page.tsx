@@ -95,11 +95,15 @@ export default function StreamOverlay() {
       return next
     })
   }
+  // Quad/trio videos live in FourPlayerOverlay; this copy is only for saving. The restored copy seeds the overlay once.
+  const [quadVods, setQuadVods] = useState<VodConfig[]>([])
+  const restoredQuadRef = useRef<{ count: number; names: string[]; vods: VodConfig[] } | null>(null)
   const toggleQuadBoss = (runner: number, id: string) => setQuadNotDefeated((prev) => toggleInRunner(prev, runner, id))
   const toggleQuadItem = (runner: number, id: string) => setQuadNotCollected((prev) => toggleInRunner(prev, runner, id))
 
   function applyRunnerCount(n: 2 | 3 | 4) {
     if (n !== runnerCount) {
+      restoredQuadRef.current = null
       setPlacements(Array(4).fill(null))
       setQuadNames([])
       setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
@@ -202,8 +206,10 @@ export default function StreamOverlay() {
   useEffect(() => {
     if (timerPhase === 1) {
       timerStartRef.current = Date.now()
+      // Ticks often for a crisp second boundary, but only re-renders this big page when the shown time changes
       timerRef.current = setInterval(() => {
-        setTimerMs(timerAccRef.current + (Date.now() - timerStartRef.current))
+        const next = timerAccRef.current + (Date.now() - timerStartRef.current)
+        setTimerMs((prev) => (formatTimer(prev) === formatTimer(next) ? prev : next))
       }, 100)
     } else {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -300,7 +306,8 @@ export default function StreamOverlay() {
   const [racetimeSummary, setRacetimeSummary] = useState("")
   const [racetimeError, setRacetimeError] = useState("")
   const [racetimeBusy, setRacetimeBusy] = useState(false)
-  const racetimeRunnersRef = useRef<RacetimeRunner[]>([])
+  // Index = overlay slot; a hole means that slot has no racetime runner (after a slot swap)
+  const racetimeRunnersRef = useRef<(RacetimeRunner | undefined)[]>([])
   const racetimeEndedRef = useRef(false)
   // Best-of series: games already won per runner, shown as squares on the name plates
   const SERIES_KEY = "z2r-series"
@@ -343,7 +350,7 @@ export default function StreamOverlay() {
   const timerPhaseRef = useRef(timerPhase)
   timerPhaseRef.current = timerPhase
 
-  function applyRunners(runners: RacetimeRunner[]) {
+  function applyRunners(runners: (RacetimeRunner | undefined)[]) {
     if (runnerCount === 2) {
       const sides = ["left", "right"] as const
       sides.forEach((side, i) => {
@@ -367,7 +374,7 @@ export default function StreamOverlay() {
         }))
       })
     } else {
-      quadRef.current?.setRunners(runners.map((r) => ({ name: r.name, channel: r.channel })))
+      quadRef.current?.setRunners(runners.map((r) => (r ? { name: r.name, channel: r.channel } : undefined)))
     }
   }
 
@@ -375,7 +382,7 @@ export default function StreamOverlay() {
   function syncPlaces(race: RacetimeRace) {
     const order = racetimeRunnersRef.current
     order.forEach((known, index) => {
-      if (index >= runnerCount) return
+      if (!known || index >= runnerCount) return
       const runner = race.runners.find((r) => r.name.toLowerCase() === known.name.toLowerCase())
       if (!runner) return
       const place: Place | null =
@@ -493,7 +500,7 @@ export default function StreamOverlay() {
       return next
     })
     const known = racetimeRunnersRef.current
-    if (known.length >= order.length) racetimeRunnersRef.current = reorder(known)
+    if (known.length > 0) racetimeRunnersRef.current = reorder(Array.from({ length: Math.max(known.length, order.length) }, (_, i) => known[i]))
   }
 
   function swapRacetimeRunners() {
@@ -672,6 +679,7 @@ export default function StreamOverlay() {
     setItemBadges({})
     setItemMenu(null)
     setPlacements(Array(4).fill(null))
+    restoredQuadRef.current = null
     setQuadNames([])
     setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
     setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
@@ -743,8 +751,31 @@ export default function StreamOverlay() {
     trackerHostRef.current?.broadcast(JSON.parse(trackerSnapshotJson))
   }, [trackerSnapshotJson, trackerSharing])
 
+  /** Anyone holding the join code can send anything, so only well-formed actions on known ids get through. */
+  function isValidTrackerAction(action: unknown): action is TrackerAction {
+    if (!action || typeof action !== "object") return false
+    const a = action as Record<string, unknown>
+    const isBoss = typeof a.id === "string" && BOSSES.some((boss) => boss.id === a.id)
+    const isItem = typeof a.id === "string" && ITEMS.some((item) => item.id === a.id)
+    const runnerOk = typeof a.runner === "number" && Number.isInteger(a.runner) && a.runner >= 0 && a.runner < runnerCount
+    switch (a.type) {
+      case "toggleBoss":
+        return isBoss && runnerOk
+      case "toggleItem":
+        return isItem && runnerOk
+      case "cycleBossBadge":
+      case "clearBossBadge":
+        return isBoss
+      case "setItemBadge":
+        return isItem && (a.value === null || (typeof a.value === "string" && trackerSnapshot.badgeOptions.some((row) => row.includes(a.value as string))))
+      default:
+        return false
+    }
+  }
+
   const trackerActionRef = useRef<(action: TrackerAction) => void>(() => {})
   trackerActionRef.current = (action) => {
+    if (!isValidTrackerAction(action)) return
     if (action.type === "cycleBossBadge" || action.type === "clearBossBadge") {
       return action.type === "cycleBossBadge" ? cycleBadge(action.id) : clearBossBadge(action.id)
     }
@@ -762,7 +793,11 @@ export default function StreamOverlay() {
     setTrackerBusy(true)
     setTrackerError("")
     try {
-      trackerHostRef.current = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount)
+      trackerHostRef.current = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount, (message) => {
+        trackerHostRef.current = null
+        setTrackerSharing(false)
+        setTrackerError(message)
+      })
       setTrackerSharing(true)
       try {
         localStorage.setItem(TRACKER_SHARING_KEY, "1")
@@ -922,6 +957,20 @@ export default function StreamOverlay() {
           setVods({ left: { ...createVodConfig(), ...saved.vods.left }, right: { ...createVodConfig(), ...saved.vods.right } })
         }
         if (typeof saved.linkVodsToTimer === "boolean") setLinkVodsToTimer(saved.linkVodsToTimer)
+        const quad = saved.quad
+        if (quad && quad.count === saved.runnerCount && quad.count !== 2) {
+          const strings = (list: unknown) => (Array.isArray(list) ? list.filter((v): v is string => typeof v === "string") : [])
+          const sets = (list: unknown, fresh: string[]) =>
+            Array.from({ length: 4 }, (_, i) => (Array.isArray(list) && Array.isArray(list[i]) ? new Set(strings(list[i])) : new Set(fresh)))
+          const names = strings(quad.names)
+          const vods: VodConfig[] = Array.isArray(quad.vods)
+            ? quad.vods.map((v: Partial<VodConfig>) => ({ ...createVodConfig(), ...v }))
+            : []
+          restoredQuadRef.current = { count: quad.count, names, vods }
+          setQuadNames(names)
+          setQuadNotDefeated(sets(quad.notDefeated, BOSSES.map((b) => b.id)))
+          setQuadNotCollected(sets(quad.notCollected, ITEMS.map((i) => i.id)))
+        }
       }
       const timer = JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY) ?? "null")
       if (timer && Number.isFinite(timer.base)) {
@@ -948,6 +997,11 @@ export default function StreamOverlay() {
           leftDefeated: [...leftDefeated], rightDefeated: [...rightDefeated],
           leftCollected: [...leftCollected], rightCollected: [...rightCollected],
           bossBadges, itemBadges, placements, vods, linkVodsToTimer,
+          quad: runnerCount === 2 ? null : {
+            count: runnerCount, names: quadNames, vods: quadVods,
+            notDefeated: quadNotDefeated.map((set) => [...set]),
+            notCollected: quadNotCollected.map((set) => [...set]),
+          },
         }),
       )
     } catch {}
@@ -955,6 +1009,7 @@ export default function StreamOverlay() {
     hydrated, leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
     runnerCount, quadPairs, commentatorCount, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
     bossBadges, itemBadges, placements, vods, linkVodsToTimer,
+    quadNames, quadVods, quadNotDefeated, quadNotCollected,
   ])
 
   // Shrink the fixed 1456x816 stage to fit small windows (OBS sources at full size are untouched)
@@ -2736,7 +2791,7 @@ export default function StreamOverlay() {
         // ("minimum requirements for autoplay were not met: style visibility")
         style={stageScale < 1 ? { zoom: stageScale } : undefined}
       >
-        {runnerCount !== 2 && (
+        {runnerCount !== 2 && hydrated && (
           <FourPlayerOverlay
             key={`${runnerCount}-${clearCount}`}
             ref={quadRef}
@@ -2759,6 +2814,8 @@ export default function StreamOverlay() {
             onRequestTools={showTools}
             placements={placements}
             onNamesChange={setQuadNames}
+            initial={restoredQuadRef.current?.count === runnerCount ? restoredQuadRef.current : undefined}
+            onVodsChange={setQuadVods}
             notDefeated={quadNotDefeated}
             notCollected={quadNotCollected}
             onToggleBoss={toggleQuadBoss}

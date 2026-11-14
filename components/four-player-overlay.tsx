@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { SeriesPips } from "@/components/series-pips"
@@ -19,7 +19,7 @@ export type QuadOverlayHandle = {
   /** Pause every video and send it back to its start time. */
   resetAll(): void
   /** Fill runner names and live Twitch channels, in order. */
-  setRunners(runners: { name: string; channel: string | null }[]): void
+  setRunners(runners: ({ name: string; channel: string | null } | undefined)[]): void
 }
 
 type Props = {
@@ -56,6 +56,10 @@ type Props = {
   arcade?: boolean
   /** Two 1v1s: a VS badge on the seam between P1 and P2, and between P3 and P4. */
   pairs?: boolean
+  /** Names and videos to start with, e.g. restored after a reload. Read once on mount. */
+  initial?: { names: string[]; vods: VodConfig[] }
+  /** Every change to the videos, so the page can save them. */
+  onVodsChange?: (vods: VodConfig[]) => void
   /** Runners moved slots: order[slot] is the runner (old slot) now there. The page moves its per-runner state to match. */
   onArrange?: (order: number[]) => void
 }
@@ -103,14 +107,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     arcade = false,
     pairs = false,
     onArrange,
+    initial,
+    onVodsChange,
   },
   ref,
 ) {
   const { count, cells, windows, panel, panelStyle, defaultZoom, rails } = layout
-  const [names, setNames] = useState(() => Array<string>(count).fill(""))
+  const [names, setNames] = useState(() => Array.from({ length: count }, (_, i) => initial?.names[i] ?? ""))
   const [vods, setVods] = useState<VodConfig[]>(() =>
-    Array.from({ length: count }, () => ({ ...createVodConfig(), zoom: defaultZoom })),
+    Array.from({ length: count }, (_, i) => initial?.vods[i] ?? { ...createVodConfig(), zoom: defaultZoom }),
   )
+  const onVodsChangeRef = useRef(onVodsChange)
+  onVodsChangeRef.current = onVodsChange
+  useEffect(() => onVodsChangeRef.current?.(vods), [vods])
   const [selected, setSelected] = useState(0)
 
   const ref0 = useRef<VodPlayerHandle>(null)
@@ -137,7 +146,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   }
 
   /** Fills names and live Twitch channels in order; a runner without a channel keeps their current video. */
-  function setRunners(runners: { name: string; channel: string | null }[]) {
+  function setRunners(runners: ({ name: string; channel: string | null } | undefined)[]) {
     const nextNames = Array.from({ length: count }, (_, i) => runners[i]?.name ?? names[i])
     setNames(nextNames)
     onNamesChange?.(nextNames)
