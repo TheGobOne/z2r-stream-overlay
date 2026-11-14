@@ -43,9 +43,26 @@ export function normalizeCode(input: string) {
   return input.toUpperCase().replace(/[^A-Z0-9]/g, "")
 }
 
+/**
+ * STUN finds a direct path; TURN relays the connection when a firewall or strict NAT blocks that.
+ * Set NEXT_PUBLIC_TURN_URLS (comma separated), NEXT_PUBLIC_TURN_USERNAME and NEXT_PUBLIC_TURN_CREDENTIAL
+ * to add a relay (Metered, Cloudflare Realtime and Twilio all issue these). Without them only STUN
+ * is used, so connections fail behind strict firewalls. No free public TURN server is reliable:
+ * Open Relay's hostname now resolves to placeholder addresses.
+ */
+function iceServers(): RTCIceServer[] {
+  const urls = (process.env.NEXT_PUBLIC_TURN_URLS ?? "").split(",").map((u) => u.trim()).filter(Boolean)
+  const username = process.env.NEXT_PUBLIC_TURN_USERNAME
+  const credential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL
+  const servers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }]
+  if (urls.length > 0 && username && credential) servers.push({ urls, username, credential })
+  return servers
+}
+
 async function createPeer(id?: string): Promise<PeerType> {
   const { Peer } = await import("peerjs")
-  const peer = id ? new Peer(id) : new Peer()
+  const options = { config: { iceServers: iceServers() } }
+  const peer = id ? new Peer(id, options) : new Peer(options)
   await new Promise<void>((resolve, reject) => {
     peer.once("open", () => resolve())
     peer.once("error", (error) => {
