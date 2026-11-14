@@ -178,11 +178,16 @@ export function resolveVodLayouts(
   const right = frameFor("right", configs.right, windows)
   const gap = windows.right.left - (windows.left.left + windows.left.width)
   const bothLoaded = hasSource(configs.left) && hasSource(configs.right)
-  const leftOnTop = left.innerOverflow >= right.innerOverflow
+  const isTwitch = (config: VodConfig) => hasSource(config) && config.platform === "twitch"
+  const leftTwitch = isTwitch(configs.left)
+  const rightTwitch = isTwitch(configs.right)
+  // Only Twitch minds being covered, so a lone Twitch frame goes on top and a YouTube one below is never moved
+  const leftOnTop = leftTwitch !== rightTwitch ? leftTwitch : left.innerOverflow >= right.innerOverflow
+  const lowerIsTwitch = leftOnTop ? rightTwitch : leftTwitch
 
-  if (bothLoaded && leftOnTop) {
+  if (bothLoaded && lowerIsTwitch && leftOnTop) {
     right.left = Math.max(right.left, -gap)
-  } else if (bothLoaded) {
+  } else if (bothLoaded && lowerIsTwitch) {
     left.left = Math.min(left.left, windows.left.width + gap - left.width)
   }
 

@@ -62,7 +62,8 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
   let response: Response
   const before = Date.now()
   try {
-    response = await fetch(`https://racetime.gg/${room}/data`, { cache: "no-store" })
+    // A stalled request would hold up every later poll, so give up after 8 s
+    response = await fetch(`https://racetime.gg/${room}/data`, { cache: "no-store", signal: AbortSignal.timeout(8000) })
   } catch {
     throw new Error("Could not reach racetime.gg")
   }

@@ -33,7 +33,7 @@ A stream overlay for Zelda II Randomizer restreams. It shows the game windows, e
 ```bash
 pnpm install
 pnpm dev     # http://localhost:3000
-pnpm lint    # type check
+pnpm typecheck  # type check
 pnpm build
 ```
 

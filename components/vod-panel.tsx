@@ -68,7 +68,9 @@ export function VodPanel({
 
   useEffect(() => {
     const id = setInterval(() => {
-      setCurrentTime(playerRef.current?.getCurrentTime() ?? null)
+      // Whole seconds only: the panel shows m:ss, so finer updates would just re-render it
+      const time = playerRef.current?.getCurrentTime()
+      setCurrentTime(time == null ? null : Math.floor(time))
       setPaused(playerRef.current?.isPaused() ?? true)
     }, 250)
     return () => clearInterval(id)

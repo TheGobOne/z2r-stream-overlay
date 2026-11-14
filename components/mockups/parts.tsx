@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react"
-import { BOSSES, ITEMS } from "@/lib/tracker-icons"
+import { BOSSES, ITEMS } from "@/lib/tracker-catalog"
 
 export const STAGE_W = 1456
 export const STAGE_H = 816
@@ -340,10 +340,6 @@ export function InfoBlock({ compact = false }: { compact?: boolean }) {
 export function MockupStyles() {
   return (
     <style>{`
-      @font-face {
-        font-family: 'ZeldaII';
-        src: url('/fonts/ZELDA-II-THE-ADVENTURE-OF-LINK.TTF') format('truetype');
-      }
       .mk-stage {
         position: relative;
         width: ${STAGE_W}px;

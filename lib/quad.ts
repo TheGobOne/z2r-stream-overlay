@@ -25,8 +25,6 @@ export type GridLayout = {
   panel: WindowRect
   /** column: tall side strip; wide: a quadrant with grouped sections; bar: one thin row along the bottom. */
   panelStyle: PanelStyle
-  /** Stretch crops to fill each window; when false, crops keep their aspect with black bars. */
-  stretchCrop?: boolean
   /** Which side of each cell's video its tracker column sits on. */
   trackerSides: TrackerSide[]
   /** "rails" layouts: full-height black columns either side of the windows (P1/P3 on the left, P2/P4 on the right). */
@@ -144,6 +142,20 @@ function fitAxis(frame: Span, win: Span, bounds: Bounds, floor = 0, cap = 1): Sp
   return { start, size: range.size, scale: range.size / frame.size }
 }
 
+/** The frame at exactly `scale`, its crop as centered in the window as the limits allow. */
+function placeAt(frame: Span, win: Span, bounds: Bounds, scale: number): Span {
+  const c0 = (win.start - frame.start) / frame.size
+  const c1 = (win.start + win.size - frame.start) / frame.size
+  const size = frame.size * scale
+  const centered = win.start + win.size / 2 - ((c0 + c1) / 2) * size
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+  const range = startRange(frame, win, c0, c1, bounds, scale)
+  if (range) return { start: clamp(centered, range.min, range.max), size }
+  // Smaller than the window: stay inside it, which is clear of every neighbor
+  if (size <= win.size) return { start: clamp(centered, win.start, win.start + win.size - size), size }
+  return { start: clamp(centered, win.start + win.size - size, win.start), size }
+}
+
 /**
  * Twitch pauses any embed whose iframe rect is covered, even where it's clipped away; YouTube
  * doesn't care. Twitch frames stack above YouTube ones, so a frame may freely overlap a YouTube
@@ -223,12 +235,11 @@ function solveQuad(windows: WindowRect[], configs: VodConfig[], fill: boolean) {
         })
 
         if (!within(x, bx) || !within(y, by)) {
-          // Zoom both axes by the same amount so the picture keeps its shape.
+          // Zoom both axes by the same amount so the picture keeps its shape. The axis that
+          // could have stayed bigger ends up smaller than its window and gets thin black bars.
           const scale = Math.min(fitAxis(x, ownX, bx).scale, fitAxis(y, ownY, by).scale)
-          const fx = fitAxis(x, ownX, bx, scale, scale)
-          const fy = fitAxis(y, ownY, by, scale, scale)
-          x = { start: fx.start, size: fx.size }
-          y = { start: fy.start, size: fy.size }
+          x = placeAt(x, ownX, bx, scale)
+          y = placeAt(y, ownY, by, scale)
         }
       }
       solved[i] = { x, y }

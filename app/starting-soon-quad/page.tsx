@@ -98,10 +98,6 @@ export default function StartingSoonQuadPage() {
   return (
     <main className="ss-root">
       <style>{`
-        @font-face {
-          font-family: 'ZeldaII';
-          src: url('/fonts/ZELDA-II-THE-ADVENTURE-OF-LINK.TTF') format('truetype');
-        }
         html, body { margin: 0; background: #000; overflow: hidden; }
         .ss-root { width: 100vw; height: 100vh; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .ss-stage {

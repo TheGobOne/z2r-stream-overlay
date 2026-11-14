@@ -162,8 +162,10 @@ export default function TrackPage() {
     return () => {
       joinGenRef.current++
       window.clearTimeout(retryRef.current)
-      clientRef.current?.stop()
+      // Null the ref before stopping: stop() fires the close handler, which would schedule a retry
+      const client = clientRef.current
       clientRef.current = null
+      client?.stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -198,7 +200,7 @@ export default function TrackPage() {
           autoComplete="off"
           spellCheck={false}
         />
-        <button type="button" className="action" disabled={status === "joining"} onClick={() => join(draft)}>
+        <button type="button" className="action" disabled={status === "joining" && !error} onClick={() => join(draft)}>
           {status === "joining" ? "Joining..." : status === "joined" ? "Rejoin" : "Join"}
         </button>
       </div>
@@ -246,7 +248,7 @@ export default function TrackPage() {
         </div>
       )}
       {snapshot && (
-        <div className="runners">
+        <div className="runners" aria-disabled={status !== "joined"} style={status !== "joined" ? { opacity: 0.4, pointerEvents: "none" } : undefined}>
           {snapshot.runners.map((runner, i) => (
             <section key={i} aria-label={runner.name || `Player ${i + 1}`}>
               <h2>{runner.name || `Player ${i + 1}`}</h2>

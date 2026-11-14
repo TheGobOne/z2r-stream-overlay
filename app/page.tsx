@@ -15,17 +15,59 @@ import { RacetimeTools } from "@/components/racetime-tools"
 import { SeriesPips } from "@/components/series-pips"
 import { SeriesTools } from "@/components/series-tools"
 import { RemoteTrackerTools } from "@/components/remote-tracker-tools"
-import { hostTrackers, newJoinCode, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
+import { hostTrackers, newJoinCode, TrackerLinkError, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
 import { fetchRace, parseRoom, type RacetimeRace, type RacetimeRunner } from "@/lib/racetime"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
 import { BOSSES, ITEMS } from "@/lib/tracker-catalog"
 import { ARCADE_WINDOWS, createVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 import { ArcadeDecor } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
+import "./overlay.css"
 
 const STATE_STORAGE_KEY = "z2r-overlay-state"
 const TIMER_STORAGE_KEY = "z2r-overlay-timer"
 
+
+function formatTimer(ms: number): string {
+  const negative = ms < 0
+  const abs = Math.abs(ms)
+  // Count down like a clock: -0.4 s still shows -0:00:01, and 0 never shows a minus sign
+  const totalSec = negative ? Math.ceil(abs / 1000) : Math.floor(abs / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  return `${negative && totalSec > 0 ? "-" : ""}${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+}
+
+/**
+ * The race clock text. It ticks on its own so only this text re-renders each second, not the
+ * whole overlay. `pausedMs` is the value while stopped or paused; while running it reads the refs.
+ */
+function TimerText({
+  phase,
+  pausedMs,
+  accRef,
+  startRef,
+}: {
+  phase: 0 | 1 | 2
+  pausedMs: number
+  accRef: { current: number }
+  startRef: { current: number }
+}) {
+  const running = phase === 1
+  // startRef is 0 for a moment around starting and stopping; show the stored time then
+  const read = () => (running ? (startRef.current ? accRef.current + (Date.now() - startRef.current) : accRef.current) : pausedMs)
+  const [text, setText] = useState(() => formatTimer(read()))
+  useEffect(() => {
+    setText(formatTimer(read()))
+    if (!running) return
+    // Check often for a crisp second boundary; React skips the render when the text is unchanged
+    const id = window.setInterval(() => setText(formatTimer(read())), 100)
+    return () => window.clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, pausedMs])
+  return <>{text}</>
+}
 
 export default function StreamOverlay() {
   const [leftText, setLeftText] = useState("")
@@ -206,11 +248,6 @@ export default function StreamOverlay() {
   useEffect(() => {
     if (timerPhase === 1) {
       timerStartRef.current = Date.now()
-      // Ticks often for a crisp second boundary, but only re-renders this big page when the shown time changes
-      timerRef.current = setInterval(() => {
-        const next = timerAccRef.current + (Date.now() - timerStartRef.current)
-        setTimerMs((prev) => (formatTimer(prev) === formatTimer(next) ? prev : next))
-      }, 100)
     } else {
       if (timerRef.current) clearInterval(timerRef.current)
       if (timerPhase === 2 && timerStartRef.current) {
@@ -270,21 +307,14 @@ export default function StreamOverlay() {
     if (timerRef.current) clearInterval(timerRef.current)
     setTimerPhase(0)
     timerAccRef.current = 0
+    timerStartRef.current = 0
     setTimerMs(0)
+    saveTimer(0)
     if (linkVodsToTimer) resetVods()
     setTimerEditValue("")
     setTimerEditOpen(true)
   }
 
-  function formatTimer(ms: number): string {
-    const negative = ms < 0
-    const abs = Math.abs(ms)
-    const totalSec = Math.floor(abs / 1000)
-    const h = Math.floor(totalSec / 3600)
-    const m = Math.floor((totalSec % 3600) / 60)
-    const s = totalSec % 60
-    return `${negative ? "-" : ""}${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  }
 
   function applyTimerEdit() {
     const ms = parseTimerInput(timerEditValue)
@@ -433,7 +463,11 @@ export default function StreamOverlay() {
     }
     racetimeEndedRef.current = false
     const elapsed = now - race.startMs
+    // Start the timer once when racetime starts the race; after that a manual pause or reset sticks
+    const justStarted = !racetimeRunningRef.current
+    racetimeRunningRef.current = true
     if (timerPhaseRef.current !== 1) {
+      if (!justStarted) return
       timerAccRef.current = elapsed
       setTimerPhase(1)
       if (linkVodsToTimer) {
@@ -446,6 +480,8 @@ export default function StreamOverlay() {
       saveTimer(1)
     }
   }
+  /** Set once this room has been seen running, so the timer is only auto-started the first time. */
+  const racetimeRunningRef = useRef(false)
   const syncRaceRef = useRef(syncRace)
   syncRaceRef.current = syncRace
   const applyRunnersRef = useRef(applyRunners)
@@ -478,6 +514,7 @@ export default function StreamOverlay() {
       if (room !== racetimeRoom) clearTrackers()
       racetimeRunnersRef.current = race.runners
       racetimeEndedRef.current = false
+      racetimeRunningRef.current = false
       racetimePlacesRef.current = {}
       setRacetimeRoom(room)
       // More racers than the current layout holds: grow to 3 or 4 runners, then fill it once it mounts
@@ -705,7 +742,9 @@ export default function StreamOverlay() {
     if (timerRef.current) clearInterval(timerRef.current)
     setTimerPhase(0)
     timerAccRef.current = 0
+    timerStartRef.current = 0
     setTimerMs(0)
+    saveTimer(0)
   }
 
 
@@ -736,7 +775,7 @@ export default function StreamOverlay() {
     try {
       resume = localStorage.getItem(TRACKER_SHARING_KEY) === "1"
     } catch {}
-    if (resume) void startTrackerSharing(code)
+    if (resume) void startTrackerSharing(code, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -800,28 +839,62 @@ export default function StreamOverlay() {
     else toggleQuadItem(runner, id)
   }
 
-  async function startTrackerSharing(code = trackerCode) {
-    if (!code || trackerBusy) return
+  // Each start gets a number; stopping or a newer start bumps it, so a start that finishes late is thrown away
+  const shareGenRef = useRef(0)
+  const shareBusyRef = useRef(false)
+
+  /** `resume`: after a reload the old session can hold the code for up to a minute, so keep trying. */
+  async function startTrackerSharing(code = trackerCode, resume = false) {
+    if (!code || shareBusyRef.current) return
+    const gen = ++shareGenRef.current
+    shareBusyRef.current = true
     setTrackerBusy(true)
     setTrackerError("")
+    const giveUpAt = Date.now() + (resume ? 90_000 : 0)
     try {
-      trackerHostRef.current = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount, (message) => {
-        trackerHostRef.current = null
-        setTrackerSharing(false)
-        setTrackerError(message)
-      })
-      setTrackerSharing(true)
-      try {
-        localStorage.setItem(TRACKER_SHARING_KEY, "1")
-      } catch {}
-    } catch (error) {
-      setTrackerError(error instanceof Error ? error.message : "Could not start sharing")
+      for (;;) {
+        try {
+          const host = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount, (message) => {
+            if (trackerHostRef.current !== host) return
+            trackerHostRef.current = null
+            setTrackerSharing(false)
+            setTrackerError(message)
+          })
+          if (gen !== shareGenRef.current) {
+            host.stop()
+            return
+          }
+          trackerHostRef.current = host
+          setTrackerSharing(true)
+          setTrackerError("")
+          try {
+            localStorage.setItem(TRACKER_SHARING_KEY, "1")
+          } catch {}
+          return
+        } catch (error) {
+          if (gen !== shareGenRef.current) return
+          if (error instanceof TrackerLinkError && error.type === "unavailable-id" && Date.now() < giveUpAt) {
+            setTrackerError("Waiting for the previous session to release this code...")
+            await new Promise((r) => window.setTimeout(r, 5000))
+            if (gen !== shareGenRef.current) return
+            continue
+          }
+          setTrackerError(error instanceof Error ? error.message : "Could not start sharing")
+          return
+        }
+      }
     } finally {
-      setTrackerBusy(false)
+      if (gen === shareGenRef.current) {
+        shareBusyRef.current = false
+        setTrackerBusy(false)
+      }
     }
   }
 
   function stopTrackerSharing() {
+    shareGenRef.current++
+    shareBusyRef.current = false
+    setTrackerBusy(false)
     trackerHostRef.current?.stop()
     trackerHostRef.current = null
     setTrackerSharing(false)
@@ -836,13 +909,20 @@ export default function StreamOverlay() {
       localStorage.setItem(TRACKER_CODE_KEY, code)
     } catch {}
     setTrackerCode(code)
-    if (trackerSharing) {
+    if (trackerSharing || shareBusyRef.current) {
       stopTrackerSharing()
       void startTrackerSharing(code)
     }
   }
 
-  useEffect(() => () => trackerHostRef.current?.stop(), [])
+  useEffect(
+    () => () => {
+      shareGenRef.current++
+      shareBusyRef.current = false
+      trackerHostRef.current?.stop()
+    },
+    [],
+  )
 
   const itemMenuRef = useRef<HTMLDivElement>(null)
 
@@ -996,6 +1076,10 @@ export default function StreamOverlay() {
     } catch {}
     hydratedRef.current = true
     setHydrated(true)
+    // Dev StrictMode re-runs effects; without this the timer effect's re-run would save a zeroed timer first
+    return () => {
+      hydratedRef.current = false
+    }
   }, [])
 
   useEffect(() => {
@@ -1048,1751 +1132,6 @@ export default function StreamOverlay() {
 
   return (
     <>
-      <style>{`
-        @font-face {
-          font-family: 'ZeldaII';
-          src: url('/fonts/ZELDA-II-THE-ADVENTURE-OF-LINK.TTF') format('truetype');
-          font-weight: normal;
-          font-style: normal;
-        }
-
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: transparent;
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .overlay-wrapper {
-          position: relative;
-          width: 1456px;
-          height: 816px;
-          flex-shrink: 0;
-          background: transparent;
-        }
-
-        .overlay-bg {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: fill;
-          pointer-events: none;
-          user-select: none;
-          display: block;
-          mix-blend-mode: screen;
-          /* Hide the art's tall name frames above the brick row; the brick-height boxes below replace them */
-          clip-path: path(evenodd, 'M0 0H1456V816H0Z M37 508H330V544H37Z M1125 508H1418V544H1125Z');
-        }
-
-        .text-box-left,
-        .text-box-right {
-          position: absolute;
-          top: 544px;
-          width: 288px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #000;
-          box-shadow:
-            inset 0 0 0 1px #fff,
-            inset 0 0 0 4px #2038ef,
-            inset 0 0 0 5px #fff;
-        }
-
-        .text-box-left::before,
-        .text-box-right::before {
-          content: "";
-          position: absolute;
-          inset: 1px;
-          pointer-events: none;
-          background:
-            linear-gradient(#db2800, #db2800) left top / 5px 5px no-repeat,
-            linear-gradient(#db2800, #db2800) right top / 5px 5px no-repeat,
-            linear-gradient(#db2800, #db2800) left bottom / 5px 5px no-repeat,
-            linear-gradient(#db2800, #db2800) right bottom / 5px 5px no-repeat;
-        }
-
-        .text-box-left {
-          left: 38px;
-        }
-
-        .text-box-right {
-          right: 39px;
-        }
-
-        .text-box-left .zelda-input,
-        .text-box-right .zelda-input {
-          line-height: 36px;
-          /* The font's letters sit about 0.2em below the line's middle, so the lift grows with the size */
-          top: calc(var(--zelda-font-size, 18px) * -0.2);
-        }
-
-        .zelda-input {
-          width: 100%;
-          height: 100%;
-          background: transparent;
-          border: none;
-          outline: none;
-          color: #7ef5ff;
-          font-family: 'ZeldaII', monospace;
-          font-size: var(--zelda-font-size, 20px);
-          text-align: center;
-          padding: 0 6px;
-          caret-color: #7ef5ff;
-          letter-spacing: 2px;
-          box-sizing: border-box;
-          text-transform: uppercase;
-          line-height: 62px;
-          position: relative;
-          top: -5px;
-          transition: font-size 0.1s ease;
-        }
-
-        .zelda-input::placeholder {
-          color: rgba(126, 245, 255, 0.25);
-          font-family: 'ZeldaII', monospace;
-          text-transform: uppercase;
-          letter-spacing: 2px;
-        }
-
-        .zelda-input:focus {
-          color: #7ef5ff;
-        }
-
-        /* Boss tracker row — left black bottom section */
-        .boss-row {
-          position: absolute;
-          top: 595px;
-          left: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        /* Boss tracker row — right black bottom section */
-        .boss-row-right {
-          position: absolute;
-          top: 595px;
-          right: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        .boss-btn {
-          background: none;
-          border: none;
-          padding: 0;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          transition: opacity 0.15s ease, filter 0.15s ease;
-        }
-
-        .boss-badge {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          font-family: 'ZeldaII', monospace;
-          font-size: 13.5px;
-          color: #ffd700;
-          line-height: 1;
-          pointer-events: none;
-          filter: drop-shadow(-1px 0 0 #000) drop-shadow(1px 0 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(0 1px 0 #000);
-          z-index: 2;
-        }
-
-        .boss-btn img {
-          width: 44px;
-          height: 44px;
-          image-rendering: pixelated;
-          display: block;
-        }
-
-        .boss-btn.active img {
-          opacity: 1;
-          filter: none;
-        }
-
-        .boss-btn.defeated img {
-          opacity: 0.6;
-          filter: grayscale(100%);
-        }
-
-        /* Item tracker rows — left black bottom section */
-        .item-row-1 {
-          position: absolute;
-          top: 645px;
-          left: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        .item-row-2 {
-          position: absolute;
-          top: 695px;
-          left: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        .item-row-3 {
-          position: absolute;
-          top: 745px;
-          left: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        /* Item tracker rows — right black bottom section */
-        .item-row-1-right {
-          position: absolute;
-          top: 645px;
-          right: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        .item-row-2-right {
-          position: absolute;
-          top: 695px;
-          right: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        .item-row-3-right {
-          position: absolute;
-          top: 745px;
-          right: 39px;
-          width: 500px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-          padding: 0;
-          box-sizing: border-box;
-        }
-
-        .item-btn {
-          background: none;
-          border: none;
-          padding: 0;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          transition: opacity 0.15s ease, filter 0.15s ease;
-        }
-
-        .item-badge {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          image-rendering: pixelated;
-          pointer-events: none;
-          z-index: 2;
-          filter: drop-shadow(-1px 0 0 #000) drop-shadow(1px 0 0 #000) drop-shadow(0 -1px 0 #000) drop-shadow(0 1px 0 #000);
-        }
-
-        .item-badge.img-badge {
-          width: 18px;
-          height: 18px;
-        }
-
-        .item-badge.num-badge {
-          font-family: 'ZeldaII', monospace;
-          font-size: 13.5px;
-          color: #ffd700;
-          line-height: 1;
-        }
-
-        .item-context-menu {
-          position: fixed;
-          z-index: 2000;
-          background: #0a0a0a;
-          border: 2px solid #2ec4b6;
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-          padding: 4px;
-          gap: 2px;
-        }
-
-        .item-context-row {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          justify-content: center;
-          gap: 2px;
-        }
-
-        .item-context-menu .clear-x {
-          font-family: 'ZeldaII', monospace;
-          font-size: 14px;
-          line-height: 1;
-        }
-
-        .item-context-row button {
-          color: #ffd700;
-          text-shadow:
-            -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000;
-        }
-
-        .item-context-menu button {
-          background: transparent;
-          border: none;
-          color: #ffd700;
-          font-family: 'ZeldaII', monospace;
-          font-size: 14px;
-          letter-spacing: 1px;
-          padding: 6px 10px;
-          cursor: pointer;
-          text-align: center;
-          min-width: 32px;
-          min-height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: background 0.1s ease, color 0.1s ease;
-        }
-
-        .item-context-menu button:hover {
-          background: #2ec4b6;
-          color: #000000;
-        }
-
-        .item-context-menu button img {
-          width: 22px;
-          height: 22px;
-          image-rendering: pixelated;
-          display: block;
-        }
-
-        .item-btn img {
-          width: 44px;
-          height: 44px;
-          image-rendering: pixelated;
-          display: block;
-        }
-
-        .item-btn.active img {
-          opacity: 1;
-          filter: none;
-        }
-
-        .item-btn.collected img {
-          opacity: 0.6;
-          filter: grayscale(100%);
-        }
-
-        .gem-image {
-          position: absolute;
-          top: 195px;
-          left: 50%;
-          transform: translateX(-50%);
-          pointer-events: auto;
-          user-select: none;
-          display: block;
-          image-rendering: pixelated;
-          width: auto;
-          height: auto;
-          filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
-          cursor: pointer;
-          z-index: 5;
-        }
-
-        .gem-count {
-          position: absolute;
-          top: 330px;
-          left: 50%;
-          transform: translateX(calc(-50% + 5px));
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 36px;
-          letter-spacing: 4px;
-          pointer-events: none;
-          user-select: none;
-          filter: drop-shadow(-4px 0 0 #000) drop-shadow(4px 0 0 #000) drop-shadow(0 -4px 0 #000) drop-shadow(0 4px 0 #000);
-          z-index: 5;
-        }
-
-        .gem-modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.75);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .gem-modal-box {
-          background: #0a0a0a;
-          border: 3px solid #2ec4b6;
-          padding: 32px 40px;
-          text-align: center;
-          font-family: 'ZeldaII', monospace;
-          color: #ffffff;
-          min-width: 320px;
-        }
-
-        .gem-modal-title {
-          font-size: 16px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: #7ef5ff;
-          margin-bottom: 28px;
-        }
-
-        .gem-modal-options {
-          display: flex;
-          gap: 10px;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        .gem-modal-opt {
-          background: #0a0a0a;
-          border: 2px solid #2ec4b6;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 18px;
-          width: 48px;
-          height: 48px;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-
-        .gem-modal-opt.wide {
-          width: auto;
-          padding: 0 12px;
-          font-size: 14px;
-          white-space: nowrap;
-        }
-
-        .gem-modal-opt:hover,
-        .gem-modal-opt.selected {
-          background: #2ec4b6;
-          color: #000000;
-        }
-
-        /* Transparent overlays for top black boxes */
-        .transparent-overlay-left {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 408px;
-          height: 516px;
-          background: rgba(0, 0, 0, 0);
-          pointer-events: none;
-          z-index: 10;
-        }
-
-        .transparent-overlay-right {
-          position: absolute;
-          top: 0;
-          right: 0;
-          width: 408px;
-          height: 516px;
-          background: rgba(0, 0, 0, 0);
-          pointer-events: none;
-          z-index: 10;
-        }
-
-        .center-panel-hitbox {
-          position: absolute;
-          top: 584px;
-          left: 581px;
-          width: 294px;
-          height: 214px;
-        }
-
-        .commentary-title {
-          position: absolute;
-          top: 592px;
-          left: 50%;
-          transform: translateX(-50%) scale(1.5);
-          font-family: 'ZeldaII', monospace;
-          font-size: 11px;
-          letter-spacing: 1px;
-          color: #ffd700;
-          text-decoration: underline;
-          text-transform: uppercase;
-          pointer-events: none;
-          user-select: none;
-          transform-origin: center;
-        }
-
-        .commentary-container {
-          position: absolute;
-          top: 607px;
-          left: 50%;
-          transform: translateX(-50%) scale(1.5);
-          width: 140px;
-          height: 48px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 4px;
-          transform-origin: top center;
-        }
-
-        .commentary-input {
-          width: 100%;
-          height: 20px;
-          background: transparent;
-          border: none;
-          outline: none;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 10px;
-          text-align: center;
-          padding: 2px;
-          caret-color: #7ef5ff;
-          letter-spacing: 0.5px;
-          box-sizing: border-box;
-          text-transform: uppercase;
-          transition: border-color 0.15s ease;
-        }
-
-        .commentary-input:focus {
-          border-color: #7ef5ff;
-          color: #7ef5ff;
-        }
-
-        .commentary-input::placeholder {
-          color: rgba(126, 245, 255, 0.25);
-        }
-
-        .tracking-title {
-          position: absolute;
-          top: 694px;
-          left: 50%;
-          transform: translateX(-50%) scale(1.5);
-          font-family: 'ZeldaII', monospace;
-          font-size: 11px;
-          letter-spacing: 1px;
-          color: #ffd700;
-          text-decoration: underline;
-          text-transform: uppercase;
-          pointer-events: none;
-          user-select: none;
-          transform-origin: center;
-        }
-
-        .tracking-container {
-          position: absolute;
-          top: 712px;
-          left: 50%;
-          transform: translateX(-50%) scale(1.5);
-          width: 140px;
-          height: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transform-origin: top center;
-        }
-
-        .tracking-input {
-          width: 100%;
-          height: 100%;
-          background: transparent;
-          border: none;
-          outline: none;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 10px;
-          text-align: center;
-          padding: 2px;
-          caret-color: #7ef5ff;
-          letter-spacing: 0.5px;
-          box-sizing: border-box;
-          text-transform: uppercase;
-          transition: border-color 0.15s ease;
-        }
-
-        .tracking-input:focus {
-          border-color: #7ef5ff;
-          color: #7ef5ff;
-        }
-
-        .tracking-input::placeholder {
-          color: rgba(126, 245, 255, 0.25);
-        }
-
-        .timer-display {
-          position: absolute;
-          top: 753px;
-          left: 50%;
-          transform: translateX(-50%);
-          font-family: 'ZeldaII', monospace;
-          font-size: 21px;
-          letter-spacing: 2px;
-          color: #ffffff;
-          cursor: pointer;
-          user-select: none;
-          transform-origin: center;
-          filter: drop-shadow(-2px 0 0 #000) drop-shadow(2px 0 0 #000) drop-shadow(0 -2px 0 #000) drop-shadow(0 2px 0 #000);
-          z-index: 5;
-        }
-
-        .timer-display.running {
-          color: #ffffff;
-        }
-
-        .timer-display.paused {
-          color: #ffcc00;
-        }
-
-        .timer-edit-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.75);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-        }
-
-        .timer-edit-box {
-          background: #0a0a0a;
-          border: 3px solid #2ec4b6;
-          padding: 32px 40px;
-          text-align: center;
-          font-family: 'ZeldaII', monospace;
-          color: #ffffff;
-          min-width: 280px;
-        }
-
-        .timer-edit-title {
-          font-size: 13px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: #7ef5ff;
-          margin-bottom: 20px;
-        }
-
-        .timer-edit-input {
-          background: transparent;
-          border: 2px solid #2ec4b6;
-          outline: none;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 20px;
-          text-align: center;
-          padding: 8px 12px;
-          caret-color: #7ef5ff;
-          letter-spacing: 3px;
-          width: 100%;
-          box-sizing: border-box;
-          margin-bottom: 20px;
-        }
-
-        .timer-edit-btn {
-          background: #0a0a0a;
-          border: 2px solid #2ec4b6;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 13px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          padding: 10px 24px;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-
-        .timer-edit-btn:hover {
-          background: #2ec4b6;
-          color: #000000;
-        }
-
-        .setup-section {
-          margin-bottom: 28px;
-        }
-
-        .setup-section .gem-modal-title {
-          margin-bottom: 16px;
-        }
-
-        .setup-checkbox {
-          display: inline-flex;
-          align-items: center;
-          gap: 12px;
-          cursor: pointer;
-          font-size: 14px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: #ffffff;
-        }
-
-        .setup-checkbox input {
-          appearance: none;
-          width: 24px;
-          height: 24px;
-          border: 2px solid #2ec4b6;
-          background: #0a0a0a;
-          cursor: pointer;
-          display: grid;
-          place-content: center;
-          margin: 0;
-        }
-
-        .setup-checkbox input:checked {
-          background: #2ec4b6;
-        }
-
-        .setup-checkbox input:checked::after {
-          content: "";
-          width: 10px;
-          height: 10px;
-          background: #000000;
-        }
-
-        .setup-checkbox input:focus-visible {
-          outline: 2px solid #ffd700;
-          outline-offset: 2px;
-        }
-
-        .setup-places {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .setup-place-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .setup-place-label {
-          width: 120px;
-          flex-shrink: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 12px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: #ffffff;
-        }
-
-        .setup-place-options {
-          display: flex;
-          gap: 6px;
-        }
-
-        .setup-place-opt {
-          min-width: 44px;
-          height: 32px;
-          padding: 0 8px;
-          background: #0a0a0a;
-          border: 2px solid #2ec4b6;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 11px;
-          cursor: pointer;
-        }
-
-        .setup-place-opt:hover,
-        .setup-place-opt.selected {
-          background: #2ec4b6;
-          color: #000000;
-        }
-
-        .setup-place-opt-1.selected { background: #f8b800; border-color: #f8b800; }
-        .setup-place-opt-2.selected { background: #bcbcbc; border-color: #bcbcbc; }
-        .setup-place-opt-3.selected { background: #e45c10; border-color: #e45c10; }
-        .setup-place-opt-4.selected { background: #3050f8; border-color: #3050f8; color: #ffffff; }
-        .setup-place-opt-dnf.selected { background: #d01818; border-color: #d01818; color: #ffffff; }
-
-        .setup-place-opt:focus-visible {
-          outline: 2px solid #ffd700;
-          outline-offset: 2px;
-        }
-
-        .place-badge {
-          position: absolute;
-          transform: translate(-50%, calc(-100% - 10px));
-          z-index: 20;
-          padding: 2px 8px 5px;
-          font-family: 'ZeldaII', monospace;
-          font-size: 14px;
-          line-height: 1;
-          color: #000000;
-          pointer-events: none;
-          box-shadow: 0 0 0 2px #000000;
-        }
-
-        .quad-vs {
-          position: absolute;
-          transform: translate(-50%, -50%);
-          z-index: 20;
-          padding: 4px 10px 6px;
-          font-family: 'ZeldaII', monospace;
-          font-size: 20px;
-          line-height: 1;
-          color: #f8b800;
-          background: #000000;
-          box-shadow: 0 0 0 2px #f8b800;
-          pointer-events: none;
-        }
-
-        .place-badge-1 { background: #f8b800; }
-        .place-badge-2 { background: #bcbcbc; }
-        .place-badge-3 { background: #e45c10; }
-        .place-badge-4 { background: #3050f8; color: #ffffff; }
-        .place-badge-dnf { background: #d01818; color: #ffffff; }
-
-        .place-badge-1 { --glow: 248, 184, 0; }
-        .place-badge-2 { --glow: 188, 188, 188; }
-        .place-badge-3 { --glow: 228, 92, 16; }
-        .place-badge-4 { --glow: 48, 80, 248; }
-        .place-badge-dnf { --glow: 208, 24, 24; }
-
-        /* 4-player: 33% larger than the base badge, pinned inside the top edge, with a coloured glow */
-        .place-badge-top {
-          transform: translate(-50%, 13px);
-          padding: 3px 11px 7px;
-          font-size: 18.6px;
-          box-shadow:
-            0 0 0 3px #000000,
-            0 0 14px 5px rgba(var(--glow), 0.85),
-            0 0 34px 12px rgba(var(--glow), 0.45);
-        }
-
-        .setup-help-link { color: #FFE040; }
-        .setup-hint {
-          margin: 0 0 24px;
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          color: #7ef5ff;
-          line-height: 1.6;
-        }
-
-        .vod-window {
-          position: absolute;
-          overflow: hidden;
-          background: #000000;
-          /* Twitch pauses embeds that are covered by any other element (even empty ones like
-             .transparent-overlay-* and .vod-hitbox), so the video sits above everything that
-             overlaps it. The per-side z-index is set inline by VodPlayer. */
-          z-index: 13;
-        }
-
-        .vod-frame {
-          position: absolute;
-        }
-
-        .vod-crop-mask {
-          position: absolute;
-          box-shadow: 0 0 0 4000px #000000;
-          pointer-events: none;
-        }
-
-        .vod-hitbox {
-          position: absolute;
-          z-index: 12;
-        }
-
-        /* Audio badge sits at the inner end of a runner's name plate, off the video:
-           Twitch refuses script play() while anything covers its iframe. */
-        .series-pips {
-          position: absolute;
-          left: 8px;
-          top: 50%;
-          transform: translateY(-50%);
-          display: flex;
-          gap: 2px;
-          z-index: 2;
-          pointer-events: none;
-        }
-
-        .series-pip {
-          width: 16px;
-          height: 14px;
-          display: block;
-          fill: transparent;
-          stroke: #f8b800;
-          stroke-width: 1.2;
-          stroke-linejoin: miter;
-          opacity: 0.6;
-        }
-
-        .series-pip.won {
-          fill: #f8b800;
-          opacity: 1;
-        }
-
-        .vod-audio {
-          position: absolute;
-          right: 6px;
-          top: 50%;
-          transform: translateY(-50%);
-          z-index: 2;
-          display: inline-flex;
-          padding: 0;
-          border: 0;
-          background: none;
-          cursor: pointer;
-          user-select: none;
-          color: #FFE040;
-        }
-        .vod-audio svg { display: block; }
-        .vod-audio-muted { color: #55557A; }
-        .vod-audio-muted:hover { color: #FFE040; }
-        .vod-audio:focus-visible { outline: 2px solid #FF4040; outline-offset: 2px; }
-
-        .vod-volume-pop {
-          position: absolute;
-          right: 0;
-          bottom: calc(100% + 6px);
-          white-space: nowrap;
-        }
-
-        /* The video windows sit at z-index 13-14, which hid the volume box that opens above the
-           name plate. Lift the plate only while the box is open so nothing covers a Twitch frame otherwise. */
-        .text-box-left:has(.vod-volume-pop),
-        .text-box-right:has(.vod-volume-pop),
-        .quad-tracker:has(.vod-volume-pop),
-        .quad-rail:has(.vod-volume-pop) {
-          z-index: 905;
-        }
-
-        .text-box-left .zelda-input,
-        .text-box-right .zelda-input,
-        .quad-name .zelda-input {
-          padding-left: 46px;
-          padding-right: 34px;
-          box-sizing: border-box;
-        }
-
-        /* The font's letters sit about 0.2em below the line's middle; lift them by the same share */
-        .quad-name .zelda-input {
-          transform: translateY(calc(var(--zelda-font-size, 13px) * -0.2));
-        }
-
-        .vod-audio-badge {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #000000;
-  cursor: pointer;
-  }
-
-  .vod-audio-badge:focus-visible {
-  outline: 2px solid #ffd700;
-  outline-offset: 2px;
-  }
-
-  .vod-volume-pop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 2px solid #20c0b0;
-  border-radius: 6px;
-  background: #0a0a0a;
-  color: #ffffff;
-  font-family: var(--font-pixel, monospace);
-  font-size: 11px;
-  }
-
-  .vod-volume-pop input[type="range"] {
-  width: 120px;
-  accent-color: #20c0b0;
-  cursor: pointer;
-  }
-
-  .vod-volume-value {
-  min-width: 3ch;
-  text-align: right;
-  }
-
-  .vod-audio-badge svg {
-  width: 18px;
-  height: 18px;
-  }
-
-  .vod-audio-badge-muted::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 22px;
-  background: #000000;
-  box-shadow: 0 0 0 1.5px #ffffff;
-  transform: translate(-50%, -50%) rotate(45deg);
-  }
-
-  .vod-audio-badge-muted {
-  opacity: 0;
-  transition: opacity 120ms ease;
-  }
-
-  .text-box-left:hover .vod-audio-badge-muted,
-  .text-box-right:hover .vod-audio-badge-muted,
-  .quad-name:hover .vod-audio-badge-muted,
-  .vod-audio:focus-within .vod-audio-badge-muted,
-  .vod-audio-badge-muted[aria-expanded="true"] {
-  opacity: 1;
-  }
-
-        .vod-crop-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 901;
-  background: #000000;
-}
-
-        body:has(.vod-crop-backdrop) .vod-audio {
-  display: none;
-}
-
-        .vod-crop-selector {
-  position: absolute;
-  z-index: 903;
-  overflow: hidden;
-  cursor: crosshair;
-  touch-action: none;
-  user-select: none;
-  outline: 2px dashed #ffd700;
-  outline-offset: -2px;
-  }
-  
-  .vod-crop-frame, .vod-crop-selection, .vod-crop-result, .vod-crop-corner {
-  position: absolute;
-  pointer-events: none;
-  box-sizing: border-box;
-  }
-  
-  .vod-crop-frame {
-  outline: 1px solid rgba(255, 255, 255, 0.35);
-  }
-  
-  .vod-crop-selection {
-  border: 2px solid #ffd700;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
-  }
-  
-  .vod-crop-result {
-  border: 1px dashed #ffffff;
-  }
-  
-  .vod-crop-corner {
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  background: #ffd700;
-  border-radius: 50%;
-  }
-  
-  .vod-crop-instructions {
-  position: absolute;
-  z-index: 904;
-  transform: translateX(-50%);
-  margin: 0;
-  padding: 6px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  background: rgba(0, 0, 0, 0.85);
-  border: 1px solid #ffd700;
-  color: #ffffff;
-  font-size: 11px;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  pointer-events: none;
-  }
-  
-  .vod-crop-instructions span {
-  color: #8a9a9a;
-  font-size: 9px;
-  }
-
-        .vod-panel {
-          position: absolute;
-          z-index: 900;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          padding: 18px 22px;
-          background: #0a0a0a;
-          border: 3px solid #2ec4b6;
-          font-family: 'ZeldaII', monospace;
-          color: #ffffff;
-          overflow-y: auto;
-        }
-
-        .vod-panel.vod-panel-inline {
-          position: static;
-          border: 2px solid #2ec4b6;
-          overflow: visible;
-        }
-
-        .tools {
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          min-height: 100vh;
-          padding: 24px;
-          background: #050505;
-          font-family: 'ZeldaII', monospace;
-          color: #ffffff;
-        }
-
-        .tools-header { display: flex; flex-direction: column; gap: 6px; }
-
-        /* Booth: program monitor and timer stay pinned left, controls scroll on the right */
-        .tools.booth { height: 100vh; min-height: 0; overflow: hidden; }
-        .booth-toolbar { display: flex; justify-content: flex-end; margin: -28px 0 0; }
-        .booth-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); gap: 20px; }
-        .booth-column { display: flex; flex-direction: column; gap: 14px; min-width: 0; min-height: 0; overflow-y: auto; padding: 0 6px 24px 0; }
-        .booth-panel { display: flex; flex-direction: column; flex: none; }
-        .booth-panel.dragging { opacity: 0.4; }
-        .booth-panel-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: #14142a; border: 2px solid #55557A; cursor: grab; }
-        .booth-panel:not(.collapsed) > .booth-panel-head { border-bottom: 0; }
-        .booth-panel-head:active { cursor: grabbing; }
-        .booth-panel-title { margin: 0; flex: 1; font-size: 11px; letter-spacing: 2px; color: #FFE040; text-transform: uppercase; }
-        .booth-panel-grip, .booth-panel-toggle { font: inherit; font-size: 12px; line-height: 1; min-width: 28px; padding: 6px 4px; background: #000; color: #8A8AA8; border: 2px solid #55557A; cursor: pointer; }
-        .booth-panel-grip { cursor: grab; letter-spacing: 1px; }
-        .booth-panel-grip:hover, .booth-panel-toggle:hover { color: #000; background: #30E0FF; border-color: #30E0FF; }
-        .booth-panel-grip:focus-visible, .booth-panel-toggle:focus-visible { outline: 2px solid #FF4040; outline-offset: 2px; }
-        .booth-panel-body[hidden] { display: none; }
-        .booth-panel-body > .tools-card { margin: 0; }
-        .booth-panel-body .tools-card-title:not(.tools-card-title-sub) { display: none; }
-        .booth-drop-marker { height: 6px; flex: none; background: #30E0FF; }
-        .tools.booth { height: 100vh; min-height: 0; overflow: hidden; }
-        .booth-monitor { display: flex; flex-direction: column; gap: 10px; }
-        .booth-monitor-screen { position: relative; aspect-ratio: 1456 / 816; max-height: calc(100vh - 260px); background: #000; border: 2px solid #55557A; }
-        .booth-monitor-screen video { display: block; width: 100%; height: 100%; object-fit: contain; }
-        .booth-monitor-empty { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; color: #55557A; font-size: 12px; }
-        .booth-monitor-live { position: absolute; top: 8px; left: 8px; padding: 3px 8px; background: #FF4040; color: #000; font-size: 9px; letter-spacing: 1px; }
-        .booth-monitor-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-        .booth-monitor-status { flex: 1 1 200px; }
-        .booth-timer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border: 2px solid #55557A; background: #000; }
-        .booth-timer-time { margin: 0; font-size: 28px; font-variant-numeric: tabular-nums; color: #fff; }
-        .booth-timer-time.running { color: #FFE040; }
-        .booth-timer-time.paused { color: #8A8AA8; }
-        .booth-timer-buttons { display: flex; gap: 8px; }
-        @media (max-width: 1000px) {
-          .tools.booth { height: auto; overflow: visible; }
-          .booth-grid { grid-template-columns: minmax(0, 1fr); }
-          .booth-column { overflow: visible; }
-          .booth-toolbar { margin: 0; }
-        }
-        .tools-heading { margin: 0; font-size: 18px; color: #2ec4b6; letter-spacing: 1px; }
-        .tools-subheading { margin: 0; font-size: 12px; line-height: 1.6; }
-
-        .tools-card {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          padding: 18px;
-          background: #0a0a0a;
-          border: 2px solid #1d3b38;
-        }
-
-        .tools-card-title { margin: 0; font-size: 12px; color: #2ec4b6; text-transform: uppercase; }
-
-        .tools-hint { margin: 0; font-size: 12px; line-height: 1.6; }
-        .tools-tracker-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-        .tools-tracker-grid .item-btn.tools-picking { outline: 2px solid #2ec4b6; outline-offset: 2px; }
-        .tools-badge-menu { position: static; align-self: flex-start; }
-        .tools-badge-menu .tools-hint { padding: 4px; }
-
-        .tools-clear-btn {
-          align-self: flex-start;
-          padding: 10px 16px;
-          font-family: inherit;
-          font-size: 11px;
-          border: 2px solid;
-          cursor: pointer;
-        }
-
-        .tools .setup-section { display: flex; flex-direction: column; gap: 8px; }
-        .tools .setup-columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
-        .tools .setup-column { display: flex; flex-direction: column; gap: 14px; }
-        .tools .setup-columns > .setup-column:last-child:not(:first-child) { flex: 1; min-width: 0; }
-        .tools .setup-columns .setup-section { margin-bottom: 0; }
-  .tools .setup-place-row { gap: 12px; }
-  .tools .setup-place-label { width: auto; flex: 1; min-width: 0; font-size: 11px; letter-spacing: 1px; }
-  .tools .setup-place-options { gap: 6px; flex-shrink: 0; }
-  .tools .setup-place-opt { min-width: 44px; height: 32px; padding: 0 8px; font-size: 11px; }
-  .tools .setup-place-opt:first-child { min-width: 32px; }
-        .tools .gem-modal-title { margin: 0; font-size: 11px; }
-        .tools .gem-modal-options { justify-content: flex-start; }
-
-        .tools-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-
-        .tools-tab {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          background: transparent;
-          border: 2px solid;
-          font-family: inherit;
-          font-size: 11px;
-          cursor: pointer;
-        }
-
-        .tools-tab:focus-visible { outline: 2px solid; outline-offset: 2px; }
-        .tools-tab-dot { width: 6px; height: 6px; }
-
-        .tools-crop { display: flex; flex-direction: column; gap: 10px; }
-        .tools-crop-title { margin: 0; font-size: 11px; color: #8A8AA8; }
-        .tools-crop-stage { position: relative; max-width: 100%; overflow: hidden; background: #000000; }
-        .tools-crop-video { position: absolute; border: 0; }
-        .tools-squeeze { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 10px 12px; border: 2px solid #FFE040; color: #fff; font-size: 14px; }
-        .tools-squeeze p { margin: 0; flex: 1; }
-        .tools-squeeze .vod-btn { flex: none; }
-        .tools-crop-offline { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; color: #9aa0a6; font-size: 14px; }
-
-        .vod-panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .vod-panel-title {
-          margin: 0;
-          font-size: 14px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: #7ef5ff;
-        }
-
-        .vod-panel-section {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .vod-panel-footer {
-          margin-top: auto;
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-          padding-top: 12px;
-          border-top: 2px solid #1b3b3a;
-        }
-
-        .vod-row {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        .vod-label {
-          margin: 0;
-          font-size: 10px;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          color: #2ec4b6;
-        }
-
-        .vod-hint {
-          margin-left: 8px;
-          color: #8A8AA8;
-          font-size: 12px;
-          line-height: 1.4;
-          letter-spacing: 1px;
-        }
-
-        .vod-time, .vod-value {
-          color: #ffffff;
-          font-size: 11px;
-          letter-spacing: 1px;
-        }
-
-        .vod-time { margin-left: 8px; }
-
-        .vod-value {
-          min-width: 44px;
-          text-align: center;
-        }
-
-        .vod-input {
-          background: transparent;
-          border: 2px solid #2ec4b6;
-          outline: none;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 11px;
-          letter-spacing: 1px;
-          padding: 7px 10px;
-          caret-color: #7ef5ff;
-          box-sizing: border-box;
-          width: 100%;
-        }
-
-        .vod-input:focus-visible { border-color: #ffd700; }
-
-        .vod-input-time {
-          width: 110px;
-          text-align: center;
-        }
-
-        .vod-btn {
-          background: #0a0a0a;
-          border: 2px solid #2ec4b6;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 7px 10px;
-          cursor: pointer;
-          transition: background 0.15s ease, color 0.15s ease;
-        }
-
-        .vod-btn:hover:not(:disabled), .vod-btn-primary:not(:disabled) {
-          background: #2ec4b6;
-          color: #000000;
-        }
-
-        .vod-btn-primary:hover:not(:disabled) { background: #7ef5ff; }
-
-        .vod-btn:disabled {
-          opacity: 0.4;
-          cursor: not-allowed;
-        }
-
-        .vod-btn:focus-visible {
-          outline: 2px solid #ffd700;
-          outline-offset: 2px;
-        }
-
-        .vod-btn-wide { min-width: 84px; }
-
-        .vod-range {
-          flex: 1;
-          min-width: 120px;
-          accent-color: #2ec4b6;
-        }
-
-        .vod-check {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 10px;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          cursor: pointer;
-        }
-
-        .vod-check input {
-          accent-color: #2ec4b6;
-          width: 16px;
-          height: 16px;
-          margin: 0;
-        }
-
-        .vod-error {
-          margin: 0;
-          font-size: 10px;
-          letter-spacing: 1px;
-          color: #ff6b6b;
-        }
-
-        /* ===== Tools window in the Arcade look: black starfield, striped bars, stepped cyan frames ===== */
-        .tools {
-          background:
-            linear-gradient(180deg, #FF4040 0 2px, #000 2px 3px, #FF9020 3px 5px, #000 5px 6px, #FFE040 6px 8px, #000 8px) top / 100% 9px no-repeat,
-            radial-gradient(1px 1px at 8% 12%, #fff 99%, transparent),
-            radial-gradient(1px 1px at 23% 41%, #FFE040 99%, transparent),
-            radial-gradient(2px 2px at 41% 8%, #fff 99%, transparent),
-            radial-gradient(1px 1px at 57% 63%, #30E0FF 99%, transparent),
-            radial-gradient(1px 1px at 72% 22%, #FF50D0 99%, transparent),
-            radial-gradient(2px 2px at 88% 47%, #fff 99%, transparent),
-            radial-gradient(1px 1px at 15% 81%, #fff 99%, transparent),
-            radial-gradient(1px 1px at 63% 91%, #FFE040 99%, transparent),
-            radial-gradient(2px 2px at 94% 85%, #30E0FF 99%, transparent),
-            #000;
-          padding-top: 32px;
-        }
-        .tools-heading { color: #FFE040; font-size: 20px; letter-spacing: 3px; }
-        .tools-subheading { color: #8A8AA8; }
-        .tools-card {
-          position: relative;
-          border: 0;
-          padding: 22px;
-          background: #000;
-          --frame: #30E0FF;
-          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
-          box-shadow: inset 0 0 0 4px var(--frame);
-        }
-        .tools-card:nth-of-type(3n+1) { --frame: #FF4040; }
-        .tools-card:nth-of-type(3n+2) { --frame: #30E0FF; }
-        .tools-card:nth-of-type(3n) { --frame: #FF50D0; }
-        .tools-card-title { color: #FFE040; font-size: 13px; letter-spacing: 2px; }
-        .tools-hint { color: #8A8AA8; }
-        .tools .gem-modal-title,
-        .tools .vod-label { color: #FFE040; }
-        .tools-tab { border-color: #55557A; color: #8A8AA8; }
-        .tools-tab:hover { color: #fff; border-color: #FFE040; }
-        .tools-tab[aria-selected="true"] { color: #000; background: #FFE040; border-color: #FFE040; }
-        .tools-tab:focus-visible,
-        .vod-btn:focus-visible { outline-color: #FF4040; }
-        .tools-tab-dot { background: #30E0FF; }
-        .tools .vod-input { border-color: #30E0FF; }
-        .tools .vod-input:focus-visible { border-color: #FFE040; }
-        .vod-input:focus-visible, .timer-edit-input:focus-visible { outline: 2px solid #FFE040; outline-offset: 2px; }
-        .tools .vod-btn { background: #000; border-color: #30E0FF; color: #fff; }
-        .tools .vod-btn:hover:not(:disabled) { background: #30E0FF; color: #000; }
-        .tools .vod-btn-primary:not(:disabled) { background: #FFE040; border-color: #FFE040; color: #000; }
-        .tools .vod-btn-primary:hover:not(:disabled) { background: #fff; border-color: #fff; }
-        .tools .gem-modal-opt.selected { background: #FFE040; color: #000; border-color: #FFE040; }
-        .tools .vod-range,
-        .tools .vod-check input { accent-color: #FFE040; }
-        .tools .vod-panel.vod-panel-inline { border-color: #55557A; }
-        .tools-clear-btn { background: #000; border-color: #FF4040; color: #FF4040; }
-        .tools-clear-btn:hover { background: #FF4040; color: #000; }
-        .tools .vod-error { color: #FF4040; }
-        .tools-tracker-grid .item-btn.tools-picking { outline-color: #FFE040; }
-
-
-        /* ===== Pop-ups (setup, gem count, start time) in the Arcade look ===== */
-        .gem-modal-box {
-          position: relative;
-          border: 0;
-          background: #000;
-          box-shadow: inset 0 0 0 4px #30E0FF;
-          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
-          padding-top: 40px;
-        }
-        .gem-modal-box::before {
-          content: "";
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          height: 9px;
-          background: linear-gradient(180deg, #FF4040 0 2px, #000 2px 3px, #FF9020 3px 5px, #000 5px 6px, #FFE040 6px 8px, #000 8px);
-        }
-        .gem-modal-title { color: #FFE040; }
-        .gem-modal-opt { background: #000; border-color: #30E0FF; }
-        .gem-modal-opt:hover { background: #30E0FF; color: #000; }
-        .gem-modal-opt.selected { background: #FFE040; border-color: #FFE040; color: #000; }
-        .setup-checkbox input { border-color: #30E0FF; background: #000; }
-        .setup-checkbox input:checked { background: #FFE040; border-color: #FFE040; }
-        .setup-hint { color: #8A8AA8; }
-        .timer-edit-btn { background: #FFE040; border-color: #FFE040; color: #000; }
-        .timer-edit-btn.timer-edit-cancel { background: #000; color: #FFE040; }
-        .timer-edit-actions { display: flex; gap: 8px; justify-content: center; }
-        .timer-edit-btn:hover { background: #fff; border-color: #fff; color: #000; }
-
-        /* Race info line under the two credit columns */
-        .arcade-race-title {
-          position: absolute;
-          top: 752px;
-          left: 728px;
-          transform: translateX(-50%) scale(1.5);
-          transform-origin: center;
-          font-family: 'ZeldaII', monospace;
-          font-size: 11px;
-          letter-spacing: 1px;
-          color: #FFE040;
-          pointer-events: none;
-          user-select: none;
-        }
-        .arcade-race-container {
-          position: absolute;
-          top: 768px;
-          left: 448px;
-          width: 560px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .arcade-race-input {
-          width: 100%;
-          background: transparent;
-          border: none;
-          outline: none;
-          color: #ffffff;
-          font-family: 'ZeldaII', monospace;
-          font-size: 15px;
-          letter-spacing: 1px;
-          text-align: center;
-          text-transform: uppercase;
-          caret-color: #FFE040;
-        }
-        .arcade-race-input::placeholder { color: rgba(255, 255, 255, 0.2); }
-
-        /* ===== Arcade look for the 3- and 4-runner layouts: same grid, restyled ===== */
-        .theme-arcade-multi { background: #000; }
-        .theme-arcade-multi .quad-cell,
-        .theme-arcade-multi .quad-side,
-        .theme-arcade-multi .quad-rail { background: #000; }
-        .theme-arcade-multi .quad-name {
-          border: 0;
-          outline: 0;
-          background: transparent;
-          border-bottom: 3px solid var(--pc, #FFE040);
-          height: 36px;
-        }
-        .theme-arcade-multi .quad-name::before,
-        .theme-arcade-multi .quad-name::after { display: none; }
-        .theme-arcade-multi .quad-name .zelda-input { color: #fff; padding-left: 34px; padding-right: 26px; }
-        .theme-arcade-multi .quad-name .series-pips { left: 4px; gap: 1px; }
-        .theme-arcade-multi .quad-name .series-pip { width: 12px; height: 11px; }
-        .theme-arcade-multi .quad-name .vod-audio { right: 3px; }
-        .theme-arcade-multi .quad-name .vod-audio svg { width: 16px; height: 16px; }
-        .theme-arcade-multi .quad-side-title { color: #FFE040; text-decoration: none; }
-        .theme-arcade-multi .quad-side-info-input { border-color: #55557A; color: #FFE040; }
-        .theme-arcade-multi .quad-rail-middle .quad-side-info { border-color: #55557A; }
-        .theme-arcade-multi .quad-rail-middle .quad-side-info:focus-within { border-color: #FFE040; }
-
-        /* Single commentator: collapse COM 2 and re-center the section */
-        .single-com .commentary-title { top: 613px; }
-        .single-com .commentary-container { top: 628px; height: 20px; }
-        .single-com .tracking-title { top: 673px; }
-        .single-com .tracking-container { top: 691px; }
-        .single-com .timer-display { top: 732px; }
-
-        /* ===== Arcade theme, 2 runners: same controls as Classic, moved and restyled ===== */
-        .theme-arcade { background: #000; }
-        .theme-arcade .transparent-overlay-left,
-        .theme-arcade .transparent-overlay-right { display: none; }
-
-        .arcade-decor { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-        .arcade-decor > * { position: absolute; }
-        .arcade-sky { left: 0; top: 0; opacity: 0.75; }
-        .arcade-stripes {
-          left: 0;
-          width: 1456px;
-          height: 9px;
-          background: linear-gradient(180deg, #FF4040 0 2px, #000 2px 3px, #FF9020 3px 5px, #000 5px 6px, #FFE040 6px 8px, #000 8px);
-        }
-        .arcade-frame {
-          background: var(--c);
-          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
-        }
-        .arcade-frame-in {
-          position: absolute;
-          inset: 4px;
-          background: #000;
-          clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px);
-        }
-
-        /* Name plates become the top HUD: player tag, series triforces, name, audio icon */
-        .theme-arcade .text-box-left,
-        .theme-arcade .text-box-right {
-          top: 20px;
-          width: 588px;
-          height: 48px;
-          background: transparent;
-          box-shadow: none;
-          justify-content: flex-start;
-          z-index: 6;
-        }
-        .theme-arcade .text-box-left { left: 16px; }
-        .theme-arcade .text-box-right { left: auto; right: 16px; }
-        .theme-arcade .text-box-left::before,
-        .theme-arcade .text-box-right::before {
-          content: "1P";
-          inset: auto;
-          left: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          background: none;
-          color: #FF4040;
-          font-family: 'ZeldaII', monospace;
-          font-size: 16px;
-          line-height: 1;
-        }
-        .theme-arcade .text-box-right::before { content: "2P"; color: #30E0FF; }
-        /* Row order: tag, name, music note, triforces (player 2 mirrored) */
-        .theme-arcade .text-box-left .zelda-input,
-        .theme-arcade .text-box-right .zelda-input { order: 1; flex: 1 1 auto; }
-        .theme-arcade .text-box-left .vod-audio,
-        .theme-arcade .text-box-right .vod-audio { order: 2; }
-        .theme-arcade .text-box-left .series-pips,
-        .theme-arcade .text-box-right .series-pips {
-          order: 3;
-          position: static;
-          transform: none;
-          flex: none;
-          gap: 8px;
-          /* Kept clear of the timer */
-          margin: 0 24px 0 0;
-        }
-        .theme-arcade .text-box-right .series-pips { margin: 0 0 0 24px; }
-        /* The music note stays put at the inner end, beside the triforces, however long the name is */
-        .theme-arcade .text-box-left .vod-audio { margin: 0 30px 0 auto; }
-        .theme-arcade .text-box-right .vod-audio { margin: 0 auto 0 30px; }
-        .theme-arcade .text-box-left .series-pip,
-        .theme-arcade .text-box-right .series-pip { width: 34px; height: 30px; }
-        .theme-arcade .text-box-left .zelda-input,
-        .theme-arcade .text-box-right .zelda-input {
-          text-align: left;
-          padding-left: 52px;
-          color: #ffffff;
-          line-height: 48px;
-          font-size: var(--arcade-name-size, 24px);
-          top: calc(var(--arcade-name-size, 24px) * -0.2);
-        }
-
-        /* Player 2 mirrors player 1: tag and triforces on the right, name right-aligned, audio icon on the left */
-        .theme-arcade .text-box-right::before { left: auto; right: 0; }
-        .theme-arcade .text-box-right .series-pips { flex-direction: row-reverse; }
-        .theme-arcade .text-box-right .zelda-input { text-align: right; padding-left: 0; padding-right: 52px; }
-        .theme-arcade .text-box-left .zelda-input,
-        .theme-arcade .text-box-right .zelda-input {
-          width: 100%;
-          min-width: 0;
-          flex: 1 1 auto;
-        }
-        .theme-arcade .text-box-left .vod-audio,
-        .theme-arcade .text-box-right .vod-audio {
-          position: static;
-          transform: none;
-          flex: none;
-        }
-        .theme-arcade .text-box-left .vod-audio svg,
-        .theme-arcade .text-box-right .vod-audio svg { width: 30px; height: 30px; }
-        .theme-arcade .text-box-right { flex-direction: row-reverse; }
-
-        /* Place badge sits inside the top edge of each game window, with its glow */
-        .theme-arcade .place-badge { z-index: 7; }
-
-        /* Timer centred in the HUD */
-        .theme-arcade .timer-display,
-        .theme-arcade.single-com .timer-display {
-          top: 22px;
-          font-size: 32px;
-          line-height: 1;
-          text-align: center;
-          filter: none;
-        }
-
-        /* Commentary and tracking as centred credits between the tracker boxes */
-        .theme-arcade .center-panel-hitbox { top: 620px; left: 440px; width: 576px; height: 182px; }
-        .theme-arcade .commentary-title,
-        .theme-arcade .tracking-title { color: #FFE040; text-decoration: none; }
-        /* Commentary on the left half, tracking on the right half, gem count below both */
-        .theme-arcade .commentary-title,
-        .theme-arcade.single-com .commentary-title { top: 646px; left: 584px; }
-        .theme-arcade .commentary-container,
-        .theme-arcade.single-com .commentary-container { top: 666px; left: 584px; }
-        .theme-arcade.single-com .commentary-container { height: 20px; }
-        .theme-arcade .tracking-title,
-        .theme-arcade.single-com .tracking-title { top: 646px; left: 872px; }
-        .theme-arcade .tracking-container,
-        .theme-arcade.single-com .tracking-container { top: 666px; left: 872px; }
-
-        /* Max Rando: race info shifts left and the gem and count sit side by side to its right */
-        .theme-arcade .gem-image {
-          top: 750px;
-          left: 900px;
-          transform: none;
-          z-index: 6;
-          filter: none;
-        }
-        .theme-arcade .gem-count {
-          /* Gem is 44px tall from 750px (middle 772px); this font draws about 0.2em below its line's middle */
-          top: 754px;
-          line-height: 28px;
-          left: 940px;
-          transform: none;
-          z-index: 6;
-          font-size: 28px;
-          letter-spacing: 0;
-          filter: none;
-        }
-        .theme-arcade.max-rando .arcade-race-title { left: 664px; }
-        .theme-arcade.max-rando .arcade-race-container { left: 448px; width: 432px; }
-
-        /* Trackers fill the framed boxes under each game */
-        .theme-arcade .boss-row,
-        .theme-arcade .boss-row-right,
-        .theme-arcade .item-row-1,
-        .theme-arcade .item-row-2,
-        .theme-arcade .item-row-3,
-        .theme-arcade .item-row-1-right,
-        .theme-arcade .item-row-2-right,
-        .theme-arcade .item-row-3-right {
-          width: 400px;
-          justify-content: center;
-          gap: 8px;
-          z-index: 6;
-        }
-        .theme-arcade .boss-row,
-        .theme-arcade .item-row-1,
-        .theme-arcade .item-row-2,
-        .theme-arcade .item-row-3 { left: 20px; }
-        .theme-arcade .boss-row-right,
-        .theme-arcade .item-row-1-right,
-        .theme-arcade .item-row-2-right,
-        .theme-arcade .item-row-3-right { left: auto; right: 20px; }
-        .theme-arcade .boss-row,
-        .theme-arcade .boss-row-right { top: 624px; gap: 12px; }
-        .theme-arcade .item-row-1,
-        .theme-arcade .item-row-1-right { top: 675px; }
-        .theme-arcade .item-row-2,
-        .theme-arcade .item-row-2-right { top: 717px; }
-        .theme-arcade .item-row-3,
-        .theme-arcade .item-row-3-right { top: 759px; }
-        .theme-arcade .boss-btn img { width: 42px; height: 42px; }
-        .theme-arcade .item-btn img { width: 40px; height: 40px; }
-      `}</style>
 
       <div
         className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}${theme === "arcade" && runnerCount === 2 ? " theme-arcade" : ""}${theme === "arcade" && runnerCount !== 2 ? " theme-arcade-multi" : ""}${isMaxRando ? " max-rando" : ""}`}
@@ -2904,7 +1243,7 @@ export default function StreamOverlay() {
                   }}
                   title="Click: start/pause/resume | Middle-click: reset to 0 | Right-click: edit start time"
                 >
-                  {formatTimer(timerMs)}
+                  <TimerText phase={timerPhase} pausedMs={timerMs} accRef={timerAccRef} startRef={timerStartRef} />
                 </button>
                 {isMaxRando && (
                   <button type="button" className="quad-side-gem" onClick={() => setGemPopupOpen(true)} aria-label="Set gem count">
@@ -2972,8 +1311,15 @@ export default function StreamOverlay() {
         {/* Gem count popup */}
         {gemPopupOpen && (
           <div className="gem-modal-backdrop" onClick={() => setGemPopupOpen(false)}>
-            <div className="gem-modal-box" onClick={(e) => e.stopPropagation()}>
-              <p className="gem-modal-title">How many gems?</p>
+            <div
+              className="gem-modal-box"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="gem-modal-title"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.key === "Escape" && setGemPopupOpen(false)}
+            >
+              <p id="gem-modal-title" className="gem-modal-title">How many gems?</p>
               <div className="gem-modal-options">
                 {[0, 1, 2, 3, 4, 5, 6].map((n) => (
                   <button
@@ -3124,7 +1470,7 @@ export default function StreamOverlay() {
           onContextMenu={handleTimerRightClick}
           title="Click: start/pause/resume | Middle-click: reset to 0 | Right-click: edit start time"
         >
-          {formatTimer(timerMs)}
+          <TimerText phase={timerPhase} pausedMs={timerMs} accRef={timerAccRef} startRef={timerStartRef} />
         </div>
         </>)}
 
@@ -3144,7 +1490,7 @@ export default function StreamOverlay() {
                     node: (
                 <section className="booth-timer" aria-label="Race timer">
                   <p className={`booth-timer-time${timerPhase === 1 ? " running" : timerPhase === 2 ? " paused" : ""}`}>
-                    {formatTimer(timerMs)}
+                    <TimerText phase={timerPhase} pausedMs={timerMs} accRef={timerAccRef} startRef={timerStartRef} />
                   </p>
                   <div className="booth-timer-buttons">
                     <button type="button" className="vod-btn vod-btn-primary" onClick={handleTimerClick}>
@@ -3308,9 +1654,15 @@ export default function StreamOverlay() {
                 spellCheck={false}
                 autoFocus
                 aria-invalid={timerEditInvalid}
+                aria-describedby={timerEditInvalid ? "timer-edit-error" : undefined}
                 style={timerEditInvalid ? { outline: "2px solid #db2800" } : undefined}
                 onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
               />
+              {timerEditInvalid && (
+                <p id="timer-edit-error" className="timer-edit-error" role="alert">
+                  Use h:mm:ss, m:ss or seconds
+                </p>
+              )}
               <div className="timer-edit-actions">
                 <button type="button" className="timer-edit-btn timer-edit-cancel" onClick={() => setTimerEditOpen(false)}>Cancel</button>
                 <button type="button" className="timer-edit-btn" onClick={applyTimerEdit} disabled={timerEditInvalid}>Set</button>

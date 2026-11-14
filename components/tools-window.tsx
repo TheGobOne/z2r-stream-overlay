@@ -87,7 +87,8 @@ export function ToolsWindowPortal({ win, children }: { win: Window; children: Re
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(syncStyles)
     })
-    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true })
+    // Stylesheets live in <head>; watching the whole page would wake this on every timer tick
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true })
 
     const root = doc.createElement("div")
     doc.body.appendChild(root)

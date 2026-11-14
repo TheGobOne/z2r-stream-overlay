@@ -16,6 +16,7 @@ type YouTubePlayer = {
   unMute(): void
   isMuted(): boolean
   setVolume(volume: number): void
+  destroy(): void
 }
 
 type YouTubePlayerConstructor = new (elementId: string, options: Record<string, unknown>) => YouTubePlayer
@@ -175,6 +176,10 @@ const YouTubeVodPlayer = forwardRef<VodPlayerHandle, Props>(function YouTubeVodP
 
     return () => {
       cancelled = true
+      // destroy() also drops the player's window message listeners, which removing the iframe leaves behind
+      try {
+        playerRef.current?.destroy()
+      } catch {}
       playerRef.current = null
       readyRef.current = false
       pendingPlayRef.current = false

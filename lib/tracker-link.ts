@@ -29,8 +29,41 @@ export type TrackerAction =
 type Message = { kind: "snapshot"; snapshot: TrackerSnapshot } | { kind: "action"; action: TrackerAction }
 
 const PEER_PREFIX = "z2r-restream-"
+const ACTIONS_PER_SECOND = 20
+
+const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === "string")
+
+/** Whatever answers on the code could send anything; only render data with the right shape. */
+function isSnapshot(value: unknown): value is TrackerSnapshot {
+  if (!value || typeof value !== "object") return false
+  const s = value as Record<string, unknown>
+  return (
+    Array.isArray(s.runners) &&
+    s.runners.length <= 4 &&
+    s.runners.every(
+      (r) => r && typeof r === "object" && typeof r.name === "string" && isStringArray(r.bossesGreyed) && isStringArray(r.itemsGreyed),
+    ) &&
+    !!s.bossBadges && typeof s.bossBadges === "object" &&
+    Object.values(s.bossBadges).every((n) => Number.isInteger(n)) &&
+    isStringArray(s.bossBadgeLabels) &&
+    !!s.itemBadges && typeof s.itemBadges === "object" &&
+    Object.values(s.itemBadges).every((v) => typeof v === "string") &&
+    Array.isArray(s.badgeOptions) &&
+    s.badgeOptions.every(isStringArray)
+  )
+}
 // No 0/O or 1/I, so a code read aloud or off a stream is hard to get wrong
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+/** A connection failure with PeerJS's error type, e.g. "unavailable-id" while an old session still holds the code. */
+export class TrackerLinkError extends Error {
+  constructor(
+    message: string,
+    readonly type: string,
+  ) {
+    super(message)
+  }
+}
 
 export function newJoinCode() {
   let code = ""
@@ -73,12 +106,13 @@ async function createPeer(id?: string): Promise<PeerType> {
       peer.off("open", onOpen)
       peer.destroy()
       reject(
-        new Error(
+        new TrackerLinkError(
           error.type === "unavailable-id"
             ? "That join code is still held by an earlier session. Wait a minute and try again."
             : error.type === "peer-unavailable"
               ? "No overlay is sharing that code right now."
               : "Could not reach the connection service. Check your internet.",
+          error.type,
         ),
       )
     }
@@ -112,9 +146,18 @@ export async function hostTrackers(
       onCount(connections.size)
       if (latest) conn.send({ kind: "snapshot", snapshot: latest } satisfies Message)
     })
+    // A helper can't send more than ACTIONS_PER_SECOND; extra actions are dropped
+    let tokens = ACTIONS_PER_SECOND
+    let refilledAt = Date.now()
     conn.on("data", (data) => {
       const message = data as Message
-      if (message?.kind === "action") onAction(message.action)
+      if (message?.kind !== "action") return
+      const now = Date.now()
+      tokens = Math.min(ACTIONS_PER_SECOND, tokens + ((now - refilledAt) / 1000) * ACTIONS_PER_SECOND)
+      refilledAt = now
+      if (tokens < 1) return
+      tokens -= 1
+      onAction(message.action)
     })
     const drop = () => {
       connections.delete(conn)
@@ -196,7 +239,7 @@ export async function joinTracker(
   })
   conn.on("data", (data) => {
     const message = data as Message
-    if (message?.kind === "snapshot") onSnapshot(message.snapshot)
+    if (message?.kind === "snapshot" && isSnapshot(message.snapshot)) onSnapshot(message.snapshot)
   })
   conn.on("close", onClose)
   return {
