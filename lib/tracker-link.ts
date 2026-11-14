@@ -113,7 +113,7 @@ export async function hostTrackers(
   })
   // The signalling link drops now and then; existing tracker links keep working, new joins need it back
   peer.on("disconnected", () => {
-    if (!stopped) peer.reconnect()
+    if (!stopped && !peer.destroyed) peer.reconnect()
   })
 
   return {

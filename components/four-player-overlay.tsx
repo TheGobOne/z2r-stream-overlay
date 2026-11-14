@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useImperativeHandle, useRef, useState, type ReactNode } from "react"
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { SeriesPips } from "@/components/series-pips"
@@ -9,7 +9,7 @@ import { AudioBadge } from "@/components/audio-badge"
 import { PlayerTools } from "@/components/player-tools"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
-import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
+import { BRICK_H, BRICK_W, QUAD_TRACKER_WIDTH, betterArrangement, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 
 type TrackerIcon = { id: string; src: string; alt: string }
 
@@ -56,6 +56,8 @@ type Props = {
   arcade?: boolean
   /** Two 1v1s: a VS badge on the seam between P1 and P2, and between P3 and P4. */
   pairs?: boolean
+  /** Runners moved slots: order[slot] is the runner (old slot) now there. The page moves its per-runner state to match. */
+  onArrange?: (order: number[]) => void
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
@@ -100,6 +102,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     seriesToWin,
     arcade = false,
     pairs = false,
+    onArrange,
   },
   ref,
 ) {
@@ -156,8 +159,45 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   }
 
   const fillCrop = layout.stretchCrop ?? true
-  const layouts = resolveQuadLayouts(windows, vods, fillCrop)
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
+  const layouts = resolveQuadLayouts(windows, vods, fillCrop)
+  const arrangement = useMemo(() => betterArrangement(windows, vods, fillCrop, pairs), [windows, vods, fillCrop, pairs])
+
+  /** Moves each runner, with their video, crop and trackers, into the slot `order` gives them. */
+  function arrange(order: number[]) {
+    // A VOD picks up where it was; a live stream just reconnects
+    const times = playerRefs.map((r) => r.current?.getCurrentTime() ?? null)
+    const nextNames = order.map((r) => names[r])
+    setNames(nextNames)
+    onNamesChange?.(nextNames)
+    setVods((prev) =>
+      order.map((r) => {
+        const config = prev[r]
+        const time = times[r]
+        return config.videoId && time !== null ? { ...config, startSeconds: Math.floor(time) } : config
+      }),
+    )
+    setSelected(order.indexOf(selected))
+    onArrange?.(order)
+  }
+
+  const squeezeNotice = (() => {
+    if (!arrangement) return null
+    const moved = arrangement.order.map((r, slot) => (r !== slot ? slot : -1)).filter((slot) => slot >= 0)
+    const who = moved.map((slot) => labelFor(slot))
+    const text =
+      moved.length === 2
+        ? `${who[0]} and ${who[1]} squeeze each other's game. Swap their slots so ${arrangement.fixesAll ? "both games show full size" : "the games show bigger"}.`
+        : `Some games are squeezed by their neighbors. Rearranging slots ${arrangement.fixesAll ? "shows every game full size" : "shows the games bigger"}.`
+    return (
+      <div className="tools-squeeze" role="status">
+        <p>{text}</p>
+        <button type="button" className="vod-btn vod-btn-primary" onClick={() => arrange(arrangement.order)}>
+          {moved.length === 2 ? "Swap slots" : "Rearrange slots"}
+        </button>
+      </div>
+    )
+  })()
 
   // With a crop, the black bar beside the picture joins the tracker column, so center the tracker in that space
   const trackerLeft = (i: number) => {
@@ -925,6 +965,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             onLinkToTimerChange={onLinkToTimerChange}
             onPlayAll={playAll}
             onPauseAll={pauseAll}
+            notice={squeezeNotice}
           />,
           toolsSlot,
         )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState, type RefObject } from "react"
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react"
 import { getParentDomains, loadTwitchEmbed, type VodPlayerHandle } from "@/components/twitch-vod-player"
 import { VodPanel } from "@/components/vod-panel"
 import { VodCropSelector } from "@/components/vod-crop-selector"
@@ -29,6 +29,8 @@ type Props = {
   onLinkToTimerChange: (value: boolean) => void
   onPlayAll: () => void
   onPauseAll: () => void
+  /** Shown under the heading, e.g. a fix for squeezed frames. */
+  notice?: ReactNode
 }
 
 const PREVIEW_WINDOW: WindowRect = { left: 0, top: 0, width: 768, height: 432 }
@@ -269,6 +271,7 @@ export function PlayerTools({
   onLinkToTimerChange,
   onPlayAll,
   onPauseAll,
+  notice,
 }: Props) {
   const [cropMode, setCropMode] = useState(false)
   const index = Math.min(selected, players.length - 1)
@@ -280,6 +283,7 @@ export function PlayerTools({
       <h2 id={`${id}-players-title`} className="tools-card-title">
         Videos
       </h2>
+      {notice}
       <div className="tools-tabs" role="tablist" aria-label="Players">
         {players.map((p, i) => (
           <button

@@ -154,6 +154,11 @@ function fitAxis(frame: Span, win: Span, bounds: Bounds, floor = 0, cap = 1): Sp
  * only zooms out (about the crop) by the minimum needed when sliding alone isn't enough.
  */
 export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], fill = true): VodFrameLayout[] {
+  return solveQuad(windows, configs, fill).layouts
+}
+
+/** The layouts plus how much picture width the lower frames lose in total (0 = no squeeze). */
+function solveQuad(windows: WindowRect[], configs: VodConfig[], fill: boolean) {
   const frames = configs.map((config, i) => {
     const own = windows[i]
     const frame = frameInWindow(own, config, fill)
@@ -251,7 +256,7 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
     frames[i] = f
   })
 
-  return configs.map((config, i) => {
+  const layouts = configs.map((config, i): VodFrameLayout => {
     const own = windows[i]
     const { x, y } = frames[i]
     const depth = stack.indexOf(i)
@@ -264,6 +269,46 @@ export function resolveQuadLayouts(windows: WindowRect[], configs: VodConfig[], 
       z: depth >= 0 ? QUAD_TWITCH_Z + stack.length - 1 - depth : undefined,
     }
   })
+  return { layouts, shrink: bestShrink }
+}
+
+/** Ignore squeezes smaller than this (fraction of one frame's width). */
+const MIN_SQUEEZE = 0.03
+
+export type Arrangement = {
+  /** order[slot] is the runner (current slot index) that moves into that slot. */
+  order: number[]
+  /** True when the new order removes the squeeze completely. */
+  fixesAll: boolean
+}
+
+/**
+ * A squeeze happens when a runner's game sits where their frame must spill into a neighbor's
+ * window (say, the game on the right of a stream in the right-hand slot). Moving runners to other
+ * slots often lets every frame spill onto a rail instead. Returns the slot order with the least
+ * squeeze, moving as few runners as possible, or null when no order helps. In 1v1s each pair
+ * stays together in one row.
+ */
+export function betterArrangement(windows: WindowRect[], configs: VodConfig[], fill = true, pairs = false): Arrangement | null {
+  const base = solveQuad(windows, configs, fill).shrink
+  if (base < MIN_SQUEEZE) return null
+  const sameRow = (a: number, b: number) => (a < 2) === (b < 2)
+  const orders = permutations(configs.map((_, i) => i))
+    .filter((o) => !(pairs && o.length === 4) || (sameRow(o[0], o[1]) && sameRow(o[2], o[3])))
+    .map((o) => ({ o, moved: o.filter((r, slot) => r !== slot).length }))
+    .sort((a, b) => a.moved - b.moved)
+  let best: number[] | null = null
+  let bestShrink = base
+  for (const { o, moved } of orders) {
+    if (moved === 0) continue
+    const cost = solveQuad(windows, o.map((r) => configs[r]), fill).shrink
+    if (cost < bestShrink - 1e-6) {
+      best = o
+      bestShrink = cost
+    }
+  }
+  if (!best || base - bestShrink < MIN_SQUEEZE) return null
+  return { order: best, fixesAll: bestShrink < 0.005 }
 }
 
 function permutations<T>(items: T[]): T[][] {

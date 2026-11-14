@@ -481,6 +481,21 @@ export default function StreamOverlay() {
     }
   }
 
+  /** The quad overlay moved runners between slots: order[slot] is the runner (old slot) now there. */
+  function arrangeQuadRunners(order: number[]) {
+    const reorder = <T,>(list: T[]) => [...order.map((r) => list[r]), ...list.slice(order.length)]
+    setQuadNotDefeated(reorder)
+    setQuadNotCollected(reorder)
+    setPlacements((prev) => reorder(prev))
+    setSeriesWins((prev) => {
+      const next = reorder(prev)
+      saveSeries(seriesBestOf, next)
+      return next
+    })
+    const known = racetimeRunnersRef.current
+    if (known.length >= order.length) racetimeRunnersRef.current = reorder(known)
+  }
+
   function swapRacetimeRunners() {
     racetimeRunnersRef.current = [...racetimeRunnersRef.current].reverse()
     applyRunners(racetimeRunnersRef.current)
@@ -2219,6 +2234,9 @@ export default function StreamOverlay() {
         .tools-crop-title { margin: 0; font-size: 10px; color: #8a9a9a; }
         .tools-crop-stage { position: relative; max-width: 100%; overflow: hidden; background: #000000; }
         .tools-crop-video { position: absolute; border: 0; }
+        .tools-squeeze { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 10px 12px; border: 2px solid #FFE040; color: #fff; font-size: 14px; }
+        .tools-squeeze p { margin: 0; flex: 1; }
+        .tools-squeeze .vod-btn { flex: none; }
         .tools-crop-offline { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; margin: 0; color: #9aa0a6; font-size: 14px; }
 
         .vod-panel-header {
@@ -2747,6 +2765,7 @@ export default function StreamOverlay() {
             onToggleItem={toggleQuadItem}
             seriesWins={seriesWins}
             seriesToWin={seriesShown}
+            onArrange={arrangeQuadRunners}
             sidePanel={{
               info: (
                 <div className="quad-side-group quad-side-info">
