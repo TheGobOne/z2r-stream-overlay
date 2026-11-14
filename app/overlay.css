@@ -1173,7 +1173,10 @@ body:has(.vod-crop-backdrop) .vod-audio {
 @media (max-width: 1000px) {
   .tools.booth { height: auto; overflow: visible; }
   .booth-grid { grid-template-columns: minmax(0, 1fr); }
-  .booth-column { overflow: visible; }
+  .booth-column { overflow: visible; padding-bottom: 0; }
+  /* Stacked on a narrow window: one spacing between the two columns, not the grid gap plus the bottom padding */
+  .booth-grid { gap: 0; }
+  .booth-column-left { margin-bottom: 14px; }
   .booth-toolbar { margin: 0; }
 }
 .tools-heading { margin: 0; font-size: 18px; color: #2ec4b6; letter-spacing: 1px; }
