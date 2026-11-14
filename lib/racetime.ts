@@ -69,7 +69,13 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
   if (response.status === 404) throw new Error("That race room was not found")
   if (!response.ok) throw new Error(`racetime.gg answered ${response.status}`)
   const after = Date.now()
-  const data = (await response.json()) as RawRace
+  let data: RawRace
+  try {
+    data = (await response.json()) as RawRace
+  } catch {
+    // A maintenance or Cloudflare page comes back as HTML
+    throw new Error("racetime.gg sent an unexpected reply. Try again in a minute.")
+  }
 
   // racetime.gg's own clock, so the timer stays right even when this computer's clock is off
   const serverNow = Date.parse(response.headers.get("X-Date-Exact") ?? "")
@@ -91,7 +97,7 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
   // The feed lists entrants alphabetically; room info like "A vs B Game 2" gives the intended order
   const info = data.info ?? ""
   const firstLine = info.split("\n")[0].toLowerCase()
-  const at = runners.map((r) => (r.name ? firstLine.indexOf(r.name.toLowerCase()) : -1))
+  const at = findNames(firstLine, runners.map((r) => r.name.toLowerCase()))
   if (runners.length > 1 && at.every((i) => i >= 0)) {
     const order = runners.map((_, i) => i).sort((a, b) => at[a] - at[b])
     const sorted = order.map((i) => runners[i])
@@ -106,4 +112,28 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
     startMs: toLocal(data.started_at ?? data.starts_at),
     endMs: toLocal(data.ended_at),
   }
+}
+
+/**
+ * Where each name appears in `line` as a whole word, or -1. Longer names claim their spot first,
+ * so "bob" can't match inside "bobby".
+ */
+export function findNames(line: string, names: string[]): number[] {
+  const at = names.map(() => -1)
+  const taken: [number, number][] = []
+  const longestFirst = names.map((_, i) => i).sort((a, b) => names[b].length - names[a].length)
+  for (const i of longestFirst) {
+    const name = names[i]
+    if (!name) continue
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    for (const match of line.matchAll(new RegExp(`(^|[^a-z0-9_])(${escaped})(?=$|[^a-z0-9_])`, "g"))) {
+      const start = (match.index ?? 0) + match[1].length
+      const end = start + name.length
+      if (taken.some(([s, e]) => start < e && end > s)) continue
+      taken.push([start, end])
+      at[i] = start
+      break
+    }
+  }
+  return at
 }

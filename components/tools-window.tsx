@@ -93,7 +93,18 @@ export function ToolsWindowPortal({ win, children }: { win: Window; children: Re
     doc.body.appendChild(root)
     setContainer(root)
 
+    // F5 in the popup swaps in a fresh document under the same Window; wait for it, then render again
+    const watch = window.setInterval(() => {
+      if (win.closed) return
+      let gone = true
+      try {
+        gone = win.document !== doc || !root.isConnected
+      } catch {}
+      if (gone) setReady(false)
+    }, 500)
+
     return () => {
+      window.clearInterval(watch)
       observer.disconnect()
       cancelAnimationFrame(frame)
       root.remove()

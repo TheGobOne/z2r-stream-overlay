@@ -225,12 +225,13 @@ export default function StreamOverlay() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [timerPhase])
 
-  function saveTimer() {
+  /** Pass the phase when it was just set: this render's `timerPhase` is still the old one. */
+  function saveTimer(phase: 0 | 1 | 2 = timerPhase) {
     if (!hydratedRef.current) return
     try {
       localStorage.setItem(
         TIMER_STORAGE_KEY,
-        JSON.stringify({ phase: timerPhase, base: timerAccRef.current, startedAt: timerStartRef.current }),
+        JSON.stringify({ phase, base: timerAccRef.current, startedAt: timerStartRef.current }),
       )
     } catch {}
   }
@@ -249,7 +250,12 @@ export default function StreamOverlay() {
   }
 
   function resetTimer() {
+    // Clear here too: when already stopped, setTimerPhase(0) is a no-op and an edited start time would stay
+    timerAccRef.current = 0
+    timerStartRef.current = 0
+    setTimerMs(0)
     setTimerPhase(0)
+    saveTimer(0)
     if (linkVodsToTimer) resetVods()
   }
 
@@ -422,6 +428,7 @@ export default function StreamOverlay() {
       timerStartRef.current = 0
       setTimerMs(final)
       setTimerPhase(2)
+      saveTimer(2)
       return
     }
     racetimeEndedRef.current = false
@@ -436,6 +443,7 @@ export default function StreamOverlay() {
     } else if (Math.abs(timerAccRef.current + (now - timerStartRef.current) - elapsed) > 1000) {
       timerAccRef.current = elapsed
       timerStartRef.current = now
+      saveTimer(1)
     }
   }
   const syncRaceRef = useRef(syncRace)
@@ -517,7 +525,9 @@ export default function StreamOverlay() {
   useEffect(() => {
     if (!racetimeRoom) return
     let stopped = false
-    const poll = window.setInterval(async () => {
+    // A chain, not an interval: a slow reply can't overlap the next request and land out of order
+    let poll = 0
+    const tick = async () => {
       try {
         const race = await fetchRace(racetimeRoom)
         if (stopped) return
@@ -526,10 +536,12 @@ export default function StreamOverlay() {
       } catch (error) {
         if (!stopped) setRacetimeError(error instanceof Error ? error.message : "Lost the connection to racetime.gg")
       }
-    }, 5000)
+      if (!stopped) poll = window.setTimeout(tick, 5000)
+    }
+    poll = window.setTimeout(tick, 5000)
     return () => {
       stopped = true
-      window.clearInterval(poll)
+      window.clearTimeout(poll)
     }
   }, [racetimeRoom])
 
@@ -2221,7 +2233,7 @@ export default function StreamOverlay() {
           .booth-toolbar { margin: 0; }
         }
         .tools-heading { margin: 0; font-size: 18px; color: #2ec4b6; letter-spacing: 1px; }
-        .tools-subheading { margin: 0; font-size: 9px; color: #8a9a9a; line-height: 1.6; }
+        .tools-subheading { margin: 0; font-size: 12px; line-height: 1.6; }
 
         .tools-card {
           display: flex;
@@ -2234,7 +2246,7 @@ export default function StreamOverlay() {
 
         .tools-card-title { margin: 0; font-size: 12px; color: #2ec4b6; text-transform: uppercase; }
 
-        .tools-hint { margin: 0; font-size: 9px; color: #8a9a9a; line-height: 1.6; }
+        .tools-hint { margin: 0; font-size: 12px; line-height: 1.6; }
         .tools-tracker-grid { display: flex; flex-wrap: wrap; gap: 8px; }
         .tools-tracker-grid .item-btn.tools-picking { outline: 2px solid #2ec4b6; outline-offset: 2px; }
         .tools-badge-menu { position: static; align-self: flex-start; }
@@ -2245,12 +2257,9 @@ export default function StreamOverlay() {
           padding: 10px 16px;
           font-family: inherit;
           font-size: 11px;
-          color: #ffffff;
-          background: #7a1d0d;
-          border: 2px solid #db2800;
+          border: 2px solid;
           cursor: pointer;
         }
-        .tools-clear-btn:hover { background: #db2800; }
 
         .tools .setup-section { display: flex; flex-direction: column; gap: 8px; }
         .tools .setup-columns { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 20px; }
@@ -2262,7 +2271,7 @@ export default function StreamOverlay() {
   .tools .setup-place-options { gap: 6px; flex-shrink: 0; }
   .tools .setup-place-opt { min-width: 44px; height: 32px; padding: 0 8px; font-size: 11px; }
   .tools .setup-place-opt:first-child { min-width: 32px; }
-        .tools .gem-modal-title { margin: 0; font-size: 10px; }
+        .tools .gem-modal-title { margin: 0; font-size: 11px; }
         .tools .gem-modal-options { justify-content: flex-start; }
 
         .tools-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -2273,20 +2282,17 @@ export default function StreamOverlay() {
           gap: 8px;
           padding: 8px 12px;
           background: transparent;
-          border: 2px solid #2a2a2a;
-          color: #8a9a9a;
+          border: 2px solid;
           font-family: inherit;
-          font-size: 10px;
+          font-size: 11px;
           cursor: pointer;
         }
 
-        .tools-tab:hover { color: #ffffff; border-color: #3a3a3a; }
-        .tools-tab[aria-selected="true"] { color: #ffffff; border-color: #2ec4b6; }
-        .tools-tab:focus-visible { outline: 2px solid #2ec4b6; outline-offset: 2px; }
-        .tools-tab-dot { width: 6px; height: 6px; background: #2ec4b6; }
+        .tools-tab:focus-visible { outline: 2px solid; outline-offset: 2px; }
+        .tools-tab-dot { width: 6px; height: 6px; }
 
         .tools-crop { display: flex; flex-direction: column; gap: 10px; }
-        .tools-crop-title { margin: 0; font-size: 10px; color: #8a9a9a; }
+        .tools-crop-title { margin: 0; font-size: 11px; color: #8A8AA8; }
         .tools-crop-stage { position: relative; max-width: 100%; overflow: hidden; background: #000000; }
         .tools-crop-video { position: absolute; border: 0; }
         .tools-squeeze { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 10px 12px; border: 2px solid #FFE040; color: #fff; font-size: 14px; }
@@ -2342,8 +2348,8 @@ export default function StreamOverlay() {
 
         .vod-hint {
           margin-left: 8px;
-          color: #8a9a9a;
-          font-size: 9px;
+          color: #8A8AA8;
+          font-size: 12px;
           line-height: 1.4;
           letter-spacing: 1px;
         }
@@ -2486,6 +2492,7 @@ export default function StreamOverlay() {
         .tools-tab-dot { background: #30E0FF; }
         .tools .vod-input { border-color: #30E0FF; }
         .tools .vod-input:focus-visible { border-color: #FFE040; }
+        .vod-input:focus-visible, .timer-edit-input:focus-visible { outline: 2px solid #FFE040; outline-offset: 2px; }
         .tools .vod-btn { background: #000; border-color: #30E0FF; color: #fff; }
         .tools .vod-btn:hover:not(:disabled) { background: #30E0FF; color: #000; }
         .tools .vod-btn-primary:not(:disabled) { background: #FFE040; border-color: #FFE040; color: #000; }
@@ -2526,6 +2533,8 @@ export default function StreamOverlay() {
         .setup-checkbox input:checked { background: #FFE040; border-color: #FFE040; }
         .setup-hint { color: #8A8AA8; }
         .timer-edit-btn { background: #FFE040; border-color: #FFE040; color: #000; }
+        .timer-edit-btn.timer-edit-cancel { background: #000; color: #FFE040; }
+        .timer-edit-actions { display: flex; gap: 8px; justify-content: center; }
         .timer-edit-btn:hover { background: #fff; border-color: #fff; color: #000; }
 
         /* Race info line under the two credit columns */
@@ -2789,7 +2798,8 @@ export default function StreamOverlay() {
         className={`overlay-wrapper${commentatorCount === 1 ? " single-com" : ""}${theme === "arcade" && runnerCount === 2 ? " theme-arcade" : ""}${theme === "arcade" && runnerCount !== 2 ? " theme-arcade-multi" : ""}${isMaxRando ? " max-rando" : ""}`}
         // CSS zoom, not a scale() transform: Twitch refuses play() inside a scaled-down transform
         // ("minimum requirements for autoplay were not met: style visibility")
-        style={stageScale < 1 ? { zoom: stageScale } : undefined}
+        // Hidden until saved state loads, so an OBS reload never shows the default layout on stream
+        style={{ ...(stageScale < 1 ? { zoom: stageScale } : {}), ...(hydrated ? {} : { visibility: "hidden" as const }) }}
       >
         {runnerCount !== 2 && hydrated && (
           <FourPlayerOverlay
@@ -3281,8 +3291,15 @@ export default function StreamOverlay() {
         {/* Timer edit popup */}
         {timerEditOpen && (
           <div className="timer-edit-backdrop" onClick={() => setTimerEditOpen(false)}>
-            <div className="timer-edit-box" onClick={(e) => e.stopPropagation()}>
-              <p className="timer-edit-title">Set start time</p>
+            <div
+              className="timer-edit-box"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="timer-edit-title"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.key === "Escape" && setTimerEditOpen(false)}
+            >
+              <p id="timer-edit-title" className="timer-edit-title">Set start time</p>
               <input
                 className="timer-edit-input"
                 value={timerEditValue}
@@ -3294,7 +3311,10 @@ export default function StreamOverlay() {
                 style={timerEditInvalid ? { outline: "2px solid #db2800" } : undefined}
                 onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
               />
-              <button className="timer-edit-btn" onClick={applyTimerEdit} disabled={timerEditInvalid}>Set</button>
+              <div className="timer-edit-actions">
+                <button type="button" className="timer-edit-btn timer-edit-cancel" onClick={() => setTimerEditOpen(false)}>Cancel</button>
+                <button type="button" className="timer-edit-btn" onClick={applyTimerEdit} disabled={timerEditInvalid}>Set</button>
+              </div>
             </div>
           </div>
         )}

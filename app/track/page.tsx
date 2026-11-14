@@ -99,28 +99,58 @@ export default function TrackPage() {
   const clientRef = useRef<TrackerClient | null>(null)
   const [picker, setPicker] = useState<string | null>(null)
 
-  async function join(raw: string) {
+  // Each join gets a number; a join that finishes after a newer one started (or after unmount) is dropped
+  const joinGenRef = useRef(0)
+  const retryRef = useRef<number | undefined>(undefined)
+
+  async function join(raw: string, attempt = 0) {
     const code = normalizeCode(raw)
     if (code.length < 4) {
       setError("Type the join code from the overlay's tools window")
       return
     }
-    clientRef.current?.stop()
+    const gen = ++joinGenRef.current
+    window.clearTimeout(retryRef.current)
+    const old = clientRef.current
+    clientRef.current = null
+    old?.stop()
     setStatus("joining")
-    setError("")
+    if (attempt === 0) setError("")
     try {
-      clientRef.current = await joinTracker(code, setSnapshot, () => {
-        setStatus("idle")
-        setError("The overlay stopped sharing or closed. Join again when it's back.")
+      const client: TrackerClient = await joinTracker(code, setSnapshot, () => {
+        if (clientRef.current !== client) return
+        clientRef.current = null
+        retry(code, 0)
       })
+      if (gen !== joinGenRef.current) {
+        client.stop()
+        return
+      }
+      clientRef.current = client
       setStatus("joined")
+      setError("")
       const url = new URL(window.location.href)
       url.searchParams.set("code", code)
       window.history.replaceState(null, "", url)
     } catch (e) {
+      if (gen !== joinGenRef.current) return
+      if (attempt > 0) return retry(code, attempt)
       setStatus("idle")
       setError(e instanceof Error ? e.message : "Could not connect")
     }
+  }
+
+  /** The overlay went away (reload, network): keep trying for about 5 minutes before giving up. */
+  function retry(code: string, attempt: number) {
+    const delays = [2000, 5000, 10000, 20000, 30000]
+    if (attempt >= 12) {
+      setStatus("idle")
+      setError("The overlay stopped sharing or closed. Join again when it's back.")
+      return
+    }
+    setStatus("joining")
+    setError("Lost the overlay. Reconnecting...")
+    retryRef.current = window.setTimeout(() => void join(code, attempt + 1), delays[Math.min(attempt, delays.length - 1)])
   }
 
   useEffect(() => {
@@ -129,7 +159,13 @@ export default function TrackPage() {
       setDraft(code)
       void join(code)
     }
-    return () => clientRef.current?.stop()
+    return () => {
+      joinGenRef.current++
+      window.clearTimeout(retryRef.current)
+      clientRef.current?.stop()
+      clientRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { notFound } from "next/navigation"
 import { MOCKUPS } from "@/components/mockups/layouts"
 import { MockupStyles } from "@/components/mockups/parts"
 import { ScaleBox } from "@/components/mockups/scale-box"
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
 }
 
 export default function MockupsPage() {
+  // Design scratch space: local dev only
+  if (process.env.NODE_ENV === "production") notFound()
   return (
     <main className="min-h-screen bg-neutral-950 px-6 py-10 text-neutral-100">
       <MockupStyles />
