@@ -43,15 +43,10 @@ function readSaved(): Saved {
   }
 }
 
-/** Two 1v1s show a VS on the seam between each pair. Set from the overlay's Format choice, or ?pairs=1 or ?pairs=0. */
+/** VS on the seam between each pair, on by default. ?pairs=0 hides it. */
 function readPairs(): boolean {
   const param = new URLSearchParams(window.location.search).get("pairs")
-  if (param !== null) return param === "1"
-  try {
-    return Boolean(JSON.parse(localStorage.getItem(OVERLAY_KEY) ?? "{}").quadPairs)
-  } catch {
-    return false
-  }
+  return param !== "0"
 }
 
 function NameInput({ slot, value, onChange, color }: { slot: Slot; value: string; onChange: (v: string) => void; color: string }) {
