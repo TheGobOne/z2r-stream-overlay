@@ -75,8 +75,8 @@ function nameFontSize(name: string) {
   const length = name.length || "PLAYER 1".length
   if (length <= 6) return 13
   if (length <= 8) return 11
-  if (length <= 11) return 8
-  return 6
+  // 8px is the smallest the pixel font stays readable on stream
+  return 8
 }
 
 export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function FourPlayerOverlay(
@@ -257,6 +257,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
                 onNamesChange?.(next)
               }}
               placeholder={`PLAYER ${i + 1}`}
+              maxLength={16}
               aria-label={`Player ${i + 1} name`}
               spellCheck={false}
               autoComplete="off"

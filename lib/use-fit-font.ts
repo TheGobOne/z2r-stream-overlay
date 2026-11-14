@@ -12,9 +12,13 @@ export function useFitFontSize(
   { base, min, letterSpacing = 0, enabled = true }: { base: number; min: number; letterSpacing?: number; enabled?: boolean },
 ) {
   const [size, setSize] = useState(base)
+  // The input may mount after this hook first runs (e.g. switching to 2 runners); track it so we re-measure
+  const [el, setEl] = useState<HTMLInputElement | null>(null)
+  useLayoutEffect(() => {
+    if (ref.current !== el) setEl(ref.current)
+  })
 
   useLayoutEffect(() => {
-    const el = ref.current
     if (!el || !enabled) {
       setSize(base)
       return
@@ -34,7 +38,7 @@ export function useFitFontSize(
     const observer = new ResizeObserver(fit)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [ref, text, base, min, letterSpacing, enabled])
+  }, [el, text, base, min, letterSpacing, enabled])
 
   return size
 }

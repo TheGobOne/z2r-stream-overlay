@@ -16,8 +16,10 @@ export type RacetimeRace = {
   runners: RacetimeRunner[]
   /** Scheduled or actual start as a local-clock epoch (ms), corrected for clock drift; null before one is set. */
   startMs: number | null
-  /** End of the race as a local-clock epoch (ms), or null while it is still running. */
+  /** End of the race as a local-clock epoch (ms), or null while it is still running. A cancel counts as the end. */
   endMs: number | null
+  /** finished or cancelled: nothing more will change, so polling can stop. */
+  over: boolean
 }
 
 const ROOM_PATH = /^\/?([a-z0-9_-]+)\/([a-z0-9_-]+)(?:\/.*)?$/i
@@ -54,6 +56,7 @@ type RawRace = {
   started_at?: string | null
   starts_at?: string | null
   ended_at?: string | null
+  cancelled_at?: string | null
   entrants?: RawEntrant[]
 }
 
@@ -86,17 +89,19 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
     return Number.isFinite(ms) ? ms - offset : null
   }
 
-  const runners: RacetimeRunner[] = (data.entrants ?? [])
+  if (!data || typeof data !== "object") throw new Error("racetime.gg sent an unexpected reply. Try again in a minute.")
+  const runners: RacetimeRunner[] = (Array.isArray(data.entrants) ? data.entrants : [])
+    .filter((e): e is RawEntrant => !!e && typeof e === "object")
     .filter((e) => !NOT_RUNNING.has(e.status?.value ?? ""))
     .map((e) => ({
-      name: e.user?.name ?? "",
+      name: typeof e.user?.name === "string" ? e.user.name : "",
       channel: (e.user?.twitch_name || e.user?.twitch_channel?.split("/").filter(Boolean).pop() || "").toLowerCase() || null,
       status: e.status?.value ?? "",
       place: typeof e.place === "number" ? e.place : null,
     }))
 
   // The feed lists entrants alphabetically; room info like "A vs B Game 2" gives the intended order
-  const info = data.info ?? ""
+  const info = typeof data.info === "string" ? data.info : ""
   const firstLine = info.split("\n")[0].toLowerCase()
   const at = findNames(firstLine, runners.map((r) => r.name.toLowerCase()))
   if (runners.length > 1 && at.every((i) => i >= 0)) {
@@ -105,13 +110,16 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
     runners.splice(0, runners.length, ...sorted)
   }
 
+  const status = typeof data.status?.value === "string" ? data.status.value : ""
   return {
     room,
-    status: data.status?.value ?? "",
+    status,
     info,
     runners,
     startMs: toLocal(data.started_at ?? data.starts_at),
-    endMs: toLocal(data.ended_at),
+    // A cancelled race has cancelled_at and no ended_at; stop the clock there too
+    endMs: toLocal(data.ended_at) ?? toLocal(data.cancelled_at),
+    over: status === "finished" || status === "cancelled",
   }
 }
 

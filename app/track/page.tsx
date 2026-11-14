@@ -96,6 +96,7 @@ export default function TrackPage() {
   const [status, setStatus] = useState<"idle" | "joining" | "joined">("idle")
   const [error, setError] = useState("")
   const [snapshot, setSnapshot] = useState<TrackerSnapshot | null>(null)
+  const [unstable, setUnstable] = useState(false)
   const clientRef = useRef<TrackerClient | null>(null)
   const [picker, setPicker] = useState<string | null>(null)
 
@@ -121,7 +122,7 @@ export default function TrackPage() {
         if (clientRef.current !== client) return
         clientRef.current = null
         retry(code, 0)
-      })
+      }, setUnstable)
       if (gen !== joinGenRef.current) {
         client.stop()
         return
@@ -209,7 +210,12 @@ export default function TrackPage() {
           {error}
         </p>
       )}
-      {status === "joined" && <p className="muted">Connected. Click an icon to mark it; the overlay updates right away.</p>}
+      {status === "joined" && !unstable && <p className="muted">Connected. Click an icon to mark it; the overlay updates right away.</p>}
+      {status === "joined" && unstable && (
+        <p className="error" role="status">
+          Connection unstable. Waiting for the overlay...
+        </p>
+      )}
       {snapshot && picker && (
         <div className="picker" role="group" aria-label="Set location">
           <p className="muted">Location for {ITEMS.find((it) => it.id === picker)?.alt}</p>
@@ -248,7 +254,7 @@ export default function TrackPage() {
         </div>
       )}
       {snapshot && (
-        <div className="runners" aria-disabled={status !== "joined"} style={status !== "joined" ? { opacity: 0.4, pointerEvents: "none" } : undefined}>
+        <div className="runners" aria-disabled={status !== "joined" || unstable} style={status !== "joined" || unstable ? { opacity: 0.4, pointerEvents: "none" } : undefined}>
           {snapshot.runners.map((runner, i) => (
             <section key={i} aria-label={runner.name || `Player ${i + 1}`}>
               <h2>{runner.name || `Player ${i + 1}`}</h2>
@@ -257,8 +263,13 @@ export default function TrackPage() {
                 icons={BOSSES}
                 greyed={runner.bossesGreyed}
                 badges={Object.fromEntries(Object.entries(snapshot.bossBadges).map(([id, n]) => [id, snapshot.bossBadgeLabels[n]]))}
-                onToggle={(id) => clientRef.current?.send({ type: "toggleBoss", runner: i, id })}
-                onRightClick={(id) => clientRef.current?.send({ type: "cycleBossBadge", id })}
+                onToggle={(id) => clientRef.current?.send({ type: "toggleBoss", runner: i, id, greyed: !runner.bossesGreyed.includes(id) })}
+                onRightClick={(id) => {
+                  // Send the badge to show, not "next", so a laggy double click can't skip one
+                  const current = snapshot.bossBadges[id]
+                  const value = current === undefined ? 0 : current >= snapshot.bossBadgeLabels.length - 1 ? null : current + 1
+                  clientRef.current?.send({ type: "setBossBadge", id, value })
+                }}
                 onMiddleClick={(id) => clientRef.current?.send({ type: "clearBossBadge", id })}
               />
               <IconGrid
@@ -266,7 +277,7 @@ export default function TrackPage() {
                 icons={ITEMS}
                 greyed={runner.itemsGreyed}
                 badges={snapshot.itemBadges}
-                onToggle={(id) => clientRef.current?.send({ type: "toggleItem", runner: i, id })}
+                onToggle={(id) => clientRef.current?.send({ type: "toggleItem", runner: i, id, greyed: !runner.itemsGreyed.includes(id) })}
                 onRightClick={(id) => setPicker(id)}
                 onMiddleClick={(id) => clientRef.current?.send({ type: "setItemBadge", id, value: null })}
               />

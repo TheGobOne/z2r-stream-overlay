@@ -3,6 +3,8 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ArcadeSky } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
+import { preload } from "react-dom"
+import { ZELDA_FONT } from "@/lib/fonts"
 
 const STORAGE_KEY = "z2r-starting-soon-quad"
 const OVERLAY_KEY = "z2r-overlay-state"
@@ -67,6 +69,7 @@ function NameInput({ slot, value, onChange, color }: { slot: Slot; value: string
 }
 
 export default function StartingSoonQuadPage() {
+  preload(ZELDA_FONT, { as: "font", type: "font/ttf", crossOrigin: "anonymous" })
   const [data, setData] = useState<Saved>({ p1: "", p2: "", p3: "", p4: "", line: "", title: "STARTING SOON" })
   const [pairs, setPairs] = useState(false)
   const [loaded, setLoaded] = useState(false)

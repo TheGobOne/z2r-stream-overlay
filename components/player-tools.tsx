@@ -320,7 +320,8 @@ export function PlayerTools({
           <CropPreview key={`${index}-${player.config.loadKey}`} player={player} fill={fillCrop} onDone={() => setCropMode(false)} />
         ) : (
           <VodPanel
-            key={index}
+            // Remount when the video changes from outside (racetime import, Swap slots, Clear), so the draft URL follows
+            key={`${index}-${player.config.loadKey}-${player.config.url}`}
             inline
             side={`${id}-${index}`}
             defaultZoom={defaultZoom}

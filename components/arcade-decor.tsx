@@ -1,3 +1,4 @@
+import { memo } from "react"
 import type { WindowRect } from "@/lib/vod"
 
 export const ARCADE_P1 = "#FF4040"
@@ -53,7 +54,7 @@ export function ArcadeFrame({ box, color, pad = 6 }: { box: { left: number; top:
 }
 
 /** Starfield and striped bars only, for layouts that draw their own frames. */
-export function ArcadeSky() {
+export const ArcadeSky = memo(function ArcadeSky() {
   return (
     <>
       <svg className="arcade-sky" viewBox="0 0 1456 816" width="1456" height="816" shapeRendering="crispEdges" aria-hidden="true">
@@ -65,10 +66,10 @@ export function ArcadeSky() {
       <div className="arcade-stripes" style={{ top: 807, transform: "scaleY(-1)" }} aria-hidden="true" />
     </>
   )
-}
+})
 
 /** Background, stripes and frames for the Arcade theme's 2-runner layout. Everything here sits behind the videos. */
-export function ArcadeDecor({ windows }: { windows: Record<"left" | "right", WindowRect> }) {
+export const ArcadeDecor = memo(function ArcadeDecor({ windows }: { windows: Record<"left" | "right", WindowRect> }) {
   return (
     <div className="arcade-decor" aria-hidden="true">
       <svg className="arcade-sky" viewBox="0 0 1456 816" width="1456" height="816" shapeRendering="crispEdges">
@@ -84,4 +85,4 @@ export function ArcadeDecor({ windows }: { windows: Record<"left" | "right", Win
       <ArcadeFrame box={ARCADE_TRACKERS.right} color={ARCADE_P2} pad={0} />
     </div>
   )
-}
+})

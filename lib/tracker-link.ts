@@ -19,17 +19,23 @@ export type TrackerSnapshot = {
   /** Rows of badge choices offered for an item. */
   badgeOptions: string[][]
 }
+/** `greyed` (when sent) is the state the helper wants, so repeated or crossing clicks don't undo each other. */
 export type TrackerAction =
-  | { type: "toggleBoss"; runner: number; id: string }
-  | { type: "toggleItem"; runner: number; id: string }
+  | { type: "toggleBoss"; runner: number; id: string; greyed?: boolean }
+  | { type: "toggleItem"; runner: number; id: string; greyed?: boolean }
   | { type: "cycleBossBadge"; id: string }
   | { type: "clearBossBadge"; id: string }
+  | { type: "setBossBadge"; id: string; value: number | null }
   | { type: "setItemBadge"; id: string; value: string | null }
 
 type Message = { kind: "snapshot"; snapshot: TrackerSnapshot } | { kind: "action"; action: TrackerAction }
 
 const PEER_PREFIX = "z2r-restream-"
 const ACTIONS_PER_SECOND = 20
+/** More helpers than a race needs; extra connections are refused. */
+const MAX_TRACKERS = 8
+/** The signalling server normally answers in well under a second. */
+const PEER_OPEN_TIMEOUT_MS = 15_000
 
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === "string")
 
@@ -118,6 +124,11 @@ async function createPeer(id?: string): Promise<PeerType> {
     }
     peer.once("open", onOpen)
     peer.once("error", onError)
+    // A hung signalling socket would otherwise leave the UI "busy" until the browser gives up
+    window.setTimeout(() => {
+      if (peer.open || peer.destroyed) return
+      onError({ type: "network" })
+    }, PEER_OPEN_TIMEOUT_MS)
   })
   return peer
 }
@@ -127,6 +138,7 @@ export type TrackerHost = { broadcast: (snapshot: TrackerSnapshot) => void; stop
 /** Signalling server trouble: the peer and its open tracker links survive, only new joins wait. */
 const RECOVERABLE_ERRORS = new Set(["network", "server-error", "socket-error", "socket-closed", "disconnected", "unavailable-id"])
 const RECONNECT_MS = 5000
+const MAX_RECONNECT_MS = 60_000
 
 /** Lets trackers join this overlay under `code`. `onLost` fires if sharing stops for good. */
 export async function hostTrackers(
@@ -140,15 +152,20 @@ export async function hostTrackers(
   let latest: TrackerSnapshot | null = null
   let stopped = false
 
+  // One shared budget for all helpers, so opening more connections can't multiply it
+  let tokens = ACTIONS_PER_SECOND
+  let refilledAt = Date.now()
   peer.on("connection", (conn) => {
+    if (connections.size >= MAX_TRACKERS) {
+      conn.on("open", () => conn.close())
+      return
+    }
     conn.on("open", () => {
       connections.add(conn)
       onCount(connections.size)
       if (latest) conn.send({ kind: "snapshot", snapshot: latest } satisfies Message)
     })
     // A helper can't send more than ACTIONS_PER_SECOND; extra actions are dropped
-    let tokens = ACTIONS_PER_SECOND
-    let refilledAt = Date.now()
     conn.on("data", (data) => {
       const message = data as Message
       if (message?.kind !== "action") return
@@ -167,20 +184,31 @@ export async function hostTrackers(
     conn.on("error", drop)
   })
   // The signalling link drops now and then; existing tracker links keep working, new joins need it back.
-  // A failed reconnect reports an error and stays disconnected, so keep retrying.
+  // Each failed attempt waits longer (5 s doubling to 60 s), so an outage can't turn into a tight loop.
   let retry: number | undefined
+  let delay = RECONNECT_MS
   const reconnect = () => {
     if (stopped || peer.destroyed || !peer.disconnected) return
     try {
       peer.reconnect()
     } catch {}
   }
-  peer.on("disconnected", reconnect)
+  const scheduleReconnect = () => {
+    if (stopped || retry !== undefined) return
+    retry = window.setTimeout(() => {
+      retry = undefined
+      reconnect()
+    }, delay)
+    delay = Math.min(delay * 2, MAX_RECONNECT_MS)
+  }
+  peer.on("open", () => {
+    delay = RECONNECT_MS
+  })
+  peer.on("disconnected", scheduleReconnect)
   peer.on("error", (error) => {
     if (stopped) return
     if (RECOVERABLE_ERRORS.has(error.type)) {
-      window.clearTimeout(retry)
-      retry = window.setTimeout(reconnect, RECONNECT_MS)
+      scheduleReconnect()
       return
     }
     // One tracker's link failed; its own close/error handlers drop it
@@ -215,6 +243,8 @@ export async function joinTracker(
   code: string,
   onSnapshot: (snapshot: TrackerSnapshot) => void,
   onClose: () => void,
+  /** True while the link is interrupted (ICE "disconnected"); Chrome takes ~30 s before it closes for good. */
+  onUnstable?: (unstable: boolean) => void,
 ): Promise<TrackerClient> {
   const peer = await createPeer()
   const conn = peer.connect(PEER_PREFIX + code, { reliable: true })
@@ -241,6 +271,7 @@ export async function joinTracker(
     const message = data as Message
     if (message?.kind === "snapshot" && isSnapshot(message.snapshot)) onSnapshot(message.snapshot)
   })
+  conn.on("iceStateChanged", (state) => onUnstable?.(state === "disconnected" || state === "failed"))
   conn.on("close", onClose)
   return {
     send(action) {

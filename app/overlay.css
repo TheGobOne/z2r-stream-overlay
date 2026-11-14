@@ -538,7 +538,6 @@ html, body {
 }
 
 .commentary-input:focus {
-  border-color: #7ef5ff;
   color: #7ef5ff;
 }
 
@@ -594,7 +593,6 @@ html, body {
 }
 
 .tracking-input:focus {
-  border-color: #7ef5ff;
   color: #7ef5ff;
 }
 
@@ -922,7 +920,7 @@ html, body {
   color: #FFE040;
 }
 .vod-audio svg { display: block; }
-.vod-audio-muted { color: #55557A; }
+.vod-audio-muted { color: #8A8AA8; }
 .vod-audio-muted:hover { color: #FFE040; }
 .vod-audio:focus-visible { outline: 2px solid #FF4040; outline-offset: 2px; }
 
@@ -1125,6 +1123,9 @@ body:has(.vod-crop-backdrop) .vod-audio {
 
 .tools {
   box-sizing: border-box;
+  /* The popup's body is a centered flex box from this sheet's html/body rule; fill it */
+  width: 100%;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 20px;

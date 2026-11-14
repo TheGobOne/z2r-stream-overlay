@@ -153,10 +153,6 @@ export function frameInWindow(win: WindowRect, config: View & { crop?: VideoRect
   return { left: win.width / 2 - config.centerX * width, top: win.height / 2 - config.centerY * height, width, height }
 }
 
-// While picking a crop, the player temporarily grows to the largest 16:9 area of the 1456x816 stage
-const FOCUS_WIDTH = (816 * 16) / 9
-export const CROP_FOCUS_WINDOW: WindowRect = { left: (1456 - FOCUS_WIDTH) / 2, top: 0, width: FOCUS_WIDTH, height: 816 }
-export const CROP_FOCUS_LAYOUT: VodFrameLayout = { ...frameInWindow(CROP_FOCUS_WINDOW, UNCROPPED_VIEW), onTop: true }
 
 function frameFor(side: VodSide, config: VodConfig, windows: Record<VodSide, WindowRect>) {
   const win = windows[side]
@@ -290,6 +286,12 @@ export type VodSource =
 
 /** Tries Twitch first (VOD, channel, or bare id), then YouTube (VOD links only). */
 export function parseVodSource(input: string): VodSource | null {
+  // Twitch channel names are case-insensitive words; an 11-character id with upper and lower case is a YouTube video
+  const bare = input.trim()
+  if (/^[a-zA-Z0-9_-]{11}$/.test(bare) && /[a-z]/.test(bare) && /[A-Z]/.test(bare)) {
+    const youtube = parseYouTubeSource(`https://youtu.be/${bare}`)
+    if (youtube) return { platform: "youtube", ...youtube }
+  }
   const twitch = parseTwitchSource(input)
   if (twitch) return { platform: "twitch", ...twitch }
   const youtube = parseYouTubeSource(input)

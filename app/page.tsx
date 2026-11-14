@@ -23,6 +23,8 @@ import { ARCADE_WINDOWS, createVodConfig, hasSource, resolveVodLayouts, VOD_WIND
 import { ArcadeDecor } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
 import "./overlay.css"
+import { preload } from "react-dom"
+import { ZELDA_FONT } from "@/lib/fonts"
 
 const STATE_STORAGE_KEY = "z2r-overlay-state"
 const TIMER_STORAGE_KEY = "z2r-overlay-timer"
@@ -59,17 +61,25 @@ function TimerText({
   const read = () => (running ? (startRef.current ? accRef.current + (Date.now() - startRef.current) : accRef.current) : pausedMs)
   const [text, setText] = useState(() => formatTimer(read()))
   useEffect(() => {
-    setText(formatTimer(read()))
     if (!running) return
-    // Check often for a crisp second boundary; React skips the render when the text is unchanged
-    const id = window.setInterval(() => setText(formatTimer(read())), 100)
-    return () => window.clearInterval(id)
+    // Wake once per shown second, just after the displayed value changes
+    let id = 0
+    const tick = () => {
+      const ms = read()
+      setText(formatTimer(ms))
+      const into = Math.abs(ms) % 1000
+      id = window.setTimeout(tick, (ms >= 0 ? 1000 - into : into || 1000) + 5)
+    }
+    tick()
+    return () => window.clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running, pausedMs])
-  return <>{text}</>
+  }, [running])
+  // Stopped or paused: straight from props, so pausing never paints a stale value
+  return <>{running ? text : formatTimer(pausedMs)}</>
 }
 
 export default function StreamOverlay() {
+  preload(ZELDA_FONT, { as: "font", type: "font/ttf", crossOrigin: "anonymous" })
   const [leftText, setLeftText] = useState("")
   const [rightText, setRightText] = useState("")
   const [leftFontSize, setLeftFontSize] = useState(18)
@@ -240,7 +250,6 @@ export default function StreamOverlay() {
   const [timerMs, setTimerMs] = useState(0)
   const [timerEditOpen, setTimerEditOpen] = useState(false)
   const [timerEditValue, setTimerEditValue] = useState("0:00:00")
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const timerStartRef = useRef<number>(0)
   const timerAccRef = useRef<number>(0)
   const hydratedRef = useRef(false)
@@ -249,7 +258,6 @@ export default function StreamOverlay() {
     if (timerPhase === 1) {
       timerStartRef.current = Date.now()
     } else {
-      if (timerRef.current) clearInterval(timerRef.current)
       if (timerPhase === 2 && timerStartRef.current) {
         // Fold in the time since the last tick so pausing doesn't drop up to 100ms
         timerAccRef.current += Date.now() - timerStartRef.current
@@ -259,7 +267,6 @@ export default function StreamOverlay() {
       if (timerPhase === 0) { timerAccRef.current = 0; timerStartRef.current = 0; setTimerMs(0) }
     }
     saveTimer()
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [timerPhase])
 
   /** Pass the phase when it was just set: this render's `timerPhase` is still the old one. */
@@ -276,6 +283,12 @@ export default function StreamOverlay() {
   function handleTimerClick() {
     // Left click toggles: stopped or paused -> running, running -> paused. Middle click resets.
     const next = timerPhase === 1 ? 2 : 1
+    if (next === 2 && timerStartRef.current) {
+      // Fold the running time in now, so the paused value renders together with the pause
+      timerAccRef.current += Date.now() - timerStartRef.current
+      timerStartRef.current = 0
+      setTimerMs(timerAccRef.current)
+    }
     setTimerPhase(next)
     if (linkVodsToTimer) {
       if (runnerCount !== 2) {
@@ -304,7 +317,6 @@ export default function StreamOverlay() {
 
   function handleTimerRightClick(e: React.MouseEvent) {
     e.preventDefault()
-    if (timerRef.current) clearInterval(timerRef.current)
     setTimerPhase(0)
     timerAccRef.current = 0
     timerStartRef.current = 0
@@ -548,9 +560,25 @@ export default function StreamOverlay() {
     if (known.length > 0) racetimeRunnersRef.current = reorder(Array.from({ length: Math.max(known.length, order.length) }, (_, i) => known[i]))
   }
 
+  /** 2 runners: trade sides completely (name, video, trackers, place, series wins), not just the names. */
   function swapRacetimeRunners() {
-    racetimeRunnersRef.current = [...racetimeRunnersRef.current].reverse()
-    applyRunners(racetimeRunnersRef.current)
+    const known = racetimeRunnersRef.current
+    racetimeRunnersRef.current = [known[1], known[0], ...known.slice(2)]
+    const [l, r] = [leftText, rightText]
+    handleLeftTextChange(r)
+    handleRightTextChange(l)
+    const [ld, rd, lc, rc] = [leftDefeated, rightDefeated, leftCollected, rightCollected]
+    setLeftDefeated(rd)
+    setRightDefeated(ld)
+    setLeftCollected(rc)
+    setRightCollected(lc)
+    setVods((prev) => ({ left: prev.right, right: prev.left }))
+    setPlacements((prev) => [prev[1], prev[0], ...prev.slice(2)])
+    setSeriesWins((prev) => {
+      const next = [prev[1], prev[0], ...prev.slice(2)]
+      saveSeries(seriesBestOf, next)
+      return next
+    })
   }
 
   function unlinkRacetime() {
@@ -570,6 +598,8 @@ export default function StreamOverlay() {
         if (stopped) return
         setRacetimeError("")
         syncRaceRef.current(race)
+        // Finished or cancelled: places and the clock won't change again
+        if (race.over) return
       } catch (error) {
         if (!stopped) setRacetimeError(error instanceof Error ? error.message : "Lost the connection to racetime.gg")
       }
@@ -739,7 +769,6 @@ export default function StreamOverlay() {
     saveSeries(seriesBestOf, [0, 0, 0, 0])
     setVods({ left: createVodConfig(), right: createVodConfig() })
     setClearCount((n) => n + 1)
-    if (timerRef.current) clearInterval(timerRef.current)
     setTimerPhase(0)
     timerAccRef.current = 0
     timerStartRef.current = 0
@@ -797,9 +826,12 @@ export default function StreamOverlay() {
     itemBadges,
     badgeOptions: [CODE_OPTIONS, NUMBER_OPTIONS, LETTER_OPTIONS.filter((o) => !o.clear).map((o) => o.label)],
   }
-  const trackerSnapshotJson = JSON.stringify(trackerSnapshot)
+  // Nobody reads it while sharing is off, so skip the work
+  const trackerSnapshotJson = trackerSharing ? JSON.stringify(trackerSnapshot) : ""
   useEffect(() => {
-    trackerHostRef.current?.broadcast(JSON.parse(trackerSnapshotJson))
+    if (trackerSnapshotJson) trackerHostRef.current?.broadcast(trackerSnapshot)
+    // trackerSnapshotJson changes exactly when the snapshot does
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackerSnapshotJson, trackerSharing])
 
   /** Anyone holding the join code can send anything, so only well-formed actions on known ids get through. */
@@ -811,12 +843,14 @@ export default function StreamOverlay() {
     const runnerOk = typeof a.runner === "number" && Number.isInteger(a.runner) && a.runner >= 0 && a.runner < runnerCount
     switch (a.type) {
       case "toggleBoss":
-        return isBoss && runnerOk
+        return isBoss && runnerOk && (a.greyed === undefined || typeof a.greyed === "boolean")
       case "toggleItem":
-        return isItem && runnerOk
+        return isItem && runnerOk && (a.greyed === undefined || typeof a.greyed === "boolean")
       case "cycleBossBadge":
       case "clearBossBadge":
         return isBoss
+      case "setBossBadge":
+        return isBoss && (a.value === null || (Number.isInteger(a.value) && (a.value as number) >= 0 && (a.value as number) < BOSS_BADGES.length))
       case "setItemBadge":
         return isItem && (a.value === null || (typeof a.value === "string" && trackerSnapshot.badgeOptions.some((row) => row.includes(a.value as string))))
       default:
@@ -831,7 +865,24 @@ export default function StreamOverlay() {
       return action.type === "cycleBossBadge" ? cycleBadge(action.id) : clearBossBadge(action.id)
     }
     if (action.type === "setItemBadge") return setItemBadge(action.id, action.value)
-    const { type, runner, id } = action
+    if (action.type === "setBossBadge") {
+      const { id, value } = action
+      return setBossBadges((prev) => {
+        const next = { ...prev }
+        if (value === null) delete next[id]
+        else next[id] = value
+        return next
+      })
+    }
+    const { type, runner, id, greyed } = action
+    // `greyed` says what the helper wants; skip if it's already that way, so two helpers can't cancel out
+    if (greyed !== undefined) {
+      const sets =
+        runnerCount === 2
+          ? type === "toggleBoss" ? [leftDefeated, rightDefeated] : [leftCollected, rightCollected]
+          : type === "toggleBoss" ? quadNotDefeated : quadNotCollected
+      if ((sets[runner]?.has(id) ?? false) === greyed) return
+    }
     if (runnerCount === 2) {
       if (type === "toggleBoss") (runner === 0 ? toggleLeftBoss : toggleRightBoss)(id)
       else (runner === 0 ? toggleLeftItem : toggleRightItem)(id)
@@ -854,7 +905,10 @@ export default function StreamOverlay() {
     try {
       for (;;) {
         try {
-          const host = await hostTrackers(code, (action) => trackerActionRef.current(action), setTrackerCount, (message) => {
+          const onCount = (n: number) => {
+            if (gen === shareGenRef.current) setTrackerCount(n)
+          }
+          const host = await hostTrackers(code, (action) => trackerActionRef.current(action), onCount, (message) => {
             if (trackerHostRef.current !== host) return
             trackerHostRef.current = null
             setTrackerSharing(false)
@@ -893,6 +947,7 @@ export default function StreamOverlay() {
 
   function stopTrackerSharing() {
     shareGenRef.current++
+    setTrackerCount(0)
     shareBusyRef.current = false
     setTrackerBusy(false)
     trackerHostRef.current?.stop()
@@ -1042,9 +1097,19 @@ export default function StreamOverlay() {
         if (Array.isArray(saved.rightDefeated)) setRightDefeated(new Set(saved.rightDefeated))
         if (Array.isArray(saved.leftCollected)) setLeftCollected(new Set(saved.leftCollected))
         if (Array.isArray(saved.rightCollected)) setRightCollected(new Set(saved.rightCollected))
-        if (saved.bossBadges) setBossBadges(saved.bossBadges)
-        if (saved.itemBadges) setItemBadges(saved.itemBadges)
-        if (Array.isArray(saved.placements)) setPlacements(saved.placements)
+        // Saved data may be old or hand-edited; bad values would make every remote tracker reject the state
+        if (saved.bossBadges && typeof saved.bossBadges === "object") {
+          setBossBadges(Object.fromEntries(Object.entries(saved.bossBadges).filter(([id, n]) =>
+            BOSSES.some((boss) => boss.id === id) && Number.isInteger(n) && (n as number) >= 0 && (n as number) < BOSS_BADGES.length)) as Record<string, number>)
+        }
+        if (saved.itemBadges && typeof saved.itemBadges === "object") {
+          setItemBadges(Object.fromEntries(Object.entries(saved.itemBadges).filter(([id, v]) =>
+            ITEMS.some((item) => item.id === id) && typeof v === "string")) as Record<string, string>)
+        }
+        if (Array.isArray(saved.placements)) {
+          const valid = (p: unknown): p is Place => p === "dnf" || p === 1 || p === 2 || p === 3 || p === 4
+          setPlacements(Array.from({ length: 4 }, (_, i) => (valid(saved.placements[i]) ? saved.placements[i] : null)))
+        }
         if (saved.vods?.left && saved.vods?.right) {
           setVods({ left: { ...createVodConfig(), ...saved.vods.left }, right: { ...createVodConfig(), ...saved.vods.right } })
         }
@@ -1082,8 +1147,20 @@ export default function StreamOverlay() {
     }
   }, [])
 
+  // Saving serializes everything, so wait for a pause in typing; pagehide flushes the last change
+  const pendingSaveRef = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    const flush = () => pendingSaveRef.current?.()
+    window.addEventListener("pagehide", flush)
+    return () => {
+      window.removeEventListener("pagehide", flush)
+      flush()
+    }
+  }, [])
   useEffect(() => {
     if (!hydrated) return
+    const save = () => {
+      pendingSaveRef.current = null
     try {
       localStorage.setItem(
         STATE_STORAGE_KEY,
@@ -1101,6 +1178,10 @@ export default function StreamOverlay() {
         }),
       )
     } catch {}
+    }
+    pendingSaveRef.current = save
+    const id = window.setTimeout(save, 300)
+    return () => window.clearTimeout(id)
   }, [
     hydrated, leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
     runnerCount, quadPairs, commentatorCount, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
@@ -1129,6 +1210,73 @@ export default function StreamOverlay() {
     if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
   }
+
+  // Operator popups. With the tools window open they render there, so viewers never see them
+  // and nothing covers a live Twitch player on the overlay.
+  const operatorPopups = (
+    <>
+      {timerEditOpen && (
+          <div className="timer-edit-backdrop" onClick={() => setTimerEditOpen(false)}>
+            <div
+              className="timer-edit-box"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="timer-edit-title"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.key === "Escape" && setTimerEditOpen(false)}
+            >
+              <p id="timer-edit-title" className="timer-edit-title">Set start time</p>
+              <input
+                className="timer-edit-input"
+                value={timerEditValue}
+                onChange={(e) => setTimerEditValue(e.target.value)}
+                placeholder="0:00:00"
+                spellCheck={false}
+                autoFocus
+                aria-invalid={timerEditInvalid}
+                aria-describedby={timerEditInvalid ? "timer-edit-error" : undefined}
+                style={timerEditInvalid ? { outline: "2px solid #db2800" } : undefined}
+                onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
+              />
+              {timerEditInvalid && (
+                <p id="timer-edit-error" className="timer-edit-error" role="alert">
+                  Use h:mm:ss, m:ss or seconds
+                </p>
+              )}
+              <div className="timer-edit-actions">
+                <button type="button" className="timer-edit-btn timer-edit-cancel" onClick={() => setTimerEditOpen(false)}>Cancel</button>
+                <button type="button" className="timer-edit-btn" onClick={applyTimerEdit} disabled={timerEditInvalid}>Set</button>
+              </div>
+            </div>
+          </div>
+      )}
+      {gemPopupOpen && (
+          <div className="gem-modal-backdrop" onClick={() => setGemPopupOpen(false)}>
+            <div
+              className="gem-modal-box"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="gem-modal-title"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.key === "Escape" && setGemPopupOpen(false)}
+            >
+              <p id="gem-modal-title" className="gem-modal-title">How many gems?</p>
+              <div className="gem-modal-options">
+                {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    className={`gem-modal-opt${gemCount === n ? " selected" : ""}`}
+                    onClick={() => { setGemCount(n); setGemPopupOpen(false) }}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+      )}
+    </>
+  )
 
   return (
     <>
@@ -1307,33 +1455,6 @@ export default function StreamOverlay() {
           <span className="gem-count">{gemCount}</span>
         )}
         </>)}
-
-        {/* Gem count popup */}
-        {gemPopupOpen && (
-          <div className="gem-modal-backdrop" onClick={() => setGemPopupOpen(false)}>
-            <div
-              className="gem-modal-box"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="gem-modal-title"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.key === "Escape" && setGemPopupOpen(false)}
-            >
-              <p id="gem-modal-title" className="gem-modal-title">How many gems?</p>
-              <div className="gem-modal-options">
-                {[0, 1, 2, 3, 4, 5, 6].map((n) => (
-                  <button
-                    key={n}
-                    className={`gem-modal-opt${gemCount === n ? " selected" : ""}`}
-                    onClick={() => { setGemCount(n); setGemPopupOpen(false) }}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Initial setup popup */}
         {setupOpen && (
@@ -1550,7 +1671,7 @@ export default function StreamOverlay() {
                 busy={racetimeBusy}
                 onImport={importRacetime}
                 onUnlink={unlinkRacetime}
-                onSwap={swapRacetimeRunners}
+                onSwap={runnerCount === 2 ? swapRacetimeRunners : undefined}
               />
                     ),
                   },
@@ -1631,45 +1752,10 @@ export default function StreamOverlay() {
                 ]}
               />
             </main>
+            {operatorPopups}
           </ToolsWindowPortal>
         )}
-
-        {/* Timer edit popup */}
-        {timerEditOpen && (
-          <div className="timer-edit-backdrop" onClick={() => setTimerEditOpen(false)}>
-            <div
-              className="timer-edit-box"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="timer-edit-title"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.key === "Escape" && setTimerEditOpen(false)}
-            >
-              <p id="timer-edit-title" className="timer-edit-title">Set start time</p>
-              <input
-                className="timer-edit-input"
-                value={timerEditValue}
-                onChange={(e) => setTimerEditValue(e.target.value)}
-                placeholder="0:00:00"
-                spellCheck={false}
-                autoFocus
-                aria-invalid={timerEditInvalid}
-                aria-describedby={timerEditInvalid ? "timer-edit-error" : undefined}
-                style={timerEditInvalid ? { outline: "2px solid #db2800" } : undefined}
-                onKeyDown={(e) => e.key === "Enter" && applyTimerEdit()}
-              />
-              {timerEditInvalid && (
-                <p id="timer-edit-error" className="timer-edit-error" role="alert">
-                  Use h:mm:ss, m:ss or seconds
-                </p>
-              )}
-              <div className="timer-edit-actions">
-                <button type="button" className="timer-edit-btn timer-edit-cancel" onClick={() => setTimerEditOpen(false)}>Cancel</button>
-                <button type="button" className="timer-edit-btn" onClick={applyTimerEdit} disabled={timerEditInvalid}>Set</button>
-              </div>
-            </div>
-          </div>
-        )}
+        {!toolsWin && operatorPopups}
 
         {runnerCount === 2 && (<>
         {/* Left editable text box */}

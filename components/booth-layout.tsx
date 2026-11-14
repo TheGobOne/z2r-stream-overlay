@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react"
+import { createPortal } from "react-dom"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from "react"
 
 const STORAGE_KEY = "z2r-booth-layout"
 
@@ -61,7 +62,9 @@ function moveTo(layout: Layout, id: string, column: Column, index: number): Layo
 /**
  * Two columns of panels. Panels drag between and within columns, collapse to their header,
  * and the arrangement is saved in this browser's localStorage (one layout per booth machine).
- * Collapsed panels stay mounted but hidden, so the live preview keeps running.
+ * Collapsed panels stay mounted but hidden, so the live preview keeps running. Each panel's content
+ * renders into its own long-lived host element that moves with the panel, so dragging a panel to the
+ * other column keeps its state too (a screen capture, a crop in progress).
  */
 export function BoothLayout({ panels }: { panels: BoothPanelDef[] }) {
   const ids = panels.map((p) => p.id)
@@ -71,6 +74,25 @@ export function BoothLayout({ panels }: { panels: BoothPanelDef[] }) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [drop, setDrop] = useState<{ column: Column; index: number } | null>(null)
   const columns = useRef<Record<Column, HTMLDivElement | null>>({ left: null, right: null })
+  const [hosts, setHosts] = useState<Record<string, HTMLDivElement>>({})
+
+  // One host per panel, created in the document this layout renders into (the tools popup)
+  useLayoutEffect(() => {
+    const doc = columns.current.left?.ownerDocument
+    if (!doc) return
+    setHosts((prev) => {
+      const missing = ids.filter((id) => !prev[id] || prev[id].ownerDocument !== doc)
+      if (missing.length === 0) return prev
+      const next = { ...prev }
+      for (const id of missing) {
+        const host = doc.createElement("div")
+        host.className = "booth-panel-host"
+        next[id] = host
+      }
+      return next
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey])
 
   useEffect(() => {
     setLayout(readLayout(ids))
@@ -194,9 +216,14 @@ export function BoothLayout({ panels }: { panels: BoothPanelDef[] }) {
               {collapsed ? "+" : "-"}
             </button>
           </header>
-          <div className="booth-panel-body" hidden={collapsed}>
-            {panel.node}
-          </div>
+          <div
+            className="booth-panel-body"
+            hidden={collapsed}
+            ref={(el) => {
+              const host = hosts[panel.id]
+              if (el && host && host.parentElement !== el) el.appendChild(host)
+            }}
+          />
         </section>,
       )
     })
@@ -216,6 +243,7 @@ export function BoothLayout({ panels }: { panels: BoothPanelDef[] }) {
         Reset layout
       </button>
     </div>
+    {panels.map((panel) => (hosts[panel.id] ? createPortal(panel.node, hosts[panel.id], panel.id) : null))}
     <div className="booth-grid">
       {(["left", "right"] as const).map((column) => (
         <div

@@ -221,7 +221,7 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
       cancelled = true
       playerRef.current = null
       readyRef.current = false
-      pendingPlayRef.current = false
+      // Keep pendingPlayRef: a play() asked for just before a reload (racetime import) applies to the new player
       setStarting(false)
       host.replaceChildren()
     }

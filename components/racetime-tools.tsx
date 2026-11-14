@@ -11,7 +11,8 @@ type Props = {
   busy: boolean
   onImport: (input: string) => void
   onUnlink: () => void
-  onSwap: () => void
+  /** 2 runners only; 3 and 4 runner layouts move runners with Swap slots in Videos. */
+  onSwap?: () => void
 }
 
 export function RacetimeTools({ room, summary, error, busy, onImport, onUnlink, onSwap }: Props) {
@@ -46,9 +47,11 @@ export function RacetimeTools({ room, summary, error, busy, onImport, onUnlink, 
           </button>
           {room && (
             <>
-              <button type="button" className="vod-btn" onClick={onSwap}>
-                Swap sides
-              </button>
+              {onSwap && (
+                <button type="button" className="vod-btn" onClick={onSwap}>
+                  Swap sides
+                </button>
+              )}
               <button type="button" className="vod-btn" onClick={onUnlink}>
                 Unlink
               </button>

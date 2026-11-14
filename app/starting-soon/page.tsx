@@ -3,6 +3,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ArcadeSky } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
+import { preload } from "react-dom"
+import { ZELDA_FONT } from "@/lib/fonts"
 
 const STORAGE_KEY = "z2r-starting-soon"
 const OVERLAY_KEY = "z2r-overlay-state"
@@ -31,6 +33,7 @@ function readSaved(): Saved {
 }
 
 export default function StartingSoonPage() {
+  preload(ZELDA_FONT, { as: "font", type: "font/ttf", crossOrigin: "anonymous" })
   const [data, setData] = useState<Saved>({ p1: "", p2: "", line: "", title: "STARTING SOON" })
   const [loaded, setLoaded] = useState(false)
   const [scale, setScale] = useState(1)
