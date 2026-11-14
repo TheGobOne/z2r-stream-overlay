@@ -93,10 +93,13 @@ export default function StreamOverlay() {
 
   const [setupOpen, setSetupOpen] = useState(true)
   const [commentatorCount, setCommentatorCount] = useState<1 | 2>(2)
+  const [tracking2, setTracking2] = useState("")
+  const [creditTrackers, setCreditTrackers] = useState<1 | 2>(1)
   const [isMaxRando, setIsMaxRando] = useState(false)
   // Arcade is the only look for now; the Classic brick art is still in the code for when it's wanted back
   const [theme] = useState<"classic" | "arcade">("arcade")
   const [draftCommentatorCount, setDraftCommentatorCount] = useState<1 | 2>(2)
+  const [draftTrackerCount, setDraftTrackerCount] = useState<1 | 2>(1)
   const [draftMaxRando, setDraftMaxRando] = useState(false)
   const [runnerCount, setRunnerCount] = useState<2 | 3 | 4>(2)
   const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 3 | 4>(2)
@@ -171,6 +174,12 @@ export default function StreamOverlay() {
     if (n === 1) setCommentator2("")
   }
 
+  function applyTrackerCount(n: 1 | 2) {
+    setCreditTrackers(n)
+    setDraftTrackerCount(n)
+    if (n === 1) setTracking2("")
+  }
+
   function applyMaxRando(value: boolean) {
     setIsMaxRando(value)
     setDraftMaxRando(value)
@@ -179,6 +188,7 @@ export default function StreamOverlay() {
   function confirmSetup() {
     applyRunnerCount(draftRunnerCount)
     applyCommentatorCount(draftCommentatorCount)
+    applyTrackerCount(draftTrackerCount)
     applyMaxRando(draftMaxRando)
     if (showTools()) setSetupOpen(false)
   }
@@ -188,6 +198,7 @@ export default function StreamOverlay() {
     e.preventDefault()
     if (showTools()) return
     setDraftCommentatorCount(commentatorCount)
+    setDraftTrackerCount(creditTrackers)
     setDraftMaxRando(isMaxRando)
     setDraftRunnerCount(runnerCount)
     setSetupOpen(true)
@@ -748,6 +759,7 @@ export default function StreamOverlay() {
     setCommentator1("")
     setCommentator2("")
     setTracking("")
+    setTracking2("")
     setRaceInfo("")
     setGemCount(null)
     setLeftDefeated(new Set(BOSSES.map((b) => b.id)))
@@ -1078,6 +1090,11 @@ export default function StreamOverlay() {
         if (typeof saved.commentator1 === "string") setCommentator1(saved.commentator1)
         if (typeof saved.commentator2 === "string") setCommentator2(saved.commentator2)
         if (typeof saved.tracking === "string") setTracking(saved.tracking)
+        if (typeof saved.tracking2 === "string") setTracking2(saved.tracking2)
+        if (saved.creditTrackers === 1 || saved.creditTrackers === 2) {
+          setCreditTrackers(saved.creditTrackers)
+          setDraftTrackerCount(saved.creditTrackers)
+        }
         if (typeof saved.raceInfo === "string") setRaceInfo(saved.raceInfo)
         if (typeof saved.gemCount === "number") setGemCount(saved.gemCount)
         if (saved.runnerCount === 2 || saved.runnerCount === 3 || saved.runnerCount === 4) {
@@ -1165,8 +1182,8 @@ export default function StreamOverlay() {
       localStorage.setItem(
         STATE_STORAGE_KEY,
         JSON.stringify({
-          leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
-          runnerCount, quadPairs, commentatorCount, isMaxRando,
+          leftText, rightText, commentator1, commentator2, tracking, tracking2, raceInfo, gemCount,
+          runnerCount, quadPairs, commentatorCount, creditTrackers, isMaxRando,
           leftDefeated: [...leftDefeated], rightDefeated: [...rightDefeated],
           leftCollected: [...leftCollected], rightCollected: [...rightCollected],
           bossBadges, itemBadges, placements, vods, linkVodsToTimer,
@@ -1183,8 +1200,8 @@ export default function StreamOverlay() {
     const id = window.setTimeout(save, 300)
     return () => window.clearTimeout(id)
   }, [
-    hydrated, leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
-    runnerCount, quadPairs, commentatorCount, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
+    hydrated, leftText, rightText, commentator1, commentator2, tracking, tracking2, raceInfo, gemCount,
+    runnerCount, quadPairs, commentatorCount, creditTrackers, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
     bossBadges, itemBadges, placements, vods, linkVodsToTimer,
     quadNames, quadVods, quadNotDefeated, quadNotCollected,
   ])
@@ -1375,6 +1392,18 @@ export default function StreamOverlay() {
                   spellCheck={false}
                   autoComplete="off"
                 />
+                {creditTrackers === 2 && (
+                  <input
+                    type="text"
+                    className="tracking-input quad-side-input"
+                    value={tracking2}
+                    onChange={(e) => setTracking2(e.target.value)}
+                    placeholder="TRACKING 2"
+                    aria-label="Tracking 2"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                )}
                 </div>
               ),
               status: (
@@ -1440,7 +1469,7 @@ export default function StreamOverlay() {
         <div className="transparent-overlay-right" />
 
         {/* Gem — click to set count (max rando only) */}
-        {isMaxRando && (
+        {theme !== "arcade" && isMaxRando && (
           <img
             src="/icons/s_gem_overlay_0.png"
             alt="Gem"
@@ -1451,7 +1480,7 @@ export default function StreamOverlay() {
         )}
 
         {/* Gem count display */}
-        {isMaxRando && gemCount !== null && (
+        {theme !== "arcade" && isMaxRando && gemCount !== null && (
           <span className="gem-count">{gemCount}</span>
         )}
         </>)}
@@ -1472,9 +1501,11 @@ export default function StreamOverlay() {
                 id="setup"
                 runnerCount={draftRunnerCount}
                 commentatorCount={draftCommentatorCount}
+                trackerCount={draftTrackerCount}
                 maxRando={draftMaxRando}
                 onRunnerCountChange={setDraftRunnerCount}
                 onCommentatorCountChange={setDraftCommentatorCount}
+                onTrackerCountChange={setDraftTrackerCount}
                 onMaxRandoChange={setDraftMaxRando}
                 pairs={quadPairs}
                 onPairsChange={setQuadPairs}
@@ -1524,63 +1555,93 @@ export default function StreamOverlay() {
         {/* Right-click anywhere in the center panel to reopen setup */}
         <div className="center-panel-hitbox" onContextMenu={reopenSetup} aria-hidden="true" />
 
-        {/* Commentary section */}
-        <div className="commentary-title">COMMENTARY</div>
-        <div className="commentary-container" onContextMenu={reopenSetup}>
-          <input
-            type="text"
-            className="commentary-input"
-            value={commentator1}
-            onChange={(e) => setCommentator1(e.target.value)}
-            placeholder="COM 1"
-            spellCheck={false}
-            autoComplete="off"
-          />
-          {commentatorCount === 2 && (
-            <input
-              type="text"
-              className="commentary-input"
-              value={commentator2}
-              onChange={(e) => setCommentator2(e.target.value)}
-              placeholder="COM 2"
-              spellCheck={false}
-              autoComplete="off"
-            />
+        {/* Commentary, tracking and race info as one block. In the Arcade layout the block is centered
+            vertically in the space between the tracker boxes, so 1 commentator and 1 tracker don't leave a gap. */}
+        <div className="credits-panel">
+          <div className="credits-row">
+            <div className="credit-col">
+              <div className="commentary-title">COMMENTARY</div>
+              <div className="commentary-container" onContextMenu={reopenSetup}>
+                <input
+                  type="text"
+                  className="commentary-input"
+                  value={commentator1}
+                  onChange={(e) => setCommentator1(e.target.value)}
+                  placeholder="COM 1"
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                {commentatorCount === 2 && (
+                  <input
+                    type="text"
+                    className="commentary-input"
+                    value={commentator2}
+                    onChange={(e) => setCommentator2(e.target.value)}
+                    placeholder="COM 2"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="credit-col">
+              <div className="tracking-title">TRACKING</div>
+              <div className="tracking-container" onContextMenu={reopenSetup}>
+                <input
+                  type="text"
+                  className="tracking-input"
+                  value={tracking}
+                  onChange={(e) => setTracking(e.target.value)}
+                  placeholder="TRACKING"
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                {creditTrackers === 2 && (
+                  <input
+                    type="text"
+                    className="tracking-input"
+                    value={tracking2}
+                    onChange={(e) => setTracking2(e.target.value)}
+                    placeholder="TRACKING 2"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Race info (Arcade only), with the Max Rando gem beside it */}
+          {theme === "arcade" && (
+            <div className="race-row">
+              <div className="race-col">
+                <div className="arcade-race-title">RACE INFO</div>
+                <div className="arcade-race-container" onContextMenu={reopenSetup}>
+                  <input
+                    type="text"
+                    className="arcade-race-input"
+                    value={raceInfo}
+                    onChange={(e) => setRaceInfo(e.target.value)}
+                    placeholder="RACE INFO"
+                    aria-label="Race info"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              {isMaxRando && (
+                <img
+                  src="/icons/s_gem_overlay_0.png"
+                  alt="Gem"
+                  className="gem-image"
+                  draggable={false}
+                  onClick={() => setGemPopupOpen(true)}
+                />
+              )}
+              {isMaxRando && gemCount !== null && <span className="gem-count">{gemCount}</span>}
+            </div>
           )}
         </div>
-
-        {/* Tracking section */}
-        <div className="tracking-title">TRACKING</div>
-        <div className="tracking-container" onContextMenu={reopenSetup}>
-          <input
-            type="text"
-            className="tracking-input"
-            value={tracking}
-            onChange={(e) => setTracking(e.target.value)}
-            placeholder="TRACKING"
-            spellCheck={false}
-            autoComplete="off"
-          />
-        </div>
-
-        {/* Race info, under commentary and tracking (Arcade only) */}
-        {theme === "arcade" && (
-          <>
-            <div className="arcade-race-title">RACE INFO</div>
-            <div className="arcade-race-container" onContextMenu={reopenSetup}>
-              <input
-                type="text"
-                className="arcade-race-input"
-                value={raceInfo}
-                onChange={(e) => setRaceInfo(e.target.value)}
-                placeholder="RACE INFO"
-                aria-label="Race info"
-                spellCheck={false}
-                autoComplete="off"
-              />
-            </div>
-          </>
-        )}
 
         {/* Timer */}
         <div
@@ -1634,9 +1695,11 @@ export default function StreamOverlay() {
                   title={{ id: "tools-setup-title", text: "Setup" }}
                   runnerCount={runnerCount}
                   commentatorCount={commentatorCount}
+                  trackerCount={creditTrackers}
                   maxRando={isMaxRando}
                   onRunnerCountChange={applyRunnerCount}
                   onCommentatorCountChange={applyCommentatorCount}
+                  onTrackerCountChange={applyTrackerCount}
                   onMaxRandoChange={applyMaxRando}
                   pairs={quadPairs}
                   onPairsChange={setQuadPairs}

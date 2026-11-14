@@ -4,14 +4,18 @@ import { PLACE_LABELS, type Place, type Placements } from "@/components/place-ba
 
 export type RunnerCount = 2 | 3 | 4
 export type CommentatorCount = 1 | 2
+export type TrackerCount = 1 | 2
 
 type Props = {
   id: string
   runnerCount: RunnerCount
   commentatorCount: CommentatorCount
+  /** People on the tracking credit: one or two lines. */
+  trackerCount: TrackerCount
   maxRando: boolean
   onRunnerCountChange: (value: RunnerCount) => void
   onCommentatorCountChange: (value: CommentatorCount) => void
+  onTrackerCountChange: (value: TrackerCount) => void
   onMaxRandoChange: (value: boolean) => void
   /** Omit to hide the placement controls (e.g. in the opening popup). */
   placements?: Placements
@@ -28,9 +32,11 @@ export function SetupForm({
   id,
   runnerCount,
   commentatorCount,
+  trackerCount,
   maxRando,
   onRunnerCountChange,
   onCommentatorCountChange,
+  onTrackerCountChange,
   onMaxRandoChange,
   placements,
   playerLabels,
@@ -96,6 +102,23 @@ export function SetupForm({
               aria-checked={commentatorCount === n}
               className={`gem-modal-opt${commentatorCount === n ? " selected" : ""}`}
               onClick={() => onCommentatorCountChange(n)}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="setup-section">
+        <p id={`${id}-trackers`} className="gem-modal-title">Trackers</p>
+        <div className="gem-modal-options" role="radiogroup" aria-labelledby={`${id}-trackers`}>
+          {([1, 2] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={trackerCount === n}
+              className={`gem-modal-opt${trackerCount === n ? " selected" : ""}`}
+              onClick={() => onTrackerCountChange(n)}
             >
               {n}
             </button>

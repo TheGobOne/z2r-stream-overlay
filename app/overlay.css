@@ -1481,6 +1481,15 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .timer-edit-actions { display: flex; gap: 8px; justify-content: center; }
 .timer-edit-btn:hover:not(:disabled) { background: #fff; border-color: #fff; color: #000; }
 
+/* The credits wrappers add no boxes outside Arcade, so the absolute positions below still apply */
+.credits-panel,
+.credits-row,
+.credit-col,
+.race-row,
+.race-col {
+  display: contents;
+}
+
 /* Race info line under the two credit columns */
 .arcade-race-title {
   position: absolute;
@@ -1667,42 +1676,103 @@ body:has(.vod-crop-backdrop) .vod-audio {
   filter: none;
 }
 
-/* Commentary and tracking as centred credits between the tracker boxes */
+/* Commentary, tracking and race info are one block, centered vertically in the space between the
+   tracker boxes (x 440-1016, y 620-802). Sizes are the old 1.5x-scaled ones written out. */
 .theme-arcade .center-panel-hitbox { top: 620px; left: 440px; width: 576px; height: 182px; }
+.theme-arcade .credits-panel {
+  position: absolute;
+  top: 620px;
+  left: 440px;
+  width: 576px;
+  height: 182px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  pointer-events: none;
+}
+.theme-arcade .credits-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+}
+.theme-arcade .credit-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 50%;
+}
+.theme-arcade .race-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.theme-arcade .race-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
 .theme-arcade .commentary-title,
-.theme-arcade .tracking-title { color: #FFE040; text-decoration: none; }
-/* Commentary on the left half, tracking on the right half, gem count below both */
-.theme-arcade .commentary-title,
-.theme-arcade.single-com .commentary-title { top: 646px; left: 584px; }
-.theme-arcade .commentary-container,
-.theme-arcade.single-com .commentary-container { top: 666px; left: 584px; }
-.theme-arcade.single-com .commentary-container { height: 20px; }
 .theme-arcade .tracking-title,
-.theme-arcade.single-com .tracking-title { top: 646px; left: 872px; }
-.theme-arcade .tracking-container,
-.theme-arcade.single-com .tracking-container { top: 666px; left: 872px; }
+.theme-arcade .arcade-race-title {
+  position: static;
+  transform: none;
+  font-size: 16.5px;
+  letter-spacing: 1.5px;
+  color: #FFE040;
+  text-decoration: none;
+}
+.theme-arcade .commentary-container,
+.theme-arcade .tracking-container {
+  position: static;
+  transform: none;
+  width: 210px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.theme-arcade .commentary-input,
+.theme-arcade .tracking-input {
+  height: 30px;
+  font-size: 15px;
+  letter-spacing: 0.75px;
+  padding: 3px;
+}
+.theme-arcade .arcade-race-container {
+  position: static;
+  width: 560px;
+  height: 32px;
+  pointer-events: auto;
+}
+.theme-arcade.max-rando .arcade-race-container { width: 432px; }
 
-/* Max Rando: race info shifts left and the gem and count sit side by side to its right */
+/* Max Rando: the gem and its count sit beside race info, inside the same centered block */
 .theme-arcade .gem-image {
-  top: 750px;
-  left: 900px;
+  position: static;
   transform: none;
   z-index: 6;
   filter: none;
+  pointer-events: auto;
 }
 .theme-arcade .gem-count {
-  /* Gem is 44px tall from 750px (middle 772px); this font draws about 0.2em below its line's middle */
-  top: 754px;
-  line-height: 28px;
-  left: 940px;
+  position: static;
   transform: none;
   z-index: 6;
   font-size: 28px;
+  line-height: 28px;
   letter-spacing: 0;
   filter: none;
+  /* This font draws about 0.2em below its line's middle */
+  margin-top: 6px;
 }
-.theme-arcade.max-rando .arcade-race-title { left: 664px; }
-.theme-arcade.max-rando .arcade-race-container { left: 448px; width: 432px; }
 
 /* Trackers fill the framed boxes under each game */
 .theme-arcade .boss-row,
