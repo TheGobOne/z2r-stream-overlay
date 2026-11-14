@@ -54,6 +54,8 @@ type Props = {
   seriesToWin: number
   /** Draw the Arcade look (starfield, coloured frames) instead of the brick art. */
   arcade?: boolean
+  /** Two 1v1s: a VS badge on the seam between P1 and P2, and between P3 and P4. */
+  pairs?: boolean
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
@@ -97,6 +99,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     seriesWins,
     seriesToWin,
     arcade = false,
+    pairs = false,
   },
   ref,
 ) {
@@ -847,6 +850,22 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
       {windows.map((win, i) => (
         <PlaceBadge key={i} place={placements[i]} win={win} edge="top" />
       ))}
+
+      {pairs &&
+        windows.length === 4 &&
+        [
+          [windows[0], windows[1]],
+          [windows[2], windows[3]],
+        ].map(([a, b], row) => (
+          <div
+            key={`vs-${row}`}
+            className="quad-vs"
+            aria-hidden="true"
+            style={{ left: (a.left + a.width + b.left) / 2, top: a.top + a.height / 2 }}
+          >
+            VS
+          </div>
+        ))}
 
       {!rails &&
         cells.map((cell, i) => (

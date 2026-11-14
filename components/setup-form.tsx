@@ -19,6 +19,9 @@ type Props = {
   onPlacementChange?: (player: number, place: Place | null) => void
   /** Card heading rendered atop the left column so the Placements heading can sit level with it. */
   title?: { id: string; text: string }
+  /** 4 runners only: two 1v1s (top pair, bottom pair) instead of a free-for-all. */
+  pairs?: boolean
+  onPairsChange?: (value: boolean) => void
 }
 
 export function SetupForm({
@@ -33,6 +36,8 @@ export function SetupForm({
   playerLabels,
   onPlacementChange,
   title,
+  pairs = false,
+  onPairsChange,
 }: Props) {
   const players = Array.from({ length: runnerCount }, (_, i) => i)
   const places: Place[] = [...players.map((i) => (i + 1) as Place), "dnf"]
@@ -61,6 +66,25 @@ export function SetupForm({
           ))}
         </div>
       </div>
+      {runnerCount === 4 && onPairsChange && (
+        <div className="setup-section">
+          <p id={`${id}-format`} className="gem-modal-title">Format</p>
+          <div className="gem-modal-options" role="radiogroup" aria-labelledby={`${id}-format`}>
+            {([false, true] as const).map((value) => (
+              <button
+                key={String(value)}
+                type="button"
+                role="radio"
+                aria-checked={pairs === value}
+                className={`gem-modal-opt wide${pairs === value ? " selected" : ""}`}
+                onClick={() => onPairsChange(value)}
+              >
+                {value ? "1v1s" : "4-way"}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="setup-section">
         <p id={`${id}-coms`} className="gem-modal-title">Commentators</p>
         <div className="gem-modal-options" role="radiogroup" aria-labelledby={`${id}-coms`}>

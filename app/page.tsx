@@ -48,6 +48,8 @@ export default function StreamOverlay() {
   const [draftMaxRando, setDraftMaxRando] = useState(false)
   const [runnerCount, setRunnerCount] = useState<2 | 3 | 4>(2)
   const [draftRunnerCount, setDraftRunnerCount] = useState<2 | 3 | 4>(2)
+  /** 4 runners as two 1v1s (P1 vs P2 on top, P3 vs P4 below). */
+  const [quadPairs, setQuadPairs] = useState(false)
   const visibleBosses = BOSSES
   const quadRef = useRef<QuadOverlayHandle>(null)
 
@@ -853,6 +855,7 @@ export default function StreamOverlay() {
           setRunnerCount(saved.runnerCount)
           setDraftRunnerCount(saved.runnerCount)
         }
+        if (typeof saved.quadPairs === "boolean") setQuadPairs(saved.quadPairs)
         if (saved.commentatorCount === 1 || saved.commentatorCount === 2) {
           setCommentatorCount(saved.commentatorCount)
           setDraftCommentatorCount(saved.commentatorCount)
@@ -894,7 +897,7 @@ export default function StreamOverlay() {
         STATE_STORAGE_KEY,
         JSON.stringify({
           leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
-          runnerCount, commentatorCount, isMaxRando,
+          runnerCount, quadPairs, commentatorCount, isMaxRando,
           leftDefeated: [...leftDefeated], rightDefeated: [...rightDefeated],
           leftCollected: [...leftCollected], rightCollected: [...rightCollected],
           bossBadges, itemBadges, placements, vods, linkVodsToTimer,
@@ -903,7 +906,7 @@ export default function StreamOverlay() {
     } catch {}
   }, [
     hydrated, leftText, rightText, commentator1, commentator2, tracking, raceInfo, gemCount,
-    runnerCount, commentatorCount, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
+    runnerCount, quadPairs, commentatorCount, isMaxRando, leftDefeated, rightDefeated, leftCollected, rightCollected,
     bossBadges, itemBadges, placements, vods, linkVodsToTimer,
   ])
 
@@ -1384,6 +1387,13 @@ export default function StreamOverlay() {
           transition: background 0.15s ease, color 0.15s ease;
         }
 
+        .gem-modal-opt.wide {
+          width: auto;
+          padding: 0 12px;
+          font-size: 14px;
+          white-space: nowrap;
+        }
+
         .gem-modal-opt:hover,
         .gem-modal-opt.selected {
           background: #2ec4b6;
@@ -1737,6 +1747,20 @@ export default function StreamOverlay() {
           color: #000000;
           pointer-events: none;
           box-shadow: 0 0 0 2px #000000;
+        }
+
+        .quad-vs {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          z-index: 20;
+          padding: 4px 10px 6px;
+          font-family: 'ZeldaII', monospace;
+          font-size: 20px;
+          line-height: 1;
+          color: #f8b800;
+          background: #000000;
+          box-shadow: 0 0 0 2px #f8b800;
+          pointer-events: none;
         }
 
         .place-badge-1 { background: #f8b800; }
@@ -2668,6 +2692,7 @@ export default function StreamOverlay() {
             ref={quadRef}
             layout={runnerCount === 3 ? TRIO_LAYOUT : QUAD_LAYOUT}
             arcade={theme === "arcade"}
+            pairs={runnerCount === 4 && quadPairs}
             bosses={visibleBosses}
             items={ITEMS}
             bossBadges={bossBadges}
@@ -2866,6 +2891,8 @@ export default function StreamOverlay() {
                 onRunnerCountChange={setDraftRunnerCount}
                 onCommentatorCountChange={setDraftCommentatorCount}
                 onMaxRandoChange={setDraftMaxRando}
+                pairs={quadPairs}
+                onPairsChange={setQuadPairs}
               />
               <p className="setup-hint">
                 {popupBlocked
@@ -3026,6 +3053,8 @@ export default function StreamOverlay() {
                   onRunnerCountChange={applyRunnerCount}
                   onCommentatorCountChange={applyCommentatorCount}
                   onMaxRandoChange={applyMaxRando}
+                  pairs={quadPairs}
+                  onPairsChange={setQuadPairs}
                   placements={placements}
                   playerLabels={runnerCount === 2 ? [leftText, rightText] : quadNames}
                   onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
