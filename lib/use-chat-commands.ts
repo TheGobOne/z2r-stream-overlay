@@ -25,11 +25,11 @@ function write(key: string, value: string) {
   } catch {}
 }
 
-/** Lets chat run boss and item commands. Moderators and the streamer only, unless `everyone` is on. */
+/** Lets chat run boss and item commands. Anyone can by default; turn `everyone` off for moderators and the streamer only. */
 export function useChatCommands(runnerCount: number, onAction: (action: ChatAction) => void) {
   const [channel, setChannelState] = useState("")
   const [on, setOnState] = useState(false)
-  const [everyone, setEveryoneState] = useState(false)
+  const [everyone, setEveryoneState] = useState(true)
   const [status, setStatus] = useState<ChatStatus>("stopped")
   const [log, setLog] = useState<ChatLogEntry[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -44,7 +44,8 @@ export function useChatCommands(runnerCount: number, onAction: (action: ChatActi
   useEffect(() => {
     setChannelState(read(CHANNEL_KEY))
     setOnState(read(ON_KEY) === "1")
-    setEveryoneState(read(EVERYONE_KEY) === "1")
+    // Anyone in chat can use commands unless this was turned off
+    setEveryoneState(read(EVERYONE_KEY) !== "0")
     setLoaded(true)
   }, [])
 

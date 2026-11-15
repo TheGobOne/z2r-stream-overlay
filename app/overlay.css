@@ -1506,10 +1506,18 @@ body:has(.vod-crop-backdrop) .vod-audio {
 }
 
 /* Shown in place of commentary, tracking and race info while chat commands listen */
-.chat-help { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-family: 'ZeldaII', monospace; text-transform: uppercase; }
-.chat-help-title { font-size: 16.5px; letter-spacing: 1.5px; color: #FFE040; }
-.chat-help-line { font-size: 14px; letter-spacing: 1px; color: #fff; }
-.quad-side-group.chat-help { gap: 6px; }
+.chat-help { display: flex; align-items: center; justify-content: center; text-align: center; font-family: 'ZeldaII', monospace; text-transform: uppercase; }
+.chat-help-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 10px; }
+.chat-help-rule { width: 2px; align-self: stretch; margin: 6px 0; background: #30E0FF; }
+.chat-help-title { font-size: 15px; letter-spacing: 1.5px; color: #FFE040; white-space: nowrap; }
+.chat-help-title-blurb { color: #30E0FF; text-transform: none; }
+.chat-help-line { font-size: 11px; letter-spacing: 1px; color: #fff; white-space: nowrap; }
+.chat-help-text { font-size: 11px; letter-spacing: 1px; line-height: 1.45; color: #fff; }
+.chat-help-warn { color: #FF4040; }
+/* The side rails are narrow: commands only */
+.quad-side-group.chat-help { flex-direction: column; gap: 6px; }
+.quad-side-group.chat-help .chat-help-rule,
+.quad-side-group.chat-help .chat-help-col-blurb { display: none; }
 
 /* Race info line under the two credit columns */
 .arcade-race-title {

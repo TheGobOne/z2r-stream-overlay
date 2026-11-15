@@ -53,7 +53,7 @@ export function ChatCommandsTools({ channel, on, everyone, status, log, validCha
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <input type="checkbox" checked={everyone} onChange={(e) => onEveryone(e.target.checked)} />
-          <span className="tools-hint">Let everyone in chat use commands (default: you and mods only)</span>
+          <span className="tools-hint">Anyone in chat can use commands (uncheck for you and mods only)</span>
         </label>
         <p className="tools-hint">!boss horsehead p2 &nbsp; !item hammer p1 &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !sound p1</p>
         <p className="tools-hint">
