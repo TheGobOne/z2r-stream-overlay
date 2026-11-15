@@ -1,4 +1,5 @@
 import type { DataConnection, Peer as PeerType } from "peerjs"
+import type { StartingData } from "@/lib/starting-screen"
 
 // Remote trackers connect straight to the overlay's browser (WebRTC through PeerJS's free signalling
 // server). The overlay holds the real state; trackers send toggles and get the whole state back.
@@ -18,6 +19,8 @@ export type TrackerSnapshot = {
   itemBadges: Record<string, string>
   /** Rows of badge choices offered for an item. */
   badgeOptions: string[][]
+  /** The starting screen's text; the OBS browser source joins like a helper just to receive this. */
+  starting?: StartingData
 }
 /** `greyed` (when sent) is the state the helper wants, so repeated or crossing clicks don't undo each other. */
 export type TrackerAction =
@@ -68,8 +71,15 @@ function isSnapshot(value: unknown): value is TrackerSnapshot {
     !!s.itemBadges && typeof s.itemBadges === "object" &&
     Object.values(s.itemBadges).every((v) => typeof v === "string") &&
     Array.isArray(s.badgeOptions) &&
-    s.badgeOptions.every(isStringArray)
+    s.badgeOptions.every(isStringArray) &&
+    (s.starting === undefined || isStartingData(s.starting))
   )
+}
+
+function isStartingData(value: unknown): value is StartingData {
+  if (!value || typeof value !== "object") return false
+  const d = value as Record<string, unknown>
+  return ["p1", "p2", "p3", "p4", "line", "title"].every((k) => typeof d[k] === "string" && (d[k] as string).length <= 200)
 }
 // No 0/O or 1/I, so a code read aloud or off a stream is hard to get wrong
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

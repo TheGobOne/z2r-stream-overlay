@@ -12,7 +12,7 @@ type Layout = { left: string[]; right: string[]; collapsed: string[] }
 /** Where each panel starts, and the order new panels fall back to. */
 const DEFAULT_LAYOUT: Layout = {
   left: ["monitor", "timer"],
-  right: ["setup", "series", "racetime", "remote", "trackers", "videos", "clear"],
+  right: ["setup", "series", "racetime", "remote", "trackers", "videos", "starting", "clear"],
   collapsed: [],
 }
 

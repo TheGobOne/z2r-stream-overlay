@@ -464,9 +464,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
           className="quad-rail"
           style={{ left: r.left - 1, top: r.top - 1, width: r.width + 1, height: r.height + 1 }}
         >
-          <div className="quad-runner">{renderRunner(runners[0], true)}</div>
+          {/* The arcade look draws a line in each runner's color where their tracker meets the middle block (see overlay.css) */}
+          <div className="quad-runner quad-runner-top" style={{ ["--pc" as string]: ARCADE_COLORS[runners[0]] }}>{renderRunner(runners[0], true)}</div>
           {middle}
-          <div className="quad-runner">{renderRunner(runners[1], true)}</div>
+          <div className="quad-runner quad-runner-bottom" style={{ ["--pc" as string]: ARCADE_COLORS[runners[1]] }}>{renderRunner(runners[1], true)}</div>
         </div>
       ))}
 

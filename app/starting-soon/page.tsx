@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ArcadeSky } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
+import { useStartingLink } from "@/lib/use-starting-link"
 import { preload } from "react-dom"
 import { ZELDA_FONT } from "@/lib/fonts"
 
@@ -43,9 +44,25 @@ export default function StartingSoonPage() {
   const p1Size = useFitFontSize(p1Ref, data.p1, nameOpts)
   const p2Size = useFitFontSize(p2Ref, data.p2, nameOpts)
 
+  const [live, setLive] = useState(false)
+  // ?code= joins the overlay's share code so edits made in the Booth arrive live, even in OBS's own browser
+  const [code, setCode] = useState<string | null>(null)
+  useStartingLink(code, (d) => setData({ p1: d.p1, p2: d.p2, line: d.line, title: d.title }))
+
   useEffect(() => {
     setData(readSaved())
+    setLive(new URLSearchParams(window.location.search).has("live"))
+    setCode(new URLSearchParams(window.location.search).get("code"))
     setLoaded(true)
+  }, [])
+
+  // The Booth edits this screen from another window; pick its changes up as they are saved
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) setData(readSaved())
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
   }, [])
 
   useEffect(() => {
@@ -66,8 +83,10 @@ export default function StartingSoonPage() {
   const set = (key: keyof Saved) => (e: React.ChangeEvent<HTMLInputElement>) => setData((d) => ({ ...d, [key]: e.target.value }))
 
   return (
-    <main className="ss-root">
+    <main className="ss-root" data-live={live || undefined}>
       <style>{`
+        .ss-root[data-live] .ss-input { pointer-events: none; caret-color: transparent; }
+        .ss-root[data-live] .ss-input::placeholder { color: transparent; }
         html, body { margin: 0; background: #000; overflow: hidden; }
         .ss-root { width: 100vw; height: 100vh; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .ss-stage {

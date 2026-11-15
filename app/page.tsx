@@ -8,6 +8,7 @@ import { assignPlace, PlaceBadge, type Place, type Placements } from "@/componen
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { SeriesPips } from "@/components/series-pips"
+import type { StartingData } from "@/lib/starting-screen"
 import { hostTrackers, newJoinCode, TrackerLinkError, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
 import { fetchRace, parseRoom, type RacetimeRace, type RacetimeRunner } from "@/lib/racetime"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
@@ -26,6 +27,7 @@ const BoothLayout = dynamic(() => import("@/components/booth-layout").then((m) =
 const TrackerTools = dynamic(() => import("@/components/tracker-tools").then((m) => m.TrackerTools), { ssr: false })
 const RacetimeTools = dynamic(() => import("@/components/racetime-tools").then((m) => m.RacetimeTools), { ssr: false })
 const SeriesTools = dynamic(() => import("@/components/series-tools").then((m) => m.SeriesTools), { ssr: false })
+const StartingScreenTools = dynamic(() => import("@/components/starting-screen-tools").then((m) => m.StartingScreenTools), { ssr: false })
 const RemoteTrackerTools = dynamic(() => import("@/components/remote-tracker-tools").then((m) => m.RemoteTrackerTools), { ssr: false })
 const PlayerTools = dynamic(() => import("@/components/player-tools").then((m) => m.PlayerTools), { ssr: false })
 
@@ -855,6 +857,8 @@ export default function StreamOverlay() {
   const [trackerError, setTrackerError] = useState("")
   const [trackerCount, setTrackerCount] = useState(0)
   const trackerHostRef = useRef<TrackerHost | null>(null)
+  /** The starting screen's text, reported by its Booth panel and sent to the OBS starting screen with every snapshot. */
+  const [startingData, setStartingData] = useState<StartingData | null>(null)
 
   useEffect(() => {
     let code = ""
@@ -897,6 +901,7 @@ export default function StreamOverlay() {
     bossBadgeLabels: BOSS_BADGES,
     itemBadges,
     badgeOptions: BADGE_OPTIONS,
+    ...(startingData ? { starting: startingData } : {}),
   }
   // Nobody reads it while sharing is off, so skip the work
   const trackerSnapshotJson = trackerSharing ? JSON.stringify(trackerSnapshot) : ""
@@ -1943,6 +1948,20 @@ export default function StreamOverlay() {
                 <div ref={setQuadToolsSlot} />
               )}
               </>
+                    ),
+                  },
+                  {
+                    id: "starting",
+                    title: "Starting screen",
+                    node: (
+                      <StartingScreenTools
+                        quad={runnerCount !== 2}
+                        runnerNames={runnerCount === 2 ? [leftText, rightText] : quadNames}
+                        shareCode={trackerCode}
+                        sharing={trackerSharing || trackerBusy}
+                        onShare={() => startTrackerSharing()}
+                        onData={setStartingData}
+                      />
                     ),
                   },
                   {

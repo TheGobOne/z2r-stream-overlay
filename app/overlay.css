@@ -1567,6 +1567,16 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .theme-arcade-multi .quad-rail-middle .quad-side-info { border-color: #55557A; }
 .theme-arcade-multi .quad-rail-middle .quad-side-info:focus-within { border-color: #FFE040; }
 
+/* Rails: a second line in each runner's color where their tracker meets the middle block (the first is under their name) */
+.theme-arcade-multi .quad-runner-top { border-bottom: 3px solid var(--pc, #FFE040); padding-bottom: 8px; }
+.theme-arcade-multi .quad-runner-bottom { border-top: 3px solid var(--pc, #FFE040); padding-top: 8px; }
+/* Keep commentary, tracking and the timer inside those two lines: the block is a fixed 200px tall, so tighten it to fit 2 + 2 names */
+.theme-arcade-multi .quad-rail-middle { gap: 6px; }
+.theme-arcade-multi .quad-rail-middle .quad-side-group { gap: 4px; }
+.theme-arcade-multi .quad-rail-middle .quad-side-input { height: 20px; font-size: 11px; line-height: 20px; }
+.theme-arcade-multi .quad-rail-middle .quad-side-title { font-size: 12px; line-height: 1.1; }
+.theme-arcade-multi .quad-rail .quad-side-timer { font-size: 22px; }
+
 /* Single commentator: collapse COM 2 and re-center the section */
 .single-com .commentary-title { top: 613px; }
 .single-com .commentary-container { top: 628px; height: 20px; }
