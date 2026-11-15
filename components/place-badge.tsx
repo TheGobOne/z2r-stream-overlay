@@ -21,16 +21,19 @@ export function PlaceBadge({
   place,
   win,
   edge = "bottom",
+  at,
 }: {
   place: Place | null | undefined
   win: WindowBox
   edge?: "top" | "bottom" | "above"
+  /** A small badge centered on this point (the gap between a name and the triforces) instead of on the window. */
+  at?: { left: number; top: number }
 }) {
   if (!place) return null
   return (
     <span
-      className={`place-badge place-badge-${place}${edge === "top" ? " place-badge-top" : ""}${edge === "above" ? " place-badge-above" : ""}`}
-      style={{ left: win.left + win.width / 2, top: edge === "bottom" ? win.top + win.height : win.top }}
+      className={`place-badge place-badge-${place}${at ? " place-badge-hud" : edge === "top" ? " place-badge-top" : edge === "above" ? " place-badge-above" : ""}`}
+      style={at ?? { left: win.left + win.width / 2, top: edge === "bottom" ? win.top + win.height : win.top }}
       aria-label={`${PLACE_LABELS[place]} place`}
     >
       {PLACE_LABELS[place]}

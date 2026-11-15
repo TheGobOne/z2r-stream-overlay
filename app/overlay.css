@@ -1729,6 +1729,17 @@ body:has(.vod-crop-backdrop) .vod-audio {
   0 0 34px 12px rgba(var(--glow), 0.45);
 }
 .theme-arcade .place-badge-above { z-index: 21; }
+/* Two runners: small, in the gap between each name and the triforces, so a long name can't run into it */
+.place-badge-hud {
+  transform: translate(-50%, -50%);
+  padding: 2px 7px 4px;
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow:
+  0 0 0 2px #000000,
+  0 0 8px 2px rgba(var(--glow), 0.7);
+}
+.theme-arcade .place-badge-hud { z-index: 21; }
 
 /* Timer centred in the HUD */
 .theme-arcade .timer-display,
