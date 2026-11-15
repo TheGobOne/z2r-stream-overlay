@@ -1520,6 +1520,8 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .chat-help-col-blurb { gap: 5px; }
 .chat-help-warn { color: #FF4040; }
 .chat-help-poll { color: #30E0FF; white-space: normal; }
+/* Fill the space between the two tracker boxes (x 430 to 1026), not just the 576px credits panel, so each column is centered in its own half */
+.credits-panel > .chat-help { width: 596px; flex: none; }
 /* The side rails are narrow: commands only */
 .quad-side-group.chat-help { flex-direction: column; gap: 6px; }
 .quad-side-group.chat-help .chat-help-rule,
