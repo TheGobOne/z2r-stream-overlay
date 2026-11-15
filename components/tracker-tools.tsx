@@ -35,7 +35,8 @@ export function TrackerTools({
 }: Props) {
   const [pickerItem, setPickerItem] = useState<string | null>(null)
   const [popout, setPopout] = useState<Window | null>(null)
-  const [onTop, setOnTop] = useState(() => {
+  // Always on top is the default; the checkbox was removed, so this stays true unless a saved "0" exists
+  const [onTop] = useState(() => {
     try {
       return localStorage.getItem(ON_TOP_KEY) !== "0"
     } catch {
@@ -80,16 +81,6 @@ export function TrackerTools({
 
   useEffect(() => () => popout?.close(), [popout])
 
-  const changeOnTop = (value: boolean, host: Window = window) => {
-    setOnTop(value)
-    try {
-      localStorage.setItem(ON_TOP_KEY, value ? "1" : "0")
-    } catch {
-      /* preference just isn't remembered */
-    }
-    // Reopen in the other mode right away, so the checkbox takes effect without extra clicks.
-    if (popout) void openPopout(value, host)
-  }
 
   const controls = (inPopout: boolean) => (
     <div className="tools-tracker-controls" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -98,10 +89,6 @@ export function TrackerTools({
           Pop out
         </button>
       )}
-      <label style={{ display: "flex", alignItems: "center", gap: 6 }} title="Checked: this window floats above OBS and every other window. Unchecked: it is a normal window that other windows can cover.">
-        <input type="checkbox" checked={onTop} onChange={(e) => changeOnTop(e.target.checked, e.currentTarget.ownerDocument.defaultView ?? window)} />
-        Always on top (stays above OBS)
-      </label>
       {inPopout && !("documentPictureInPicture" in window) && (
         <span className="tools-hint">This browser cannot float windows, so always on top is unavailable.</span>
       )}
