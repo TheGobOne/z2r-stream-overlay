@@ -2,7 +2,7 @@ import { BOSSES, ITEMS, type TrackerIcon } from "@/lib/tracker-catalog"
 import type { TrackerAction } from "@/lib/tracker-link"
 
 /** A tracker action, or an item location (the badge on an item) that clears itself when sent twice. */
-export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runner: number }
+export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runners: number[] } | { type: "volume"; runner: number; value: number }
 export type ParsedCommand = { action: ChatAction; summary: string }
 
 /** A player is written 1p to 4p. Bare numbers and p1 are palaces, so they never name a player. */
@@ -97,10 +97,20 @@ function findIcon(list: TrackerIcon[], words: string[]): TrackerIcon | null {
 export function parseChatCommand(text: string, runnerCount: number): ParsedCommand | null {
   const parts = text.trim().split(/\s+/)
   const command = (parts.shift() ?? "").toLowerCase()
-  if (command === "!sound" || command === "!volume") {
-    const runner = parts.length === 1 && PLAYER.test(parts[0]) ? Number(parts[0][0]) - 1 : -1
-    if (runner < 0 || runner >= runnerCount) return null
-    return { action: { type: "audio", runner }, summary: `Sound on player ${runner + 1}` }
+  // `!sound 1p`: that player has the sound and everyone else is muted. Only one player can have sound at a time.
+  if (command === "!sound") {
+    if (parts.length !== 1 || !PLAYER.test(parts[0])) return null
+    const runner = Number(parts[0][0]) - 1
+    if (runner >= runnerCount) return null
+    return { action: { type: "audio", runners: [runner] }, summary: `Sound on player ${runner + 1}` }
+  }
+  // `!volume 1p 50`: that player's audio level, 0 to 100
+  if (command === "!volume") {
+    if (parts.length !== 2 || !PLAYER.test(parts[0]) || !/^\d{1,3}%?$/.test(parts[1])) return null
+    const runner = Number(parts[0][0]) - 1
+    const percent = Number.parseInt(parts[1], 10)
+    if (runner >= runnerCount || percent > 100) return null
+    return { action: { type: "volume", runner, value: percent / 100 }, summary: `Player ${runner + 1} volume ${percent}` }
   }
   const match = /^!(boss|item)$/.exec(command)
   if (!match) return parseLocationCommand(command, parts)

@@ -8,6 +8,7 @@ export function ChatHelp({ className = "" }: { className?: string }) {
         <div className="chat-help-line">!item hammer 2p</div>
         <div className="chat-help-line">!hammer 4 or rauru</div>
         <div className="chat-help-line">!sound 1p</div>
+        <div className="chat-help-line">!volume 1p 50</div>
       </div>
       <div className="chat-help-rule" />
       <div className="chat-help-col chat-help-col-blurb">

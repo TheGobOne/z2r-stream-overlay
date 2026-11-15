@@ -27,8 +27,10 @@ export type QuadOverlayHandle = {
   setRunners(runners: ({ name: string; channel: string | null } | undefined)[]): void
   /** The players by slot (null while one is not mounted), for saving where each VOD is. */
   players(): (VodPlayerHandle | null)[]
-  /** Unmute this player and mute the others, like clicking its audio badge. */
-  listenTo(index: number): void
+  /** Unmute these players and mute the rest. */
+  listenTo(indexes: number[]): void
+  /** One player's audio level, 0 to 1. */
+  setVolume(index: number, value: number): void
 }
 
 type Props = {
@@ -186,7 +188,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     resetAll,
     setRunners,
     players: () => playerRefs.map((r) => r.current),
-    listenTo: (index) => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== index }))),
+    listenTo: (indexes) => setVods((prev) => prev.map((config, j) => ({ ...config, muted: !indexes.includes(j) }))),
+    setVolume: (index, value) => setVods((prev) => prev.map((config, j) => (j === index ? { ...config, volume: value } : config))),
   }))
 
   function openPanel(index: number, e: React.MouseEvent) {

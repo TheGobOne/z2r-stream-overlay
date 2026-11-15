@@ -1001,10 +1001,20 @@ export default function StreamOverlay() {
   // Chat commands run the same actions remote trackers send
   const chat = useChatCommands(runnerCount, (action) => {
     if (action.type === "audio") {
-      // Sound on one player, muting the others, like clicking its audio badge
+      // Only the named players have sound; everyone else is muted
       if (runnerCount === 2) {
-        setVods((prev) => ({ left: { ...prev.left, muted: action.runner !== 0 }, right: { ...prev.right, muted: action.runner !== 1 } }))
-      } else quadRef.current?.listenTo(action.runner)
+        setVods((prev) => ({
+          left: { ...prev.left, muted: !action.runners.includes(0) },
+          right: { ...prev.right, muted: !action.runners.includes(1) },
+        }))
+      } else quadRef.current?.listenTo(action.runners)
+      return
+    }
+    if (action.type === "volume") {
+      if (runnerCount === 2) {
+        const side = action.runner === 0 ? "left" : "right"
+        setVods((prev) => ({ ...prev, [side]: { ...prev[side], volume: action.value } }))
+      } else quadRef.current?.setVolume(action.runner, action.value)
       return
     }
     if (action.type !== "toggleItemLocation") return trackerActionRef.current(action)
