@@ -28,6 +28,7 @@ const BoothLayout = dynamic(() => import("@/components/booth-layout").then((m) =
 const TrackerTools = dynamic(() => import("@/components/tracker-tools").then((m) => m.TrackerTools), { ssr: false })
 const RacetimeTools = dynamic(() => import("@/components/racetime-tools").then((m) => m.RacetimeTools), { ssr: false })
 const SeriesTools = dynamic(() => import("@/components/series-tools").then((m) => m.SeriesTools), { ssr: false })
+import { ChatHelp } from "@/components/chat-help"
 const ChatCommandsTools = dynamic(() => import("@/components/chat-commands-tools").then((m) => m.ChatCommandsTools), { ssr: false })
 const StartingScreenTools = dynamic(() => import("@/components/starting-screen-tools").then((m) => m.StartingScreenTools), { ssr: false })
 const RemoteTrackerTools = dynamic(() => import("@/components/remote-tracker-tools").then((m) => m.RemoteTrackerTools), { ssr: false })
@@ -999,6 +1000,13 @@ export default function StreamOverlay() {
 
   // Chat commands run the same actions remote trackers send
   const chat = useChatCommands(runnerCount, (action) => {
+    if (action.type === "audio") {
+      // Sound on one player, muting the others, like clicking its audio badge
+      if (runnerCount === 2) {
+        setVods((prev) => ({ left: { ...prev.left, muted: action.runner !== 0 }, right: { ...prev.right, muted: action.runner !== 1 } }))
+      } else quadRef.current?.listenTo(action.runner)
+      return
+    }
     if (action.type !== "toggleItemLocation") return trackerActionRef.current(action)
     // The same location sent again clears it
     setItemBadges((prev) => {
@@ -1498,7 +1506,7 @@ export default function StreamOverlay() {
             seriesToWin={seriesShown}
             onArrange={arrangeQuadRunners}
             sidePanel={{
-              info: (
+              info: chat.on ? <ChatHelp className="quad-side-group" /> : (
                 <div className="quad-side-group quad-side-info">
                 <textarea
                   className="quad-side-info-input"
@@ -1512,7 +1520,7 @@ export default function StreamOverlay() {
                 />
                 </div>
               ),
-              commentary: (
+              commentary: chat.on ? null : (
                 <div className="quad-side-group quad-side-commentary">
                 <p className="quad-side-title">Commentary</p>
                 <input
@@ -1539,7 +1547,7 @@ export default function StreamOverlay() {
                 )}
                 </div>
               ),
-              tracking: (
+              tracking: chat.on ? null : (
                 <div className="quad-side-group quad-side-tracking">
                 <p className="quad-side-title">Tracking</p>
                 <input
@@ -1718,6 +1726,7 @@ export default function StreamOverlay() {
         {/* Commentary, tracking and race info as one block. In the Arcade layout the block is centered
             vertically in the space between the tracker boxes, so 1 commentator and 1 tracker don't leave a gap. */}
         <div className="credits-panel">
+          {chat.on ? <ChatHelp /> : (<>
           <div className="credits-row">
             <div className="credit-col">
               <div className="commentary-title">COMMENTARY</div>
@@ -1801,6 +1810,7 @@ export default function StreamOverlay() {
               {isMaxRando && gemCount !== null && <span className="gem-count">{gemCount}</span>}
             </div>
           )}
+          </>)}
         </div>
 
         {/* Timer */}

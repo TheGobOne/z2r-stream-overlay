@@ -1505,6 +1505,12 @@ body:has(.vod-crop-backdrop) .vod-audio {
   display: contents;
 }
 
+/* Shown in place of commentary, tracking and race info while chat commands listen */
+.chat-help { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; font-family: 'ZeldaII', monospace; text-transform: uppercase; }
+.chat-help-title { font-size: 16.5px; letter-spacing: 1.5px; color: #FFE040; }
+.chat-help-line { font-size: 14px; letter-spacing: 1px; color: #fff; }
+.quad-side-group.chat-help { gap: 6px; }
+
 /* Race info line under the two credit columns */
 .arcade-race-title {
   position: absolute;

@@ -55,10 +55,11 @@ export function ChatCommandsTools({ channel, on, everyone, status, log, validCha
           <input type="checkbox" checked={everyone} onChange={(e) => onEveryone(e.target.checked)} />
           <span className="tools-hint">Let everyone in chat use commands (default: you and mods only)</span>
         </label>
-        <p className="tools-hint">!boss horsehead p2 &nbsp; !item hammer p1 &nbsp; !hammer 4 &nbsp; !mk da</p>
+        <p className="tools-hint">!boss horsehead p2 &nbsp; !item hammer p1 &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !sound p1</p>
         <p className="tools-hint">
-          !boss and !item need a player (p1 to p4, or just 1 to 4). !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Sending the same command again undoes it. Names can be short: mk, wol, bird.
+          !boss and !item need a player (p1 to p4, or just 1 to 4). !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. !sound p1 (or !volume p1) puts the sound on that player and mutes the rest; it does not toggle. Names can be short: mk, wol, bird.
         </p>
+        <p className="tools-hint">While listening, the overlay shows these commands in place of commentary, tracking and race info.</p>
         {log.length > 0 && (
           <ul className="tools-hint" aria-label="Recent commands">
             {log.map((entry) => (

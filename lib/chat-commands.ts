@@ -2,24 +2,49 @@ import { BOSSES, ITEMS, type TrackerIcon } from "@/lib/tracker-catalog"
 import type { TrackerAction } from "@/lib/tracker-link"
 
 /** A tracker action, or an item location (the badge on an item) that clears itself when sent twice. */
-export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string }
+export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runner: number }
 export type ParsedCommand = { action: ChatAction; summary: string }
 
 /** Where an item can be found, as the badge text the overlay shows: towns and palaces 1 to 6. */
 const LOCATIONS = new Set(["RA", "RU", "SA", "MD", "NA", "DA", "NK", "OK", "1", "2", "3", "4", "5", "6", "W", "E", "MI", "DM"])
 
-/** `!hammer 4` or `!magic key da`: the item's name, then where it was found. */
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "")
+
+/** Town names as chat writes them, mapped to the badge text. "New Kasuto" and "Old Kasuto" take two words. */
+const TOWNS: Record<string, string> = {
+  rauru: "RA",
+  ruto: "RU",
+  saria: "SA",
+  mido: "MD",
+  nabooru: "NA",
+  darunia: "DA",
+  newkasuto: "NK",
+  oldkasuto: "OK",
+}
+
+/** The badge code for a location typed in chat, or null. */
+function resolveLocation(words: string[]): string | null {
+  const key = norm(words.join(""))
+  if (TOWNS[key]) return TOWNS[key]
+  const upper = key.toUpperCase()
+  return LOCATIONS.has(upper) ? upper : null
+}
+
+/** `!hammer 4`, `!magic key da` or `!magic key new kasuto`: the item's name, then where it was found. */
 function parseLocationCommand(command: string, rest: string[]): ParsedCommand | null {
   if (!command.startsWith("!") || rest.length === 0) return null
   const words = [command.slice(1), ...rest]
-  const location = (words.pop() ?? "").toUpperCase()
-  if (!LOCATIONS.has(location)) return null
-  const icon = findIcon(ITEMS, words)
-  if (!icon) return null
-  return { action: { type: "toggleItemLocation", id: icon.id, value: location }, summary: `${icon.alt}: ${location}` }
+  // Try the longest location first (two words for "new kasuto"), keeping at least one word for the item
+  for (const size of [2, 1]) {
+    if (words.length <= size) continue
+    const location = resolveLocation(words.slice(-size))
+    if (!location) continue
+    const icon = findIcon(ITEMS, words.slice(0, -size))
+    if (!icon) return null
+    return { action: { type: "toggleItemLocation", id: icon.id, value: location }, summary: `${icon.alt}: ${location}` }
+  }
+  return null
 }
-
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "")
 
 /** Short names chat is likely to type. */
 const ALIASES: Record<string, string> = {
@@ -69,6 +94,11 @@ function findIcon(list: TrackerIcon[], words: string[]): TrackerIcon | null {
 export function parseChatCommand(text: string, runnerCount: number): ParsedCommand | null {
   const parts = text.trim().split(/\s+/)
   const command = (parts.shift() ?? "").toLowerCase()
+  if (command === "!sound" || command === "!volume") {
+    const runner = parts.length === 1 && /^p?[1-4]$/i.test(parts[0]) ? Number(parts[0].replace(/\D/g, "")) - 1 : -1
+    if (runner < 0 || runner >= runnerCount) return null
+    return { action: { type: "audio", runner }, summary: `Sound on player ${runner + 1}` }
+  }
   const match = /^!(boss|item)$/.exec(command)
   if (!match) return parseLocationCommand(command, parts)
   const isBoss = match[1] === "boss"

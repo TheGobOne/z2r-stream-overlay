@@ -27,6 +27,8 @@ export type QuadOverlayHandle = {
   setRunners(runners: ({ name: string; channel: string | null } | undefined)[]): void
   /** The players by slot (null while one is not mounted), for saving where each VOD is. */
   players(): (VodPlayerHandle | null)[]
+  /** Unmute this player and mute the others, like clicking its audio badge. */
+  listenTo(index: number): void
 }
 
 type Props = {
@@ -178,7 +180,14 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     )
   }
 
-  useImperativeHandle(ref, () => ({ playAll, pauseAll, resetAll, setRunners, players: () => playerRefs.map((r) => r.current) }))
+  useImperativeHandle(ref, () => ({
+    playAll,
+    pauseAll,
+    resetAll,
+    setRunners,
+    players: () => playerRefs.map((r) => r.current),
+    listenTo: (index) => setVods((prev) => prev.map((config, j) => ({ ...config, muted: j !== index }))),
+  }))
 
   function openPanel(index: number, e: React.MouseEvent) {
     e.preventDefault()
