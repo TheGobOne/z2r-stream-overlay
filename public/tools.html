@@ -6,5 +6,17 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Overlay tools</title>
   </head>
-  <body style="margin: 0; background: #050505"></body>
+  <body style="margin: 0; background: #050505">
+    <script>
+      // The overlay page renders this window. After the overlay reloads, hand this window back to it;
+      // if the overlay was closed, close too.
+      setInterval(function () {
+        try {
+          var overlay = window.opener
+          if (!overlay || overlay.closed) return window.close()
+          if (overlay.__z2rAttachTools) overlay.__z2rAttachTools(window)
+        } catch (e) {}
+      }, 500)
+    </script>
+  </body>
 </html>

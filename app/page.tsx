@@ -130,14 +130,34 @@ export default function StreamOverlay() {
     const poll = window.setInterval(() => {
       if (toolsWin.closed) setToolsWin(null)
     }, 500)
-    // The tools are rendered by this page, so they'd go dead if the overlay reloads
-    const closeWithOverlay = () => toolsWin.close()
-    window.addEventListener("pagehide", closeWithOverlay)
+    // The tools are rendered by this page, so they'd go dead while the overlay reloads. Blank them;
+    // tools.html hands its window back to the reloaded page (below), or closes if the overlay is gone.
+    const blankTools = () => {
+      try {
+        const doc = toolsWin.document
+        const note = doc.createElement("p")
+        note.textContent = "Overlay is reloading. The tools come back by themselves."
+        note.style.cssText = "margin:24px;color:#8A8AA8;font:14px sans-serif"
+        doc.body.replaceChildren(note)
+      } catch {}
+    }
+    window.addEventListener("pagehide", blankTools)
     return () => {
       window.clearInterval(poll)
-      window.removeEventListener("pagehide", closeWithOverlay)
+      window.removeEventListener("pagehide", blankTools)
     }
   }, [toolsWin])
+
+  // A tools window left open across an overlay reload calls this to be rendered again (no click needed)
+  useEffect(() => {
+    const host = window as Window & { __z2rAttachTools?: (win: Window) => void }
+    host.__z2rAttachTools = (win) => {
+      if (!win.closed) setToolsWin((prev) => (prev && !prev.closed ? prev : win))
+    }
+    return () => {
+      delete host.__z2rAttachTools
+    }
+  }, [])
 
   const [placements, setPlacements] = useState<Placements>(() => Array(4).fill(null))
   const [quadNames, setQuadNames] = useState<string[]>([])
@@ -1769,6 +1789,7 @@ export default function StreamOverlay() {
           <ToolsWindowPortal win={toolsWin}>
             <main className="tools booth">
               <header className="tools-header">
+                <p className="tools-reopen-note">If you ever accidentally close this window right-click on open black space by the timer.</p>
                 <h1 className="tools-heading">Booth</h1>
                 <p className="tools-subheading">Only you can see this window. Changes apply to the overlay instantly.</p>
               </header>

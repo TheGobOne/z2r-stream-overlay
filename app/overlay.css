@@ -1418,6 +1418,7 @@ body:has(.vod-crop-backdrop) .vod-audio {
 }
 .tools-heading { color: #FFE040; font-size: 20px; letter-spacing: 3px; }
 .tools-subheading { color: #8A8AA8; }
+.tools-reopen-note { margin: 0 0 8px; color: #FF4040; font-size: 14px; line-height: 1.5; }
 .tools-card {
   position: relative;
   border: 0;
