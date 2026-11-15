@@ -1971,7 +1971,7 @@ export default function StreamOverlay() {
                   },
                   {
                     id: "videos",
-                    title: "Videos",
+                    title: "Video and volume",
                     node: (
               <>
               {runnerCount === 2 ? (
