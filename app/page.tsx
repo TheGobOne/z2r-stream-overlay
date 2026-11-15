@@ -150,6 +150,18 @@ export default function StreamOverlay() {
     }
   }, [toolsWin])
 
+  // Try to open the tools as soon as the site loads. Browsers only allow this once popups are allowed for the
+  // site; otherwise it is blocked silently, Chrome shows its "popup blocked" icon, and OK on setup opens it.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      try {
+        const win = openToolsWindow(null)
+        if (win) setToolsWin((prev) => (prev && !prev.closed ? prev : win))
+      } catch {}
+    }, 300)
+    return () => window.clearTimeout(id)
+  }, [])
+
   // A tools window left open across an overlay reload calls this to be rendered again (no click needed)
   useEffect(() => {
     const host = window as Window & { __z2rAttachTools?: (win: Window) => void }
