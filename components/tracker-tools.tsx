@@ -94,13 +94,13 @@ export function TrackerTools({
   const controls = (inPopout: boolean) => (
     <div className="tools-tracker-controls" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
       {!inPopout && (
-        <button type="button" onClick={(e) => void openPopout(onTop, e.currentTarget.ownerDocument.defaultView ?? window)}>
+        <button type="button" className="vod-btn" onClick={(e) => void openPopout(onTop, e.currentTarget.ownerDocument.defaultView ?? window)}>
           Pop out
         </button>
       )}
-      <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 6 }} title="Checked: this window floats above OBS and every other window. Unchecked: it is a normal window that other windows can cover.">
         <input type="checkbox" checked={onTop} onChange={(e) => changeOnTop(e.target.checked, e.currentTarget.ownerDocument.defaultView ?? window)} />
-        Always on top
+        Always on top (stays above OBS)
       </label>
       {inPopout && !("documentPictureInPicture" in window) && (
         <span className="tools-hint">This browser cannot float windows, so always on top is unavailable.</span>
@@ -114,7 +114,7 @@ export function TrackerTools({
         <section className="tools-card">
           <h2 className="tools-card-title">Bosses and items</h2>
           <p className="tools-hint">Open in its own window.</p>
-          <button type="button" onClick={() => popout.close()}>
+          <button type="button" className="vod-btn" onClick={() => popout.close()}>
             Bring back
           </button>
         </section>
@@ -133,7 +133,8 @@ export function TrackerTools({
       {controls(inPopout)}
       <p className="tools-hint">Badges set here show on the overlay. Right-click: set badge. Middle-click: clear badge.</p>
 
-      <div className="tools-tracker-grid" role="group" aria-label="Master boss set">
+      <div className="tools-tracker-rows">
+      <div className="tools-tracker-row tools-tracker-row-bosses" role="group" aria-label="Master boss set">
         {bosses.map((boss) => {
           const badge = bossBadges[boss.id]
           return (
@@ -161,8 +162,10 @@ export function TrackerTools({
         })}
       </div>
 
-      <div className="tools-tracker-grid" role="group" aria-label="Master item set">
-        {items.map((item) => {
+      {/* Same rows as a player's tracker on the overlay: eight items per row */}
+      {Array.from({ length: Math.ceil(items.length / 8) }, (_, r) => items.slice(r * 8, r * 8 + 8)).map((rowItems, r) => (
+      <div key={r} className="tools-tracker-row" role="group" aria-label={`Master item set, row ${r + 1}`}>
+        {rowItems.map((item) => {
           const badge = itemBadges[item.id]
           return (
             <button
@@ -187,6 +190,8 @@ export function TrackerTools({
             </button>
           )
         })}
+      </div>
+      ))}
       </div>
 
       {pickerItem && (

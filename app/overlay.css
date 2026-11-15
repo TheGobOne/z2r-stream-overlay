@@ -1196,6 +1196,13 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .tools-hint { margin: 0; font-size: 12px; line-height: 1.6; }
 .tools-tracker-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .tools-tracker-grid .item-btn.tools-picking { outline: 2px solid #2ec4b6; outline-offset: 2px; }
+/* Same rows as a player's tracker on the overlay: bosses, then eight items per row, centered */
+.tools-tracker-rows { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.tools-tracker-row { display: flex; justify-content: center; gap: 8px; }
+.tools-tracker-row-bosses { gap: 12px; }
+.tools-tracker-rows .boss-btn img { width: 42px; height: 42px; }
+.tools-tracker-rows .item-btn img { width: 40px; height: 40px; }
+.tools-tracker-rows .item-btn.tools-picking { outline: 2px solid #FFE040; outline-offset: 2px; }
 .tools-badge-menu { position: static; align-self: flex-start; }
 .tools-badge-menu .tools-hint { padding: 4px; }
 
