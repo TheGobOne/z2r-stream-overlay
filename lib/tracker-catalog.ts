@@ -28,7 +28,7 @@ export const ITEMS: TrackerIcon[] = [
   { id: "trophy",          src: "/icons/trophy.png",          alt: "Trophy" },
   { id: "mirror",          src: "/icons/mirror.png",          alt: "Mirror" },
   { id: "noteforriverman", src: "/icons/bagusletter.png", alt: "Note for Riverman" },
-  { id: "wateroflife",     src: "/icons/wateroflife.png",     alt: "Water of Life" },
+  { id: "wateroflife",     src: "/icons/wateroflife.png",     alt: "Medicine" },
   { id: "water",           src: "/icons/water.png",           alt: "Water" },
   { id: "kid",             src: "/icons/kid.png",             alt: "Child" },
   { id: "shield",          src: "/icons/shield.png",          alt: "Shield" },

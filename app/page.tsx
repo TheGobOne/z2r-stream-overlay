@@ -9,6 +9,7 @@ import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
 import { FourPlayerOverlay, type QuadOverlayHandle } from "@/components/four-player-overlay"
 import { SeriesPips } from "@/components/series-pips"
 import type { StartingData } from "@/lib/starting-screen"
+import { useChatCommands } from "@/lib/use-chat-commands"
 import { hostTrackers, newJoinCode, TrackerLinkError, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
 import { fetchRace, parseRoom, type RacetimeRace, type RacetimeRunner } from "@/lib/racetime"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
@@ -27,6 +28,7 @@ const BoothLayout = dynamic(() => import("@/components/booth-layout").then((m) =
 const TrackerTools = dynamic(() => import("@/components/tracker-tools").then((m) => m.TrackerTools), { ssr: false })
 const RacetimeTools = dynamic(() => import("@/components/racetime-tools").then((m) => m.RacetimeTools), { ssr: false })
 const SeriesTools = dynamic(() => import("@/components/series-tools").then((m) => m.SeriesTools), { ssr: false })
+const ChatCommandsTools = dynamic(() => import("@/components/chat-commands-tools").then((m) => m.ChatCommandsTools), { ssr: false })
 const StartingScreenTools = dynamic(() => import("@/components/starting-screen-tools").then((m) => m.StartingScreenTools), { ssr: false })
 const RemoteTrackerTools = dynamic(() => import("@/components/remote-tracker-tools").then((m) => m.RemoteTrackerTools), { ssr: false })
 const PlayerTools = dynamic(() => import("@/components/player-tools").then((m) => m.PlayerTools), { ssr: false })
@@ -995,7 +997,19 @@ export default function StreamOverlay() {
     else toggleQuadItem(runner, id)
   }
 
-  const RESUME_RETRY_ERRORS = new Set(["unavailable-id", "network", "server-error", "socket-error", "socket-closed"])
+  // Chat commands run the same actions remote trackers send
+  const chat = useChatCommands(runnerCount, (action) => {
+    if (action.type !== "toggleItemLocation") return trackerActionRef.current(action)
+    // The same location sent again clears it
+    setItemBadges((prev) => {
+      const next = { ...prev }
+      if (next[action.id] === action.value) delete next[action.id]
+      else next[action.id] = action.value
+      return next
+    })
+  })
+
+  const RESUME_RETRY_ERRORS =new Set(["unavailable-id", "network", "server-error", "socket-error", "socket-closed"])
   // Each start gets a number; stopping or a newer start bumps it, so a start that finishes late is thrown away
   const shareGenRef = useRef(0)
   const shareBusyRef = useRef(false)
@@ -1960,6 +1974,23 @@ export default function StreamOverlay() {
                 <div ref={setQuadToolsSlot} />
               )}
               </>
+                    ),
+                  },
+                  {
+                    id: "chat",
+                    title: "Chat commands",
+                    node: (
+                      <ChatCommandsTools
+                        channel={chat.channel}
+                        on={chat.on}
+                        everyone={chat.everyone}
+                        status={chat.status}
+                        log={chat.log}
+                        validChannel={chat.validChannel}
+                        onChannel={chat.setChannel}
+                        onToggle={chat.setOn}
+                        onEveryone={chat.setEveryone}
+                      />
                     ),
                   },
                   {
