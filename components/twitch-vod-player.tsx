@@ -206,6 +206,16 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         player.addEventListener(window.Twitch.Player.READY, markReady)
         player.addEventListener("playing", markReady)
         player.addEventListener("play", markReady)
+        // A live channel that drops and comes back leaves Twitch on its play button. When it is back online,
+        // start it again if play was asked for (and not paused since), muting through the autoplay fallback.
+        if (!videoId) {
+          player.addEventListener("online", () => {
+            window.setTimeout(() => {
+              if (cancelled || playerRef.current !== player || !readyRef.current || !pendingPlayRef.current) return
+              attemptPlay(player)
+            }, 1000)
+          })
+        }
       })
       .catch((error) => console.error(error))
 
