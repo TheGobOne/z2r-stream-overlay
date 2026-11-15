@@ -49,7 +49,9 @@ export function ChatHelp({ className = "", poll, players }: { className?: string
       <div className="chat-help-rule" />
       <div className="chat-help-col chat-help-col-blurb">
         <div className="chat-help-title chat-help-title-blurb">chat2r</div>
-        <div className="chat-help-text">Chat is running the tracker. Anyone can type a command to mark a boss or item for a player. Send it again to undo.</div>
+        <div className="chat-help-text">Chat is the only one tracking!</div>
+        <div className="chat-help-text">Anyone can type a command or start a vote on who to listen to.</div>
+        <div className="chat-help-text">Item and boss marks can be undone by using the command again.</div>
         <div className="chat-help-text chat-help-warn">Abuse will result in a channel ban.</div>
       </div>
     </div>
