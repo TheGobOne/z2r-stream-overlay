@@ -206,8 +206,6 @@ export const TwitchVodPlayer = forwardRef<VodPlayerHandle, Props>(function Twitc
         player.addEventListener(window.Twitch.Player.READY, markReady)
         player.addEventListener("playing", markReady)
         player.addEventListener("play", markReady)
-        player.addEventListener("playing", () => {
-        })
       })
       .catch((error) => console.error(error))
 

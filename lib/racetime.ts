@@ -99,7 +99,11 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
     .filter((e) => !NOT_RUNNING.has(e.status?.value ?? ""))
     .map((e) => ({
       name: typeof e.user?.name === "string" ? e.user.name : "",
-      channel: (e.user?.twitch_name || e.user?.twitch_channel?.split("/").filter(Boolean).pop() || "").toLowerCase() || null,
+      channel: (
+        (typeof e.user?.twitch_name === "string" && e.user.twitch_name) ||
+        (typeof e.user?.twitch_channel === "string" && e.user.twitch_channel.split("/").filter(Boolean).pop()) ||
+        ""
+      ).toLowerCase() || null,
       status: e.status?.value ?? "",
       place: typeof e.place === "number" ? e.place : null,
       finishedAt: e.status?.value === "done" ? toLocal(e.finished_at) : null,

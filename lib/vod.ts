@@ -74,18 +74,25 @@ export function restoreVodConfig(saved: unknown): VodConfig {
     platform: v.platform === "youtube" ? "youtube" : "twitch",
     videoId,
     // A config is a video or a live channel, never both
-    channel: videoId ? null : str("channel"),
+    channel: videoId ? null : validChannel(str("channel")),
     startSeconds: Math.max(0, num("startSeconds", 0)),
     resumeSeconds: null,
     loadKey: num("loadKey", 0),
     zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, num("zoom", base.zoom))),
-    centerX: num("centerX", base.centerX),
-    centerY: num("centerY", base.centerY),
-    ...(typeof v.stretchY === "number" && Number.isFinite(v.stretchY) && v.stretchY > 0 ? { stretchY: v.stretchY } : {}),
+    centerX: clamp(num("centerX", base.centerX), 0, 1),
+    centerY: clamp(num("centerY", base.centerY), 0, 1),
+    ...(typeof v.stretchY === "number" && Number.isFinite(v.stretchY) && v.stretchY > 0
+      ? { stretchY: clamp(v.stretchY, MIN_STRETCH, MAX_STRETCH) }
+      : {}),
     muted: typeof v.muted === "boolean" ? v.muted : base.muted,
     volume: Math.min(1, Math.max(0, num("volume", base.volume))),
     crop: cropOk ? { x0: crop.x0, y0: crop.y0, x1: crop.x1, y1: crop.y1 } : null,
   }
+}
+
+/** Drops a saved channel name that Twitch would reject, so it never reaches the embed URL. */
+function validChannel(name: string | null): string | null {
+  return name && CHANNEL_NAME.test(name) ? name : null
 }
 
 export function createVodConfig(): VodConfig {

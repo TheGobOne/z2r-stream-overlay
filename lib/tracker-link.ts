@@ -63,8 +63,8 @@ function isSnapshot(value: unknown): value is TrackerSnapshot {
       (r) => r && typeof r === "object" && typeof r.name === "string" && isStringArray(r.bossesGreyed) && isStringArray(r.itemsGreyed),
     ) &&
     !!s.bossBadges && typeof s.bossBadges === "object" &&
-    Object.values(s.bossBadges).every((n) => Number.isInteger(n)) &&
     isStringArray(s.bossBadgeLabels) &&
+    Object.values(s.bossBadges).every((n) => Number.isInteger(n) && n >= 0 && n < (s.bossBadgeLabels as string[]).length) &&
     !!s.itemBadges && typeof s.itemBadges === "object" &&
     Object.values(s.itemBadges).every((v) => typeof v === "string") &&
     Array.isArray(s.badgeOptions) &&
