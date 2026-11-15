@@ -2113,8 +2113,8 @@ export default function StreamOverlay() {
           )}
         </div>
 
-              <PlaceBadge place={placements[0]} win={duoWindows.left} at={{ left: 466, top: 44 }} />
-              <PlaceBadge place={placements[1]} win={duoWindows.right} at={{ left: 990, top: 44 }} />
+              <PlaceBadge place={placements[0]} win={duoWindows.left} edge="top" />
+              <PlaceBadge place={placements[1]} win={duoWindows.right} edge="top" />
 
         {/* Boss tracker — left */}
         <div className="boss-row" role="group" aria-label="Player 1 boss tracker">

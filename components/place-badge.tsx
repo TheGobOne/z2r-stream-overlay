@@ -13,27 +13,21 @@ export function assignPlace(placements: Placements, player: number, place: Place
 
 type WindowBox = { left: number; top: number; width: number; height: number }
 
-/**
- * Centred on the player's video window: just inside the bottom edge by default, inside the top edge for `"top"`,
- * or just above the window for `"above"` (clear of the video, so the video can never hide it).
- */
+/** Centred on the player's video window, just inside the bottom edge by default or the top edge when `edge="top"`. */
 export function PlaceBadge({
   place,
   win,
   edge = "bottom",
-  at,
 }: {
   place: Place | null | undefined
   win: WindowBox
-  edge?: "top" | "bottom" | "above"
-  /** A small badge centered on this point (the gap between a name and the triforces) instead of on the window. */
-  at?: { left: number; top: number }
+  edge?: "top" | "bottom"
 }) {
   if (!place) return null
   return (
     <span
-      className={`place-badge place-badge-${place}${at ? " place-badge-hud" : edge === "top" ? " place-badge-top" : edge === "above" ? " place-badge-above" : ""}`}
-      style={at ?? { left: win.left + win.width / 2, top: edge === "bottom" ? win.top + win.height : win.top }}
+      className={`place-badge place-badge-${place}${edge === "top" ? " place-badge-top" : ""}`}
+      style={{ left: win.left + win.width / 2, top: edge === "top" ? win.top : win.top + win.height }}
       aria-label={`${PLACE_LABELS[place]} place`}
     >
       {PLACE_LABELS[place]}

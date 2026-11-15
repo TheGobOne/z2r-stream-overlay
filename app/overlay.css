@@ -1717,29 +1717,8 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .theme-arcade .text-box-right { flex-direction: row-reverse; }
 
 /* Place badge sits inside the top edge of each game window, with its glow */
-.theme-arcade .place-badge { z-index: 7; }
-/* Above the video window rather than over it: the videos sit higher than 7, so a badge inside the window was hidden */
-.place-badge-above {
-  transform: translate(-50%, calc(-100% - 6px));
-  padding: 3px 11px 7px;
-  font-size: 18.6px;
-  box-shadow:
-  0 0 0 3px #000000,
-  0 0 14px 5px rgba(var(--glow), 0.85),
-  0 0 34px 12px rgba(var(--glow), 0.45);
-}
-.theme-arcade .place-badge-above { z-index: 21; }
-/* Two runners: small, in the gap between each name and the triforces, so a long name can't run into it */
-.place-badge-hud {
-  transform: translate(-50%, -50%);
-  padding: 2px 7px 4px;
-  font-size: 13px;
-  white-space: nowrap;
-  box-shadow:
-  0 0 0 2px #000000,
-  0 0 8px 2px rgba(var(--glow), 0.7);
-}
-.theme-arcade .place-badge-hud { z-index: 21; }
+/* Above the videos (z-index 13 and 14), so the badge is not hidden behind its own player */
+.theme-arcade .place-badge { z-index: 21; }
 
 /* Timer centred in the HUD */
 .theme-arcade .timer-display,
