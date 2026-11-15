@@ -43,7 +43,7 @@ export function ChatHelp({ className = "", poll, players }: { className?: string
         <div className="chat-help-line">!boss horsehead 1p</div>
         <div className="chat-help-line">!item hammer 2p</div>
         <div className="chat-help-line">!hammer 4 or rauru</div>
-        <div className="chat-help-line">!listen 1p</div>
+        <div className="chat-help-line">!volume 1p 50</div>
         <PollLine poll={poll} players={players} />
       </div>
       <div className="chat-help-rule" />
