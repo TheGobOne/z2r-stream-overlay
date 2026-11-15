@@ -1516,6 +1516,7 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .chat-help-line { font-size: 11px; letter-spacing: 1px; color: #fff; white-space: nowrap; }
 .chat-help-text { font-size: 11px; letter-spacing: 1px; line-height: 1.45; color: #fff; }
 .chat-help-warn { color: #FF4040; }
+.chat-help-poll { color: #30E0FF; white-space: normal; }
 /* The side rails are narrow: commands only */
 .quad-side-group.chat-help { flex-direction: column; gap: 6px; }
 .quad-side-group.chat-help .chat-help-rule,

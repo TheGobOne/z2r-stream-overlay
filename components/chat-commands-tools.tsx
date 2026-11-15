@@ -1,9 +1,17 @@
 "use client"
 
-import type { ChatLogEntry } from "@/lib/use-chat-commands"
+import type { ChatLogEntry, PollView } from "@/lib/use-chat-commands"
 import type { ChatStatus } from "@/lib/twitch-chat"
 
 type Props = {
+  poll: PollView
+  pollSeconds: number
+  lockMinutes: number
+  onPollSeconds: (value: number) => void
+  onLockMinutes: (value: number) => void
+  onStartPoll: () => void
+  /** Ends the vote now, or ends the lock early. */
+  onEndNow: () => void
   channel: string
   on: boolean
   everyone: boolean
@@ -22,7 +30,29 @@ const STATUS_TEXT: Record<ChatStatus, string> = {
   reconnecting: "Reconnecting",
 }
 
-export function ChatCommandsTools({ channel, on, everyone, status, log, validChannel, onChannel, onToggle, onEveryone }: Props) {
+const clampNumber = (raw: string, min: number, max: number, fallback: number) => {
+  const n = Math.round(Number(raw))
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback
+}
+
+export function ChatCommandsTools({
+  channel,
+  on,
+  everyone,
+  status,
+  log,
+  validChannel,
+  onChannel,
+  onToggle,
+  onEveryone,
+  poll,
+  pollSeconds,
+  lockMinutes,
+  onPollSeconds,
+  onLockMinutes,
+  onStartPoll,
+  onEndNow,
+}: Props) {
   return (
     <section className="tools-card" aria-labelledby="tools-chat-title">
       <h2 id="tools-chat-title" className="tools-card-title">
@@ -55,9 +85,45 @@ export function ChatCommandsTools({ channel, on, everyone, status, log, validCha
           <input type="checkbox" checked={everyone} onChange={(e) => onEveryone(e.target.checked)} />
           <span className="tools-hint">Anyone in chat can use commands (uncheck for you and mods only)</span>
         </label>
-        <p className="tools-hint">!boss horsehead 2p &nbsp; !item hammer 1p &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !sound 1p &nbsp; !volume 1p 50</p>
+        <p className="tools-hint">!boss horsehead 2p &nbsp; !item hammer 1p &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !listen 1p</p>
         <p className="tools-hint">
-          !boss and !item need a player written 1p to 4p. !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. !sound 1p puts the sound on that player and mutes the rest; it does not toggle. !volume 1p 50 sets that player's volume, 0 to 100. Names can be short: mk, wol, bird.
+          !boss and !item need a player written 1p to 4p. !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird.
+        </p>
+        <p className="tools-hint">Sound vote</p>
+        <div className="vod-row">
+          <button type="button" className="vod-btn" disabled={poll.phase !== "idle"} onClick={onStartPoll}>
+            Start vote
+          </button>
+          <button type="button" className="vod-btn" disabled={poll.phase === "idle"} onClick={onEndNow}>
+            {poll.phase === "locked" ? "End lock" : "End vote now"}
+          </button>
+        </div>
+        <label className="vod-label" htmlFor="tools-chat-poll-seconds">
+          Vote length (seconds)
+        </label>
+        <input
+          id="tools-chat-poll-seconds"
+          className="vod-input"
+          type="number"
+          min={10}
+          max={600}
+          value={pollSeconds}
+          onChange={(e) => onPollSeconds(clampNumber(e.target.value, 10, 600, pollSeconds))}
+        />
+        <label className="vod-label" htmlFor="tools-chat-lock-minutes">
+          Lock after a vote (minutes)
+        </label>
+        <input
+          id="tools-chat-lock-minutes"
+          className="vod-input"
+          type="number"
+          min={1}
+          max={120}
+          value={lockMinutes}
+          onChange={(e) => onLockMinutes(clampNumber(e.target.value, 1, 120, lockMinutes))}
+        />
+        <p className="tools-hint">
+          Anyone in chat can start a vote with !listen, then vote with !listen 1p. The winner gets the sound and is locked in for the time above. Only you and mods can use !sound 1p and !volume 1p 50.
         </p>
         <p className="tools-hint">While listening, the overlay shows these commands in place of commentary, tracking and race info.</p>
         {log.length > 0 && (

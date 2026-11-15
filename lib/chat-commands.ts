@@ -2,8 +2,13 @@ import { BOSSES, ITEMS, type TrackerIcon } from "@/lib/tracker-catalog"
 import type { TrackerAction } from "@/lib/tracker-link"
 
 /** A tracker action, or an item location (the badge on an item) that clears itself when sent twice. */
-export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runners: number[] } | { type: "volume"; runner: number; value: number }
-export type ParsedCommand = { action: ChatAction; summary: string }
+export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runners: number[] } | { type: "volume"; runner: number; value: number } | PollAction
+/** Sound polls: the chat hook runs these itself, the page never sees them. */
+export type PollAction = { type: "startPoll" } | { type: "vote"; runner: number }
+/** What the page runs for a command. */
+export type PageAction = Exclude<ChatAction, PollAction>
+/** `modOnly` commands are ignored unless the sender is the streamer or a moderator. */
+export type ParsedCommand = { action: ChatAction; summary: string; modOnly?: boolean }
 
 /** A player is written 1p to 4p. Bare numbers and p1 are palaces, so they never name a player. */
 const PLAYER = /^[1-4]p$/i
@@ -102,7 +107,15 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
     if (parts.length !== 1 || !PLAYER.test(parts[0])) return null
     const runner = Number(parts[0][0]) - 1
     if (runner >= runnerCount) return null
-    return { action: { type: "audio", runners: [runner] }, summary: `Sound on player ${runner + 1}` }
+    return { action: { type: "audio", runners: [runner] }, summary: `Sound on player ${runner + 1}`, modOnly: true }
+  }
+  // `!listen` starts a vote for who the audience hears; `!listen 1p` casts a vote
+  if (command === "!listen") {
+    if (parts.length === 0) return { action: { type: "startPoll" }, summary: "Started a sound vote" }
+    if (parts.length !== 1 || !PLAYER.test(parts[0])) return null
+    const runner = Number(parts[0][0]) - 1
+    if (runner >= runnerCount) return null
+    return { action: { type: "vote", runner }, summary: `Voted for player ${runner + 1}` }
   }
   // `!volume 1p 50`: that player's audio level, 0 to 100
   if (command === "!volume") {
@@ -110,7 +123,7 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
     const runner = Number(parts[0][0]) - 1
     const percent = Number.parseInt(parts[1], 10)
     if (runner >= runnerCount || percent > 100) return null
-    return { action: { type: "volume", runner, value: percent / 100 }, summary: `Player ${runner + 1} volume ${percent}` }
+    return { action: { type: "volume", runner, value: percent / 100 }, summary: `Player ${runner + 1} volume ${percent}`, modOnly: true }
   }
   const match = /^!(boss|item)$/.exec(command)
   if (!match) return parseLocationCommand(command, parts)

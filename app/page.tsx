@@ -999,7 +999,9 @@ export default function StreamOverlay() {
   }
 
   // Chat commands run the same actions remote trackers send
-  const chat = useChatCommands(runnerCount, (action) => {
+  // Who has sound now, for a tied sound vote (known for two runners only)
+  const currentListener = runnerCount === 2 ? (!vods.left.muted ? 0 : !vods.right.muted ? 1 : null) : null
+  const chat = useChatCommands(runnerCount, currentListener, (action) => {
     if (action.type === "audio") {
       // Only the named players have sound; everyone else is muted
       if (runnerCount === 2) {
@@ -1516,7 +1518,7 @@ export default function StreamOverlay() {
             seriesToWin={seriesShown}
             onArrange={arrangeQuadRunners}
             sidePanel={{
-              info: chat.on ? <ChatHelp className="quad-side-group" /> : (
+              info: chat.on ? <ChatHelp className="quad-side-group" poll={chat.poll} players={runnerCount} /> : (
                 <div className="quad-side-group quad-side-info">
                 <textarea
                   className="quad-side-info-input"
@@ -1736,7 +1738,7 @@ export default function StreamOverlay() {
         {/* Commentary, tracking and race info as one block. In the Arcade layout the block is centered
             vertically in the space between the tracker boxes, so 1 commentator and 1 tracker don't leave a gap. */}
         <div className="credits-panel">
-          {chat.on ? <ChatHelp /> : (<>
+          {chat.on ? <ChatHelp poll={chat.poll} players={runnerCount} /> : (<>
           <div className="credits-row">
             <div className="credit-col">
               <div className="commentary-title">COMMENTARY</div>
@@ -2010,6 +2012,13 @@ export default function StreamOverlay() {
                         onChannel={chat.setChannel}
                         onToggle={chat.setOn}
                         onEveryone={chat.setEveryone}
+                        poll={chat.poll}
+                        pollSeconds={chat.pollSeconds}
+                        lockMinutes={chat.lockMinutes}
+                        onPollSeconds={chat.setPollSeconds}
+                        onLockMinutes={chat.setLockMinutes}
+                        onStartPoll={() => void chat.startPoll()}
+                        onEndNow={chat.endNow}
                       />
                     ),
                   },
