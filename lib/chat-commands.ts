@@ -5,6 +5,9 @@ import type { TrackerAction } from "@/lib/tracker-link"
 export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runner: number }
 export type ParsedCommand = { action: ChatAction; summary: string }
 
+/** A player is written 1p to 4p. Bare numbers and p1 are palaces, so they never name a player. */
+const PLAYER = /^[1-4]p$/i
+
 /** Where an item can be found, as the badge text the overlay shows: towns and palaces 1 to 6. */
 const LOCATIONS = new Set(["RA", "RU", "SA", "MD", "NA", "DA", "NK", "OK", "1", "2", "3", "4", "5", "6", "W", "E", "MI", "DM"])
 
@@ -95,7 +98,7 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
   const parts = text.trim().split(/\s+/)
   const command = (parts.shift() ?? "").toLowerCase()
   if (command === "!sound" || command === "!volume") {
-    const runner = parts.length === 1 && /^p?[1-4]$/i.test(parts[0]) ? Number(parts[0].replace(/\D/g, "")) - 1 : -1
+    const runner = parts.length === 1 && PLAYER.test(parts[0]) ? Number(parts[0][0]) - 1 : -1
     if (runner < 0 || runner >= runnerCount) return null
     return { action: { type: "audio", runner }, summary: `Sound on player ${runner + 1}` }
   }
@@ -104,8 +107,8 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
   const isBoss = match[1] === "boss"
 
   const last = parts.pop() ?? ""
-  if (!/^p?[1-4]$/i.test(last)) return null
-  const runner = Number(last.replace(/\D/g, "")) - 1
+  if (!PLAYER.test(last)) return null
+  const runner = Number(last[0]) - 1
   if (runner >= runnerCount) return null
 
   const icon = findIcon(isBoss ? BOSSES : ITEMS, parts)

@@ -4,10 +4,10 @@ export function ChatHelp({ className = "" }: { className?: string }) {
     <div className={`chat-help ${className}`.trim()}>
       <div className="chat-help-col">
         <div className="chat-help-title">CHAT COMMANDS</div>
-        <div className="chat-help-line">!boss horsehead p1</div>
-        <div className="chat-help-line">!item hammer p2</div>
+        <div className="chat-help-line">!boss horsehead 1p</div>
+        <div className="chat-help-line">!item hammer 2p</div>
         <div className="chat-help-line">!hammer 4 or rauru</div>
-        <div className="chat-help-line">!sound p1</div>
+        <div className="chat-help-line">!sound 1p</div>
       </div>
       <div className="chat-help-rule" />
       <div className="chat-help-col chat-help-col-blurb">
