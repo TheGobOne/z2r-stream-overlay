@@ -87,7 +87,7 @@ export function ChatCommandsTools({
         </label>
         <p className="tools-hint">!boss horsehead 2p &nbsp; !item hammer 1p &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !listen 1p</p>
         <p className="tools-hint">
-          !boss and !item need a player written 1p to 4p. !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird.
+          !boss and !item need a player written 1p to 4p. !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird. The same boss, item or location command from several people counts once per 10 seconds, so a crowd doesn't flip it back and forth; you and mods can repeat it right away.
         </p>
         <p className="tools-hint">Sound vote</p>
         <div className="vod-row">
@@ -123,7 +123,7 @@ export function ChatCommandsTools({
           onChange={(e) => onLockMinutes(clampNumber(e.target.value, 1, 120, lockMinutes))}
         />
         <p className="tools-hint">
-          Anyone in chat can start a vote with !listen, then vote with !listen 1p. The winner gets the sound and is locked in for the time above. Only you and mods can use !sound 1p and !volume 1p 50.
+          Anyone in chat can start a vote with !listen, then vote with !listen 1p. The winner gets the sound and is locked in for the time above. Anyone can set a player's volume with !volume 1p 50. Only you and mods can use !sound 1p.
         </p>
         <p className="tools-hint">While listening, the overlay shows these commands in place of commentary, tracking and race info.</p>
         {log.length > 0 && (

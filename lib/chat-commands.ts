@@ -3,6 +3,22 @@ import type { TrackerAction } from "@/lib/tracker-link"
 
 /** A tracker action, or an item location (the badge on an item) that clears itself when sent twice. */
 export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runners: number[] } | { type: "volume"; runner: number; value: number } | PollAction
+/**
+ * Identifies a toggling command (boss, item, item location) by what it changes, so the chat hook can ignore the same
+ * one repeated by several viewers. Null for commands that set a value (votes, volume, sound), where repeats are harmless.
+ */
+export function toggleKey(action: ChatAction): string | null {
+  switch (action.type) {
+    case "toggleBoss":
+    case "toggleItem":
+      return `${action.type}:${action.runner}:${action.id}`
+    case "toggleItemLocation":
+      return `location:${action.id}:${action.value}`
+    default:
+      return null
+  }
+}
+
 /** Sound polls: the chat hook runs these itself, the page never sees them. */
 export type PollAction = { type: "startPoll" } | { type: "vote"; runner: number }
 /** What the page runs for a command. */
@@ -123,7 +139,7 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
     const runner = Number(parts[0][0]) - 1
     const percent = Number.parseInt(parts[1], 10)
     if (runner >= runnerCount || percent > 100) return null
-    return { action: { type: "volume", runner, value: percent / 100 }, summary: `Player ${runner + 1} volume ${percent}`, modOnly: true }
+    return { action: { type: "volume", runner, value: percent / 100 }, summary: `Player ${runner + 1} volume ${percent}` }
   }
   const match = /^!(boss|item)$/.exec(command)
   if (!match) return parseLocationCommand(command, parts)

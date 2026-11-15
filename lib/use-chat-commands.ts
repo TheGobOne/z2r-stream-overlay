@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { parseChatCommand, type PageAction } from "@/lib/chat-commands"
+import { parseChatCommand, toggleKey, type PageAction } from "@/lib/chat-commands"
 import { pickWinner } from "@/lib/chat-poll"
 import { cleanChannel, joinChat, type ChatStatus } from "@/lib/twitch-chat"
 
@@ -13,6 +13,8 @@ const LOCK_MINUTES_KEY = "z2r-chat-lock-minutes"
 const DEFAULT_POLL_SECONDS = 60
 const DEFAULT_LOCK_MINUTES = 15
 const MAX_PER_SECOND = 10
+/** The same toggle from several viewers counts once in this window; the streamer and mods skip the wait. */
+const DUPLICATE_MS = 10_000
 const LOG_LENGTH = 6
 
 export type ChatLogEntry = { id: number; user: string; text: string }
@@ -148,14 +150,29 @@ export function useChatCommands(runnerCount: number, currentListener: number | n
     let windowStart = 0
     let count = 0
     let nextId = 0
+    const recentToggles = new Map<string, number>()
     const chat = joinChat(
       clean,
       (message) => {
         if (!message.privileged && !everyoneRef.current) return
         const parsed = parseChatCommand(message.text, runnerCountRef.current)
         if (!parsed) return
-        if (parsed.modOnly && !message.privileged) return
+        if (parsed.modOnly && !message.privileged) {
+          // Show it in the card so a command that seems to do nothing can be told apart from one that was refused
+          setLog((prev) => [{ id: nextId++, user: message.user, text: `${parsed.summary} (ignored: mods and the streamer only)` }, ...prev].slice(0, LOG_LENGTH))
+          return
+        }
         const now = Date.now()
+        // Toggles flip on every repeat, so five viewers sending one command would leave it unchanged or flipped by chance
+        const key = toggleKey(parsed.action)
+        if (key) {
+          const last = recentToggles.get(key)
+          if (last !== undefined && now - last < DUPLICATE_MS && !message.privileged) {
+            setLog((prev) => [{ id: nextId++, user: message.user, text: `${parsed.summary} (duplicate, ignored)` }, ...prev].slice(0, LOG_LENGTH))
+            return
+          }
+          recentToggles.set(key, now)
+        }
         if (now - windowStart > 1000) {
           windowStart = now
           count = 0
