@@ -40,7 +40,8 @@ export function ProgramMonitor({ win }: { win: Window }) {
     }
     try {
       const options: DisplayMediaOptions = {
-        video: { frameRate: 30 },
+        // A confidence monitor; 30 fps of the window running the live players costs CPU OBS needs
+        video: { frameRate: 15 },
         audio: false,
         selfBrowserSurface: "exclude",
         surfaceSwitching: "include",

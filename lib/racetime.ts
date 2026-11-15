@@ -6,23 +6,27 @@ export type RacetimeRunner = {
   status: string
   /** Finishing place once done, else null. */
   place: number | null
+  /** When this runner finished, as a local-clock epoch (ms); null until done. */
+  finishedAt: number | null
 }
 
 export type RacetimeRace = {
   /** Race room path, like "z2r/gorgeous-megmat-2066". */
   room: string
   status: string
-  info: string
   runners: RacetimeRunner[]
   /** Start of the race as a local-clock epoch (ms), corrected for clock drift; null before it starts. */
   startMs: number | null
   /** End of the race as a local-clock epoch (ms), or null while it is still running. A cancel counts as the end. */
   endMs: number | null
+  /** The winner's finish (local-clock epoch, ms), or null when nobody finished. ended_at is the last entrant's end. */
+  winnerMs: number | null
   /** finished or cancelled: nothing more will change, so polling can stop. */
   over: boolean
 }
 
-const ROOM_PATH = /^\/?([a-z0-9_-]+)\/([a-z0-9_-]+)(?:\/.*)?$/i
+// Category slug, then a room slug like "gorgeous-megmat-2066" (so "racetime.gg/user/abc" is rejected)
+const ROOM_PATH = /^\/?([a-z0-9_-]+)\/([a-z0-9]+-[a-z0-9]+-\d+)(?:\/.*)?$/i
 const NOT_RUNNING = new Set(["invited", "declined", "requested"])
 
 /** Accepts a racetime.gg room link, "racetime.gg/z2r/room", or "z2r/room". */
@@ -48,6 +52,7 @@ type RawEntrant = {
   user?: { name?: string; twitch_name?: string | null; twitch_channel?: string | null }
   status?: { value?: string }
   place?: number | null
+  finished_at?: string | null
 }
 
 type RawRace = {
@@ -97,6 +102,7 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
       channel: (e.user?.twitch_name || e.user?.twitch_channel?.split("/").filter(Boolean).pop() || "").toLowerCase() || null,
       status: e.status?.value ?? "",
       place: typeof e.place === "number" ? e.place : null,
+      finishedAt: e.status?.value === "done" ? toLocal(e.finished_at) : null,
     }))
 
   // The feed lists entrants alphabetically; room info like "A vs B Game 2" gives the intended order
@@ -110,11 +116,12 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
   }
 
   const status = typeof data.status?.value === "string" ? data.status.value : ""
+  const finishes = runners.map((r) => r.finishedAt).filter((ms): ms is number => ms !== null)
   return {
     room,
     status,
-    info,
     runners,
+    winnerMs: finishes.length > 0 ? Math.min(...finishes) : null,
     startMs: toLocal(data.started_at),
     // A cancelled race has cancelled_at and no ended_at; stop the clock there too
     endMs: toLocal(data.ended_at) ?? toLocal(data.cancelled_at),

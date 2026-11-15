@@ -16,20 +16,19 @@ function brickRect(col: number, row: number, cols: number, rows: number): Window
   return { left: col * BRICK_W, top: row * BRICK_H, width: cols * BRICK_W, height: rows * BRICK_H }
 }
 
-export type PanelStyle = "column" | "wide" | "bar" | "rails"
+export type PanelStyle = "wide" | "rails"
 
 export type GridLayout = {
   count: number
   cells: WindowRect[]
   windows: WindowRect[]
   panel: WindowRect
-  /** column: tall side strip; wide: a quadrant with grouped sections; bar: one thin row along the bottom. */
+  /** wide: a quadrant with grouped sections; rails: the race info and commentary blocks inside the side rails. */
   panelStyle: PanelStyle
   /** Which side of each cell's video its tracker column sits on. */
   trackerSides: TrackerSide[]
   /** "rails" layouts: full-height black columns either side of the windows (P1/P3 on the left, P2/P4 on the right). */
   rails?: { left: WindowRect; right: WindowRect }
-  dock: WindowRect
   defaultZoom: number
 }
 
@@ -56,13 +55,6 @@ function buildLayout(
     trackerSides,
     panel,
     panelStyle,
-    // The settings panel is centered over the top row, at the same size as the two-runner panel
-    dock: {
-      left: (cells[0].left + cells[1].left + cells[1].width - 655) / 2,
-      top: (STAGE_HEIGHT - 511) / 2,
-      width: 655,
-      height: 511,
-    },
     // Zoom at which a 16:9 video exactly fills the window's height
     defaultZoom: Math.round((windows[0].height / ((windows[0].width * 9) / 16)) * 100) / 100,
   }
@@ -78,12 +70,6 @@ function buildRailLayout(windows: WindowRect[], rails: { left: WindowRect; right
     panel: rails.right,
     panelStyle: "rails",
     rails,
-    dock: {
-      left: (windows[0].left + windows[1].left + windows[1].width - 655) / 2,
-      top: (STAGE_HEIGHT - 511) / 2,
-      width: 655,
-      height: 511,
-    },
     defaultZoom: Math.round((windows[0].height / ((windows[0].width * 9) / 16)) * 100) / 100,
   }
 }

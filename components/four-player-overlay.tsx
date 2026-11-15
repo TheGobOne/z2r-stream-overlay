@@ -6,11 +6,15 @@ import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { SeriesPips } from "@/components/series-pips"
 import { ARCADE_COLORS, ARCADE_YELLOW, ArcadeFrame, ArcadeSky } from "@/components/arcade-decor"
 import { AudioBadge } from "@/components/audio-badge"
-import { PlayerTools } from "@/components/player-tools"
+import { useFitFontSize } from "@/lib/use-fit-font"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
 import { BRICK_W, QUAD_TRACKER_WIDTH, betterArrangement, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 import "./four-player-overlay.css"
+import dynamic from "next/dynamic"
+
+// Tools-window only; kept out of the overlay bundle that every OBS source loads
+const PlayerTools = dynamic(() => import("@/components/player-tools").then((m) => m.PlayerTools), { ssr: false })
 
 type TrackerIcon = { id: string; src: string; alt: string }
 
@@ -21,6 +25,8 @@ export type QuadOverlayHandle = {
   resetAll(): void
   /** Fill runner names and live Twitch channels, in order. */
   setRunners(runners: ({ name: string; channel: string | null } | undefined)[]): void
+  /** The players by slot (null while one is not mounted), for saving where each VOD is. */
+  players(): (VodPlayerHandle | null)[]
 }
 
 type Props = {
@@ -32,7 +38,6 @@ type Props = {
   itemBadges: Record<string, string>
   onBossContextMenu: (bossId: string) => void
   onClearBossBadge: (bossId: string) => void
-  onItemContextMenu: (e: React.MouseEvent, itemId: string, type: "number" | "letter") => void
   onClearItemBadge: (itemId: string) => void
   linkToTimer: boolean
   onLinkToTimerChange: (value: boolean) => void
@@ -66,17 +71,31 @@ type Props = {
 }
 
 // Hitbox strips sit on the bricks around a loaded video; half a brick keeps neighbors from overlapping
-// The first row of items uses number/code badges; the rest use letter badges
-const NUMBER_BADGE_ITEMS = 8
 
 const rect = (r: WindowRect) => ({ left: r.left, top: r.top, width: r.width, height: r.height })
 
-function nameFontSize(name: string) {
-  const length = name.length || "PLAYER 1".length
-  if (length <= 6) return 13
-  if (length <= 8) return 11
-  // 8px is the smallest the pixel font stays readable on stream
-  return 8
+// 8px is the smallest the pixel font stays readable on stream
+const QUAD_NAME_FIT = { base: 13, min: 8, letterSpacing: 1 }
+
+/** A runner name sized to the plate it sits in (column trackers are much narrower than rails). */
+function QuadNameInput({ value, onChange, index }: { value: string; onChange: (value: string) => void; index: number }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const size = useFitFontSize(ref, value, QUAD_NAME_FIT)
+  return (
+    <input
+      ref={ref}
+      type="text"
+      className="zelda-input"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={`PLAYER ${index + 1}`}
+      maxLength={16}
+      aria-label={`Player ${index + 1} name`}
+      spellCheck={false}
+      autoComplete="off"
+      style={{ "--zelda-font-size": `${size}px` } as React.CSSProperties}
+    />
+  )
 }
 
 export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function FourPlayerOverlay(
@@ -89,7 +108,6 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     itemBadges,
     onBossContextMenu,
     onClearBossBadge,
-    onItemContextMenu,
     onClearItemBadge,
     linkToTimer,
     onLinkToTimerChange,
@@ -160,7 +178,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     )
   }
 
-  useImperativeHandle(ref, () => ({ playAll, pauseAll, resetAll, setRunners }))
+  useImperativeHandle(ref, () => ({ playAll, pauseAll, resetAll, setRunners, players: () => playerRefs.map((r) => r.current) }))
 
   function openPanel(index: number, e: React.MouseEvent) {
     e.preventDefault()
@@ -170,14 +188,21 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
   const fillCrop = true
   const labelFor = (i: number) => names[i] || `Player ${i + 1}`
-  // Up to 24 stacking solves with bisection; only redo it when the videos change, not on every keystroke
-  const layouts = useMemo(() => resolveQuadLayouts(windows, vods, fillCrop), [windows, vods, fillCrop])
-  const arrangement = useMemo(() => betterArrangement(windows, vods, fillCrop, pairs), [windows, vods, fillCrop, pairs])
+  // Up to 24 orders x 24 stackings with bisection; only redo it when a frame's shape or place can change,
+  // not on volume drags, mute, or a resume point (those fields never reach the layout math)
+  const layoutKey = JSON.stringify(
+    vods.map(({ muted: _m, volume: _v, resumeSeconds: _r, loadKey: _l, startSeconds: _s, url: _u, ...shape }) => shape),
+  )
+  /* eslint-disable react-hooks/exhaustive-deps */
+  const layouts = useMemo(() => resolveQuadLayouts(windows, vods, fillCrop), [windows, layoutKey, fillCrop])
+  const arrangement = useMemo(() => betterArrangement(windows, vods, fillCrop, pairs), [windows, layoutKey, fillCrop, pairs])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   /** Moves each runner, with their video, crop and trackers, into the slot `order` gives them. */
   function arrange(order: number[]) {
     // A VOD picks up where it was; a live stream just reconnects
     const times = playerRefs.map((r) => r.current?.getCurrentTime() ?? null)
+    const playing = playerRefs.map((r) => r.current != null && !r.current.isPaused())
     const nextNames = order.map((r) => names[r])
     setNames(nextNames)
     onNamesChange?.(nextNames)
@@ -189,6 +214,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         return config.videoId && time !== null ? { ...config, resumeSeconds: Math.floor(time) } : config
       }),
     )
+    // The moved players reload; a play asked for now carries over to the new player (PLAY_CARRY_MS)
+    order.forEach((r, slot) => {
+      if (playing[r]) playerRefs[slot].current?.play()
+    })
     setSelected(order.indexOf(selected))
     onArrange?.(order)
   }
@@ -242,28 +271,21 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const renderRunner = (i: number, rail: boolean) => (
     <>
           <div
-            className="quad-name"
+            className={`quad-name${seriesToWin > 0 ? " has-pips" : ""}${hasSource(vods[i]) ? " has-audio" : ""}`}
             style={{ ["--pc" as string]: ARCADE_COLORS[i] }}
             onContextMenu={(e) => {
               if (hasSource(vods[i])) openPanel(i, e)
             }}
           >
             <SeriesPips wins={seriesWins[i] ?? 0} toWin={seriesToWin} />
-            <input
-              type="text"
-              className="zelda-input"
+            <QuadNameInput
+              index={i}
               value={names[i]}
-              onChange={(e) => {
-                const next = names.map((n, j) => (j === i ? e.target.value : n))
+              onChange={(value) => {
+                const next = names.map((n, j) => (j === i ? value : n))
                 setNames(next)
                 onNamesChange?.(next)
               }}
-              placeholder={`PLAYER ${i + 1}`}
-              maxLength={16}
-              aria-label={`Player ${i + 1} name`}
-              spellCheck={false}
-              autoComplete="off"
-              style={{ "--zelda-font-size": `${nameFontSize(names[i])}px` } as React.CSSProperties}
             />
             {hasSource(vods[i]) && (
               <AudioBadge
@@ -490,7 +512,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
 
       {!rails && (
       <div
-        className={`quad-side${panelStyle === "column" ? "" : ` quad-side-${panelStyle}`}`}
+        className={`quad-side quad-side-${panelStyle}`}
         // Reach 1px up and left so neighboring brick highlights can't bleed through fractional edges
         style={{ left: panel.left - 1, top: panel.top - 1, width: panel.width + 1, height: panel.height + 1 }}
         onContextMenu={onSidePanelContextMenu}

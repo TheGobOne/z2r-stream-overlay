@@ -50,7 +50,6 @@ export const VOD_WINDOWS: Record<
 
 export const MIN_ZOOM = 1
 export const MAX_ZOOM = 6
-// Zoom at which a 16:9 VOD exactly fills the window height
 /** Zoom that fills a 2-runner Arcade window (704x528) with a 16:9 video. */
 export const DEFAULT_ZOOM = Math.round((528 / ((704 * 9) / 16)) * 100) / 100
 
@@ -61,25 +60,31 @@ export function restoreVodConfig(saved: unknown): VodConfig {
   const v = saved as Record<string, unknown>
   const num = (key: keyof VodConfig, fallback: number) => (typeof v[key] === "number" && Number.isFinite(v[key]) ? (v[key] as number) : fallback)
   const str = (key: keyof VodConfig) => (typeof v[key] === "string" ? (v[key] as string) : null)
-  const crop = v.crop as Record<string, unknown> | null | undefined
+  const crop = v.crop as Record<string, number> | null | undefined
+  // Same limits as the crop selector: inside the frame, in order, and not a sliver (that blows the frame up)
+  const MIN_CROP = 0.02
   const cropOk =
-    !!crop && typeof crop === "object" && ["x0", "y0", "x1", "y1"].every((k) => typeof crop[k] === "number" && Number.isFinite(crop[k]))
+    !!crop && typeof crop === "object" &&
+    ["x0", "y0", "x1", "y1"].every((k) => typeof crop[k] === "number" && crop[k] >= 0 && crop[k] <= 1) &&
+    crop.x1 - crop.x0 >= MIN_CROP && crop.y1 - crop.y0 >= MIN_CROP
+  const videoId = str("videoId")
   return {
     ...base,
     url: str("url") ?? base.url,
     platform: v.platform === "youtube" ? "youtube" : "twitch",
-    videoId: str("videoId"),
-    channel: str("channel"),
+    videoId,
+    // A config is a video or a live channel, never both
+    channel: videoId ? null : str("channel"),
     startSeconds: Math.max(0, num("startSeconds", 0)),
     resumeSeconds: null,
     loadKey: num("loadKey", 0),
-    zoom: num("zoom", base.zoom) > 0 ? num("zoom", base.zoom) : base.zoom,
+    zoom: Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, num("zoom", base.zoom))),
     centerX: num("centerX", base.centerX),
     centerY: num("centerY", base.centerY),
     ...(typeof v.stretchY === "number" && Number.isFinite(v.stretchY) && v.stretchY > 0 ? { stretchY: v.stretchY } : {}),
     muted: typeof v.muted === "boolean" ? v.muted : base.muted,
-    volume: num("volume", base.volume),
-    crop: cropOk ? (crop as unknown as VodConfig["crop"]) : null,
+    volume: Math.min(1, Math.max(0, num("volume", base.volume))),
+    crop: cropOk ? { x0: crop.x0, y0: crop.y0, x1: crop.x1, y1: crop.y1 } : null,
   }
 }
 
@@ -242,7 +247,9 @@ export type TwitchSource =
   | { kind: "live"; channel: string }
 
 const CHANNEL_NAME = /^[a-zA-Z0-9_]{3,25}$/
-const RESERVED_PATHS = new Set(["videos", "directory", "search", "settings", "downloads", "p", "jobs", "turbo"])
+const RESERVED_PATHS = new Set(["videos", "directory", "search", "settings", "downloads", "p", "jobs", "turbo", "popout", "moderator", "embed", "clip"])
+/** Paths whose channel is the second segment: twitch.tv/popout/NAME/chat, /moderator/NAME, /embed/NAME/chat. */
+const CHANNEL_SECOND = new Set(["popout", "moderator", "embed"])
 
 /**
  * Accepts a twitch.tv/videos/123 URL (optionally with ?t=1h2m3s), a bare video id,
@@ -260,7 +267,8 @@ export function parseTwitchSource(input: string): TwitchSource | null {
 
   try {
     const url = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`)
-    if (!/(^|\.)twitch\.tv$/.test(url.hostname)) return null
+    // clips.twitch.tv/Name is a clip, not a channel
+    if (!/(^|\.)twitch\.tv$/.test(url.hostname) || /^clips\./i.test(url.hostname)) return null
     const fromPath = url.pathname.match(/\/videos\/(\d+)/)
     const fromQuery = url.searchParams.get("video")?.match(/^v?(\d+)$/)
     const videoId = fromPath?.[1] ?? fromQuery?.[1]
@@ -269,7 +277,9 @@ export function parseTwitchSource(input: string): TwitchSource | null {
       return { kind: "vod", videoId, startSeconds: t ? parseTime(t) : null }
     }
 
-    const liveChannel = url.searchParams.get("channel") ?? url.pathname.split("/").filter(Boolean)[0]
+    const segments = url.pathname.split("/").filter(Boolean)
+    const liveChannel =
+      url.searchParams.get("channel") ?? (CHANNEL_SECOND.has(segments[0]?.toLowerCase() ?? "") ? segments[1] : segments[0])
     if (liveChannel && CHANNEL_NAME.test(liveChannel) && !RESERVED_PATHS.has(liveChannel.toLowerCase())) {
       return { kind: "live", channel: liveChannel.toLowerCase() }
     }

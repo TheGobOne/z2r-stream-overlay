@@ -32,7 +32,19 @@ export type TrackerAction =
 type Message = { kind: "snapshot"; snapshot: TrackerSnapshot } | { kind: "action"; action: TrackerAction } | { kind: "full" }
 
 const PEER_PREFIX = "z2r-restream-"
+/** Shared by all helpers, so opening more connections can't multiply it. */
 const ACTIONS_PER_SECOND = 20
+/** Per helper, so one fast helper can't use up everyone else's share. */
+const ACTIONS_PER_SECOND_EACH = 8
+/** A connection that hasn't opened by then is dropped, so half-made links can't hold slots. */
+const CONNECT_TIMEOUT_MS = 15_000
+/** After this long of another session holding the code, sharing stops instead of retrying forever. */
+const CODE_TAKEN_GIVE_UP_MS = 90_000
+/**
+ * Plain JSON on both ends: PeerJS's binary serializer reassembles chunked messages with no size limit,
+ * so a bad sender could grow the overlay's memory. JSON messages are never chunked (snapshots are ~2 KB).
+ */
+const SERIALIZATION = "json"
 /** More helpers than a race needs; extra connections are refused. */
 const MAX_TRACKERS = 8
 /** The signalling server normally answers in well under a second. */
@@ -152,39 +164,57 @@ export async function hostTrackers(
 ): Promise<TrackerHost> {
   const peer = await createPeer(PEER_PREFIX + code)
   const connections = new Set<DataConnection>()
+  /** Connections still negotiating; they count toward MAX_TRACKERS so a burst of joins can't pass the cap. */
+  const pending = new Set<DataConnection>()
   let latest: TrackerSnapshot | null = null
   let stopped = false
 
-  // One shared budget for all helpers, so opening more connections can't multiply it
+  // A helper can't send more than its own share or the shared budget; extra actions are dropped
   let tokens = ACTIONS_PER_SECOND
   let refilledAt = Date.now()
   peer.on("connection", (conn) => {
-    if (connections.size >= MAX_TRACKERS) {
+    if (conn.serialization !== SERIALIZATION) {
+      conn.close()
+      return
+    }
+    if (connections.size + pending.size >= MAX_TRACKERS) {
       conn.on("open", () => {
         conn.send({ kind: "full" } satisfies Message)
         window.setTimeout(() => conn.close(), 500)
       })
+      window.setTimeout(() => conn.close(), CONNECT_TIMEOUT_MS)
       return
     }
+    pending.add(conn)
+    const openTimer = window.setTimeout(() => {
+      if (pending.delete(conn)) conn.close()
+    }, CONNECT_TIMEOUT_MS)
     conn.on("open", () => {
+      window.clearTimeout(openTimer)
+      if (!pending.delete(conn) || stopped) return
       connections.add(conn)
       onCount(connections.size)
       if (latest) conn.send({ kind: "snapshot", snapshot: latest } satisfies Message)
     })
-    // A helper can't send more than ACTIONS_PER_SECOND; extra actions are dropped
+    let own = ACTIONS_PER_SECOND_EACH
+    let ownRefilledAt = Date.now()
     conn.on("data", (data) => {
       const message = data as Message
-      if (message?.kind !== "action") return
+      if (message?.kind !== "action" || !connections.has(conn)) return
       const now = Date.now()
       tokens = Math.min(ACTIONS_PER_SECOND, tokens + ((now - refilledAt) / 1000) * ACTIONS_PER_SECOND)
       refilledAt = now
-      if (tokens < 1) return
+      own = Math.min(ACTIONS_PER_SECOND_EACH, own + ((now - ownRefilledAt) / 1000) * ACTIONS_PER_SECOND_EACH)
+      ownRefilledAt = now
+      if (tokens < 1 || own < 1) return
       tokens -= 1
+      own -= 1
       onAction(message.action)
     })
     const drop = () => {
-      connections.delete(conn)
-      onCount(connections.size)
+      window.clearTimeout(openTimer)
+      pending.delete(conn)
+      if (connections.delete(conn)) onCount(connections.size)
     }
     conn.on("close", drop)
     conn.on("error", drop)
@@ -207,23 +237,41 @@ export async function hostTrackers(
     }, delay)
     delay = Math.min(delay * 2, MAX_RECONNECT_MS)
   }
+  /** When the signalling server first said another session holds the code; null while it doesn't. */
+  let takenSince: number | null = null
   peer.on("open", () => {
     delay = RECONNECT_MS
+    takenSince = null
   })
   peer.on("disconnected", scheduleReconnect)
+  const shutDown = () => {
+    stopped = true
+    window.clearTimeout(retry)
+    for (const conn of pending) conn.close()
+    pending.clear()
+    connections.clear()
+    peer.destroy()
+    onCount(0)
+  }
   peer.on("error", (error) => {
     if (stopped) return
+    // After a blip the server can briefly still hold the old socket's id; for longer, another
+    // overlay copy (OBS sources share storage) has the code, and new helpers are joining that one
+    if (error.type === "unavailable-id") {
+      takenSince ??= Date.now()
+      if (Date.now() - takenSince > CODE_TAKEN_GIVE_UP_MS) {
+        shutDown()
+        onLost("Another overlay window took this join code. Close the other copy, then press Start sharing.")
+        return
+      }
+    }
     if (RECOVERABLE_ERRORS.has(error.type)) {
       scheduleReconnect()
       return
     }
     // One tracker's link failed; its own close/error handlers drop it
     if (error.type === "webrtc" || error.type === "peer-unavailable") return
-    stopped = true
-    window.clearTimeout(retry)
-    connections.clear()
-    peer.destroy()
-    onCount(0)
+    shutDown()
     onLost("Tracker sharing stopped. Press Start sharing to try again.")
   })
 
@@ -232,13 +280,7 @@ export async function hostTrackers(
       latest = snapshot
       for (const conn of connections) if (conn.open) conn.send({ kind: "snapshot", snapshot } satisfies Message)
     },
-    stop() {
-      stopped = true
-      window.clearTimeout(retry)
-      connections.clear()
-      peer.destroy()
-      onCount(0)
-    },
+    stop: shutDown,
   }
 }
 
@@ -254,7 +296,7 @@ export async function joinTracker(
   onUnstable?: (unstable: boolean) => void,
 ): Promise<TrackerClient> {
   const peer = await createPeer()
-  const conn = peer.connect(PEER_PREFIX + code, { reliable: true })
+  const conn = peer.connect(PEER_PREFIX + code, { reliable: true, serialization: SERIALIZATION })
   await new Promise<void>((resolve, reject) => {
     const timer = window.setTimeout(() => {
       peer.destroy()
@@ -281,7 +323,11 @@ export async function joinTracker(
     if (message?.kind === "full") full = true
   })
   conn.on("iceStateChanged", (state) => onUnstable?.(state === "disconnected" || state === "failed"))
-  conn.on("close", () => onClose(full))
+  conn.on("close", () => {
+    // The peer keeps its signalling socket open until destroyed; a retry makes a new one
+    peer.destroy()
+    onClose(full)
+  })
   return {
     send(action) {
       if (conn.open) conn.send({ kind: "action", action } satisfies Message)

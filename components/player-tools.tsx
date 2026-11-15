@@ -293,10 +293,21 @@ export function PlayerTools({
             id={`${id}-tab-${i}`}
             aria-selected={i === index}
             aria-controls={`${id}-tabpanel`}
+            // Roving tabindex: Tab reaches the selected tab, arrow keys move between them
+            tabIndex={i === index ? 0 : -1}
             className="tools-tab"
+            title={p.label}
             onClick={() => onSelect(i)}
+            onKeyDown={(e) => {
+              const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0
+              if (!step) return
+              e.preventDefault()
+              const next = (index + step + players.length) % players.length
+              onSelect(next)
+              e.currentTarget.ownerDocument.getElementById(`${id}-tab-${next}`)?.focus()
+            }}
           >
-            {p.label}
+            <span className="tools-tab-label">{p.label}</span>
             {(p.config.videoId || p.config.channel) && <span className="tools-tab-dot" aria-label="(video loaded)" />}
           </button>
         ))}

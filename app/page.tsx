@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react"
 import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { AudioBadge } from "@/components/audio-badge"
-import { PlayerTools } from "@/components/player-tools"
 import { SetupForm } from "@/components/setup-form"
 import { assignPlace, PlaceBadge, type Place, type Placements } from "@/components/place-badge"
 import { openToolsWindow, ToolsWindowPortal } from "@/components/tools-window"
@@ -28,8 +27,10 @@ const TrackerTools = dynamic(() => import("@/components/tracker-tools").then((m)
 const RacetimeTools = dynamic(() => import("@/components/racetime-tools").then((m) => m.RacetimeTools), { ssr: false })
 const SeriesTools = dynamic(() => import("@/components/series-tools").then((m) => m.SeriesTools), { ssr: false })
 const RemoteTrackerTools = dynamic(() => import("@/components/remote-tracker-tools").then((m) => m.RemoteTrackerTools), { ssr: false })
+const PlayerTools = dynamic(() => import("@/components/player-tools").then((m) => m.PlayerTools), { ssr: false })
 
 const STATE_STORAGE_KEY = "z2r-overlay-state"
+const VOD_POSITIONS_KEY = "z2r-vod-positions"
 const TIMER_STORAGE_KEY = "z2r-overlay-timer"
 
 
@@ -201,6 +202,7 @@ export default function StreamOverlay() {
   function reopenSetup(e: React.MouseEvent) {
     e.preventDefault()
     if (showTools()) return
+    if (videosLoaded()) return warnNoTools()
     setDraftCommentatorCount(commentatorCount)
     setDraftTrackerCount(creditTrackers)
     setDraftMaxRando(isMaxRando)
@@ -314,6 +316,13 @@ export default function StreamOverlay() {
     }
   }
 
+  const [resetArmed, setResetArmed] = useState(false)
+  useEffect(() => {
+    if (!resetArmed) return
+    const id = window.setTimeout(() => setResetArmed(false), 3000)
+    return () => window.clearTimeout(id)
+  }, [resetArmed])
+
   function resetTimer() {
     // Clear here too: when already stopped, setTimerPhase(0) is a no-op and an edited start time would stay
     timerAccRef.current = 0
@@ -339,22 +348,34 @@ export default function StreamOverlay() {
 
   /** Popups open in the tools window (opened or brought forward by this click), never over the live stage. */
   function openOperatorPopup(open: () => void) {
-    showTools()
+    if (!showTools() && videosLoaded()) return warnNoTools()
     open()
+  }
+
+  /** On the stage, a dialog's full-screen backdrop would cover the Twitch players and Twitch pauses them on air. */
+  function videosLoaded() {
+    return runnerCount === 2 ? hasSource(vods.left) || hasSource(vods.right) : quadVods.some(hasSource)
+  }
+  function warnNoTools() {
+    window.alert("The tools window was blocked, and a dialog here would pause the videos on stream. Allow popups for this site, then try again.")
   }
 
 
   function applyTimerEdit() {
     const ms = parseTimerInput(timerEditValue)
     if (ms === null) return
-    // The edited time replaces the clock and waits paused (or stopped) for the next click to start
-    const phase = timerPhase === 0 ? 0 : 2
     timerAccRef.current = ms
-    timerStartRef.current = 0
     setTimerMs(ms)
-    setTimerPhase(phase)
-    saveTimer(phase)
-    if (linkVodsToTimer) resetVods()
+    if (timerPhase === 1) {
+      // A correction mid-race: the clock keeps running from the new time and the videos keep playing
+      timerStartRef.current = Date.now()
+      saveTimer(1)
+    } else {
+      // Stopped or paused: the edited time waits for the next click to start, with linked videos at their start
+      timerStartRef.current = 0
+      saveTimer(timerPhase)
+      if (linkVodsToTimer) resetVods()
+    }
     setTimerEditOpen(false)
   }
 
@@ -378,6 +399,18 @@ export default function StreamOverlay() {
   // Index = overlay slot; a hole means that slot has no racetime runner (after a slot swap)
   const racetimeRunnersRef = useRef<(RacetimeRunner | undefined)[]>([])
   const racetimeEndedRef = useRef(false)
+  /** The linked room and its slot order, so an OBS refresh keeps polling instead of unlinking mid-race. */
+  const RACETIME_KEY = "z2r-racetime"
+  function saveRacetime(room: string | null) {
+    try {
+      if (!room) localStorage.removeItem(RACETIME_KEY)
+      else
+        localStorage.setItem(
+          RACETIME_KEY,
+          JSON.stringify({ room, runners: racetimeRunnersRef.current.map((r) => r ?? null), ended: racetimeEndedRef.current }),
+        )
+    } catch {}
+  }
   // Best-of series: games already won per runner, shown as squares on the name plates
   const SERIES_KEY = "z2r-series"
   const [seriesBestOf, setSeriesBestOf] = useState<1 | 3 | 5>(3)
@@ -486,13 +519,15 @@ export default function StreamOverlay() {
     if (race.endMs !== null) {
       if (racetimeEndedRef.current) return
       racetimeEndedRef.current = true
-      // Cancelled during the countdown: cancelled_at is before the start, so clamp to 0
-      const final = Math.max(0, race.endMs - race.startMs)
+      // The winner's time (ended_at is when the last entrant finished or forfeited). Cancelled during
+      // the countdown: cancelled_at is before the start, so clamp to 0
+      const final = Math.max(0, (race.winnerMs ?? race.endMs) - race.startMs)
       timerAccRef.current = final
       timerStartRef.current = 0
       setTimerMs(final)
       setTimerPhase(2)
       saveTimer(2)
+      saveRacetime(race.room)
       return
     }
     racetimeEndedRef.current = false
@@ -551,6 +586,7 @@ export default function StreamOverlay() {
       racetimeRunningRef.current = false
       racetimePlacesRef.current = {}
       setRacetimeRoom(room)
+      saveRacetime(room)
       // More racers than the current layout holds: grow to 3 or 4 runners, then fill it once it mounts
       const wanted = Math.min(4, race.runners.length)
       if (wanted >= 3 && wanted > runnerCount) {
@@ -558,8 +594,14 @@ export default function StreamOverlay() {
         applyRunnerCount(wanted as 3 | 4)
         return
       }
+      const wasRunning = timerPhaseRef.current === 1
       applyRunners(race.runners)
       syncRace(race)
+      // Re-importing mid-race reloads the live channels; with the clock already running nothing else restarts them
+      if (wasRunning && linkVodsToTimer && race.startMs !== null && race.endMs === null) {
+        if (runnerCount !== 2) quadRef.current?.playAll()
+        else playBothVods()
+      }
     } catch (error) {
       setRacetimeError(error instanceof Error ? error.message : "Could not import that room")
     } finally {
@@ -579,13 +621,17 @@ export default function StreamOverlay() {
       return next
     })
     const known = racetimeRunnersRef.current
-    if (known.length > 0) racetimeRunnersRef.current = reorder(Array.from({ length: Math.max(known.length, order.length) }, (_, i) => known[i]))
+    if (known.length > 0) {
+      racetimeRunnersRef.current = reorder(Array.from({ length: Math.max(known.length, order.length) }, (_, i) => known[i]))
+      saveRacetime(racetimeRoom)
+    }
   }
 
   /** 2 runners: trade sides completely (name, video, trackers, place, series wins), not just the names. */
   function swapRacetimeRunners() {
     const known = racetimeRunnersRef.current
     racetimeRunnersRef.current = [known[1], known[0], ...known.slice(2)]
+    saveRacetime(racetimeRoom)
     const [l, r] = [leftText, rightText]
     handleLeftTextChange(r)
     handleRightTextChange(l)
@@ -599,7 +645,11 @@ export default function StreamOverlay() {
       config.videoId && time != null ? { ...config, resumeSeconds: Math.floor(time) } : config
     const leftTime = leftVodRef.current?.getCurrentTime()
     const rightTime = rightVodRef.current?.getCurrentTime()
+    const [leftPlaying, rightPlaying] = [leftVodRef.current, rightVodRef.current].map((p) => p != null && !p.isPaused())
     setVods((prev) => ({ left: resume(prev.right, rightTime), right: resume(prev.left, leftTime) }))
+    // Both players reload; a play asked for now carries over to the new player (PLAY_CARRY_MS)
+    if (rightPlaying) leftVodRef.current?.play()
+    if (leftPlaying) rightVodRef.current?.play()
     setPlacements((prev) => [prev[1], prev[0], ...prev.slice(2)])
     setSeriesWins((prev) => {
       const next = [prev[1], prev[0], ...prev.slice(2)]
@@ -610,6 +660,7 @@ export default function StreamOverlay() {
 
   function unlinkRacetime() {
     setRacetimeRoom(null)
+    saveRacetime(null)
     setRacetimeSummary("")
     setRacetimeError("")
   }
@@ -676,37 +727,6 @@ export default function StreamOverlay() {
   // Badge values keyed by item id, per side
   const [itemBadges, setItemBadges] = useState<Record<string, string>>({})
 
-  type ItemMenu = {
-    x: number
-    y: number
-    side: "left" | "right"
-    itemId: string
-    type: "number" | "letter"
-  } | null
-  const [itemMenu, setItemMenu] = useState<ItemMenu>(null)
-
-  function openItemMenu(
-    e: React.MouseEvent,
-    side: "left" | "right",
-    itemId: string,
-    type: "number" | "letter",
-  ) {
-    e.preventDefault()
-    setItemMenu({ x: e.clientX, y: e.clientY, side, itemId, type })
-  }
-
-  function selectItemBadge(value: string | null) {
-    if (!itemMenu) return
-    const { itemId } = itemMenu
-    setItemBadges((prev) => {
-      const next = { ...prev }
-      if (value === null) delete next[itemId]
-      else next[itemId] = value
-      return next
-    })
-    setItemMenu(null)
-  }
-
   function clearItemBadge(itemId: string) {
     setItemBadges((prev) => {
       const next = { ...prev }
@@ -762,7 +782,6 @@ export default function StreamOverlay() {
     setRightCollected(new Set(ITEMS.map((i) => i.id)))
     setBossBadges({})
     setItemBadges({})
-    setItemMenu(null)
     setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
     setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
     setMarkedOff(new Set())
@@ -771,7 +790,7 @@ export default function StreamOverlay() {
 
   /** Resets everything per-race; runner/commentator counts and Max Rando stay as set up. */
   function clearOverlay() {
-    if (!(toolsWin ?? window).confirm("Clear names, videos, timer, badges and tracker icons?")) return
+    if (!(toolsWin ?? window).confirm("Clear names, videos, timer, badges and tracker icons? The series score stays.")) return
     pauseBothVods()
     quadRef.current?.pauseAll()
     setLeftText("")
@@ -788,7 +807,6 @@ export default function StreamOverlay() {
     setRightCollected(new Set(ITEMS.map((i) => i.id)))
     setBossBadges({})
     setItemBadges({})
-    setItemMenu(null)
     setPlacements(Array(4).fill(null))
     restoredQuadRef.current = null
     setQuadNames([])
@@ -796,9 +814,7 @@ export default function StreamOverlay() {
     setQuadNotCollected(freshQuadSets(ITEMS.map((i) => i.id)))
     setMarkedOff(new Set())
     setMarkedBossesOff(new Set())
-    setSeriesWins([0, 0, 0, 0])
-    seriesAwardedRef.current = new Set()
-    saveSeries(seriesBestOf, [0, 0, 0, 0])
+    // The series score stays: clearing between games of a best-of must keep it (Series score panel resets it)
     setVods({ left: createVodConfig(), right: createVodConfig() })
     setClearCount((n) => n + 1)
     setTimerPhase(0)
@@ -942,6 +958,7 @@ export default function StreamOverlay() {
     else toggleQuadItem(runner, id)
   }
 
+  const RESUME_RETRY_ERRORS = new Set(["unavailable-id", "network", "server-error", "socket-error", "socket-closed"])
   // Each start gets a number; stopping or a newer start bumps it, so a start that finishes late is thrown away
   const shareGenRef = useRef(0)
   const shareBusyRef = useRef(false)
@@ -979,8 +996,13 @@ export default function StreamOverlay() {
           return
         } catch (error) {
           if (gen !== shareGenRef.current) return
-          if (error instanceof TrackerLinkError && error.type === "unavailable-id" && Date.now() < giveUpAt) {
-            setTrackerError("Waiting for the previous session to release this code...")
+          // On resume, also wait out a network that isn't up yet (OBS can load before Wi-Fi connects)
+          if (error instanceof TrackerLinkError && RESUME_RETRY_ERRORS.has(error.type) && Date.now() < giveUpAt) {
+            setTrackerError(
+              error.type === "unavailable-id"
+                ? "Waiting for the previous session to release this code..."
+                : "Waiting for the connection service...",
+            )
             await new Promise((r) => window.setTimeout(r, 5000))
             if (gen !== shareGenRef.current) return
             continue
@@ -1000,6 +1022,7 @@ export default function StreamOverlay() {
   function stopTrackerSharing() {
     shareGenRef.current++
     setTrackerCount(0)
+    setTrackerError("")
     shareBusyRef.current = false
     setTrackerBusy(false)
     trackerHostRef.current?.stop()
@@ -1030,30 +1053,6 @@ export default function StreamOverlay() {
     },
     [],
   )
-
-  const itemMenuRef = useRef<HTMLDivElement>(null)
-
-  useLayoutEffect(() => {
-    const menu = itemMenuRef.current
-    if (!itemMenu || !menu) return
-    const margin = 8
-    const { width, height } = menu.getBoundingClientRect()
-    const maxLeft = window.innerWidth - width - margin
-    const maxTop = window.innerHeight - height - margin
-    menu.style.left = `${Math.max(margin, Math.min(itemMenu.x, maxLeft))}px`
-    menu.style.top = `${Math.max(margin, Math.min(itemMenu.y, maxTop))}px`
-  }, [itemMenu])
-
-  useEffect(() => {
-    if (!itemMenu) return
-    const close = () => setItemMenu(null)
-    window.addEventListener("click", close)
-    window.addEventListener("scroll", close, true)
-    return () => {
-      window.removeEventListener("click", close)
-      window.removeEventListener("scroll", close, true)
-    }
-  }, [itemMenu])
 
   function renderItemBadge(value: string | undefined) {
     if (value === undefined) return null
@@ -1124,6 +1123,16 @@ export default function StreamOverlay() {
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(STATE_STORAGE_KEY) ?? "null")
+      const savedTimer = JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY) ?? "null")
+      const timerRunning = savedTimer?.phase === 1 && Number.isFinite(savedTimer?.startedAt)
+      // VODs pick up where they were; a linked one that was playing also moved on with the restored clock
+      const positions = JSON.parse(localStorage.getItem(VOD_POSITIONS_KEY) ?? "null")
+      const resumeAt = (config: VodConfig, i: number): VodConfig => {
+        const p = Array.isArray(positions?.list) ? positions.list[i] : null
+        if (!config.videoId || !p || p.id !== config.videoId || !Number.isFinite(p.t) || !Number.isFinite(positions.at)) return config
+        const ran = p.playing === true && timerRunning && saved?.linkVodsToTimer === true ? (Date.now() - positions.at) / 1000 : 0
+        return { ...config, resumeSeconds: Math.max(0, Math.floor(p.t + ran)) }
+      }
       if (saved) {
         if (typeof saved.leftText === "string") handleLeftTextChange(saved.leftText)
         if (typeof saved.rightText === "string") handleRightTextChange(saved.rightText)
@@ -1170,7 +1179,7 @@ export default function StreamOverlay() {
           setPlacements(Array.from({ length: 4 }, (_, i) => (valid(saved.placements[i]) ? saved.placements[i] : null)))
         }
         if (saved.vods?.left && saved.vods?.right) {
-          setVods({ left: restoreVodConfig(saved.vods.left), right: restoreVodConfig(saved.vods.right) })
+          setVods({ left: resumeAt(restoreVodConfig(saved.vods.left), 0), right: resumeAt(restoreVodConfig(saved.vods.right), 1) })
         }
         if (typeof saved.linkVodsToTimer === "boolean") setLinkVodsToTimer(saved.linkVodsToTimer)
         // A reload (OBS refresh, crash) must not put the setup dialog over the stream; right-click reopens tools
@@ -1178,11 +1187,14 @@ export default function StreamOverlay() {
         const quad = saved.quad
         if (quad && quad.count === saved.runnerCount && quad.count !== 2) {
           const strings = (list: unknown) => (Array.isArray(list) ? list.filter((v): v is string => typeof v === "string") : [])
-          const sets = (list: unknown, fresh: string[]) =>
-            Array.from({ length: 4 }, (_, i) => (Array.isArray(list) && Array.isArray(list[i]) ? new Set(strings(list[i])) : new Set(fresh)))
+          // Only ids the catalog knows, like the 2-runner restore; stale ids would ride along in every snapshot
+          const sets = (list: unknown, known: string[]) =>
+            Array.from({ length: 4 }, (_, i) =>
+              Array.isArray(list) && Array.isArray(list[i]) ? new Set(strings(list[i]).filter((id) => known.includes(id))) : new Set(known),
+            )
           const names = strings(quad.names)
           const vods: VodConfig[] = Array.isArray(quad.vods)
-            ? quad.vods.map((v: unknown) => restoreVodConfig(v))
+            ? quad.vods.map((v: unknown, i: number) => resumeAt(restoreVodConfig(v), i))
             : []
           restoredQuadRef.current = { count: quad.count, names, vods }
           setQuadNames(names)
@@ -1190,7 +1202,7 @@ export default function StreamOverlay() {
           setQuadNotCollected(sets(quad.notCollected, ITEMS.map((i) => i.id)))
         }
       }
-      const timer = JSON.parse(localStorage.getItem(TIMER_STORAGE_KEY) ?? "null")
+      const timer = savedTimer
       if (timer && Number.isFinite(timer.base)) {
         const running = timer.phase === 1 && timer.startedAt
         const ms = running ? timer.base + (Date.now() - timer.startedAt) : timer.base
@@ -1199,12 +1211,54 @@ export default function StreamOverlay() {
         if (timer.phase === 1 || timer.phase === 2) setTimerPhase(timer.phase)
         if (timer.phase === 1) resumeVodsRef.current = true
       }
+      // Keep polling the linked racetime room, so places and the final time still arrive after a refresh
+      const rt = JSON.parse(localStorage.getItem(RACETIME_KEY) ?? "null")
+      if (rt && typeof rt.room === "string" && parseRoom(rt.room) === rt.room && Array.isArray(rt.runners)) {
+        racetimeRunnersRef.current = rt.runners.slice(0, 4).map((r: unknown) => {
+          const v = r as Record<string, unknown> | null
+          return v && typeof v.name === "string"
+            ? { name: v.name, channel: typeof v.channel === "string" ? v.channel : null, status: "", place: null, finishedAt: null }
+            : undefined
+        })
+        racetimeEndedRef.current = rt.ended === true
+        // A clock already in use was started by racetime (or by hand); the first poll must not restart it
+        racetimeRunningRef.current = timer?.phase === 1 || timer?.phase === 2
+        setRacetimeRoom(rt.room)
+      }
     } catch {}
     hydratedRef.current = true
     setHydrated(true)
     // Dev StrictMode re-runs effects; without this the timer effect's re-run would save a zeroed timer first
     return () => {
       hydratedRef.current = false
+    }
+  }, [])
+
+  // Where each VOD is, every 10 s and on pagehide, so a refresh or crash resumes there instead of at the start
+  const savePositionsRef = useRef<() => void>(() => {})
+  savePositionsRef.current = () => {
+    if (!hydratedRef.current) return
+    const players = runnerCount === 2 ? [leftVodRef.current, rightVodRef.current] : (quadRef.current?.players() ?? [])
+    const configs = runnerCount === 2 ? [vods.left, vods.right] : quadVods
+    try {
+      const old = JSON.parse(localStorage.getItem(VOD_POSITIONS_KEY) ?? "null")
+      const list = configs.map((config, i) => {
+        const t = players[i]?.getCurrentTime() ?? null
+        if (config?.videoId && t !== null) return { id: config.videoId, t, playing: !players[i]!.isPaused() }
+        // A player still loading keeps the last known spot for the same video
+        const prev = Array.isArray(old?.list) ? old.list[i] : null
+        return config?.videoId && prev?.id === config.videoId ? prev : null
+      })
+      localStorage.setItem(VOD_POSITIONS_KEY, JSON.stringify({ at: Date.now(), list }))
+    } catch {}
+  }
+  useEffect(() => {
+    const save = () => savePositionsRef.current()
+    const id = window.setInterval(save, 10_000)
+    window.addEventListener("pagehide", save)
+    return () => {
+      window.clearInterval(id)
+      window.removeEventListener("pagehide", save)
     }
   }, [])
 
@@ -1260,17 +1314,25 @@ export default function StreamOverlay() {
   }, [])
 
   const setupBoxRef = useRef<HTMLDivElement>(null)
-  function handleSetupKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") return confirmSetup()
-    if (e.key === "Escape") return setSetupOpen(false)
-    if (e.key !== "Tab") return
-    const focusable = setupBoxRef.current?.querySelectorAll<HTMLElement>("button, input, select, textarea, [tabindex]:not([tabindex='-1'])")
-    if (!focusable?.length) return
+  /** Keeps Tab inside a modal box, so it can't reach (and Space press) controls behind the backdrop. */
+  function trapTab(e: React.KeyboardEvent, box: HTMLElement | null) {
+    if (e.key !== "Tab" || !box) return
+    const focusable = box.querySelectorAll<HTMLElement>("button:not(:disabled), input, select, textarea, a[href], [tabindex]:not([tabindex='-1'])")
+    if (!focusable.length) return
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    const active = box.ownerDocument.activeElement
+    if (e.shiftKey && active === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus() }
   }
+  function handleSetupKeyDown(e: React.KeyboardEvent) {
+    // Enter on a field confirms; on a button or link it must do that control's own action
+    const tag = (e.target as HTMLElement).tagName
+    if (e.key === "Enter" && (tag === "INPUT" || tag === "SELECT")) return confirmSetup()
+    if (e.key === "Escape") return setSetupOpen(false)
+    trapTab(e, setupBoxRef.current)
+  }
+  const timerEditBoxRef = useRef<HTMLDivElement>(null)
 
   // Operator popups. With the tools window open they render there, so viewers never see them
   // and nothing covers a live Twitch player on the overlay.
@@ -1279,12 +1341,16 @@ export default function StreamOverlay() {
       {timerEditOpen && (
           <div className="timer-edit-backdrop" onClick={() => setTimerEditOpen(false)}>
             <div
+              ref={timerEditBoxRef}
               className="timer-edit-box"
               role="dialog"
               aria-modal="true"
               aria-labelledby="timer-edit-title"
               onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.key === "Escape" && setTimerEditOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setTimerEditOpen(false)
+                trapTab(e, timerEditBoxRef.current)
+              }}
             >
               <p id="timer-edit-title" className="timer-edit-title">Set start time</p>
               <input
@@ -1363,7 +1429,6 @@ export default function StreamOverlay() {
             itemBadges={itemBadges}
             onBossContextMenu={(id) => cycleBadge(id)}
             onClearBossBadge={clearBossBadge}
-            onItemContextMenu={(e, id, type) => openItemMenu(e, "left", id, type)}
             onClearItemBadge={clearItemBadge}
             linkToTimer={linkVodsToTimer}
             onLinkToTimerChange={setLinkVodsToTimer}
@@ -1722,8 +1787,17 @@ export default function StreamOverlay() {
                     <button type="button" className="vod-btn vod-btn-primary" onClick={handleTimerClick}>
                       {timerPhase === 1 ? "Pause" : timerPhase === 2 ? "Resume" : "Start"}
                     </button>
-                    <button type="button" className="vod-btn" onClick={resetTimer}>
-                      Reset
+                    {/* Two clicks, with a gap from Pause: a slip mid-race would restart the clock and linked videos */}
+                    <button
+                      type="button"
+                      className={`vod-btn booth-timer-reset${resetArmed ? " vod-btn-danger" : ""}`}
+                      onClick={() => {
+                        if (!resetArmed) return setResetArmed(true)
+                        setResetArmed(false)
+                        resetTimer()
+                      }}
+                    >
+                      {resetArmed ? "Click again to reset" : "Reset"}
                     </button>
                   </div>
                 </section>
@@ -1764,6 +1838,12 @@ export default function StreamOverlay() {
                 bestOf={seriesBestOf}
                 onBestOfChange={changeSeriesBestOf}
                 onChange={changeSeriesWins}
+                onReset={() => {
+                  if (!(toolsWin ?? window).confirm("Set every series score to 0?")) return
+                  seriesAwardedRef.current = new Set()
+                  setSeriesWins([0, 0, 0, 0])
+                  saveSeries(seriesBestOf, [0, 0, 0, 0])
+                }}
               />
                     ),
                   },
@@ -2074,40 +2154,6 @@ export default function StreamOverlay() {
         </>)}
       </div>
 
-      {/* Item badge context menu */}
-      {itemMenu && (
-        <div
-          ref={itemMenuRef}
-          className="item-context-menu"
-          style={{ top: itemMenu.y, left: itemMenu.x }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <div className="item-context-row">
-            {CODE_OPTIONS.map((c) => (
-              <button key={c} onClick={() => selectItemBadge(c)}>{c}</button>
-            ))}
-          </div>
-          <div className="item-context-row">
-            {NUMBER_OPTIONS.map((n) => (
-              <button key={n} onClick={() => selectItemBadge(n)}>{n}</button>
-            ))}
-          </div>
-          <div className="item-context-row">
-            {LETTER_OPTIONS.map((opt) =>
-              opt.clear ? (
-                <button key="clear" onClick={() => selectItemBadge(null)} title="Clear" aria-label="Clear badge">
-                  <span className="clear-x">{"\u2715"}</span>
-                </button>
-              ) : (
-                <button key={opt.label} onClick={() => selectItemBadge(opt.label)} title={opt.label}>
-                  {opt.label}
-                </button>
-              ),
-            )}
-          </div>
-        </div>
-      )}
     </>
   )
 }

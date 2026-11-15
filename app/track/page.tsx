@@ -162,11 +162,13 @@ export default function TrackPage() {
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("code")
-    if (code) {
+    // A tick later, so dev StrictMode's throwaway first mount cancels it instead of opening a second link
+    const firstJoin = code ? window.setTimeout(() => {
       setDraft(code)
       void join(code)
-    }
+    }, 0) : undefined
     return () => {
+      window.clearTimeout(firstJoin)
       joinGenRef.current++
       window.clearTimeout(retryRef.current)
       // Null the ref before stopping: stop() fires the close handler, which would schedule a retry
@@ -203,7 +205,10 @@ export default function TrackPage() {
           id="code"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && join(draft)}
+          onKeyDown={(e) => {
+            // Same rule as the Join button: no second link while one is being made
+            if (e.key === "Enter" && !(status === "joining" && !error)) void join(draft)
+          }}
           autoComplete="off"
           spellCheck={false}
         />

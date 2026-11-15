@@ -1157,7 +1157,6 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .booth-panel-body > .tools-card { margin: 0; }
 .booth-panel-body .tools-card-title:not(.tools-card-title-sub) { display: none; }
 .booth-drop-marker { height: 6px; flex: none; background: #30E0FF; }
-.tools.booth { height: 100vh; min-height: 0; overflow: hidden; }
 .booth-monitor { display: flex; flex-direction: column; gap: 10px; }
 .booth-monitor-screen { position: relative; aspect-ratio: 1456 / 816; max-height: calc(100vh - 260px); background: #000; border: 2px solid #55557A; }
 .booth-monitor-screen video { display: block; width: 100%; height: 100%; object-fit: contain; }
@@ -1170,6 +1169,7 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .booth-timer-time.running { color: #FFE040; }
 .booth-timer-time.paused { color: #8A8AA8; }
 .booth-timer-buttons { display: flex; gap: 8px; }
+.booth-timer-reset { margin-left: 24px; }
 @media (max-width: 1000px) {
   .tools.booth { height: auto; overflow: visible; }
   .booth-grid { grid-template-columns: minmax(0, 1fr); }
@@ -1237,6 +1237,9 @@ body:has(.vod-crop-backdrop) .vod-audio {
 
 .tools-tab:focus-visible { outline: 2px solid; outline-offset: 2px; }
 .tools-tab-dot { width: 6px; height: 6px; }
+/* A long runner name must not make one huge tab */
+.tools-tab { max-width: 220px; }
+.tools-tab-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 .tools-crop { display: flex; flex-direction: column; gap: 10px; }
 .tools-crop-title { margin: 0; font-size: 11px; color: #8A8AA8; }
@@ -1424,9 +1427,9 @@ body:has(.vod-crop-backdrop) .vod-audio {
   clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px);
   box-shadow: inset 0 0 0 4px var(--frame);
 }
-.tools-card:nth-of-type(3n+1) { --frame: #FF4040; }
-.tools-card:nth-of-type(3n+2) { --frame: #30E0FF; }
-.tools-card:nth-of-type(3n) { --frame: #FF50D0; }
+/* Each booth panel sits in its own host, so sibling-based colors made every card red; red is kept for Clear */
+.tools-card { --frame: #30E0FF; }
+.tools-card:has(.tools-clear-btn) { --frame: #FF4040; }
 .tools-card-title { color: #FFE040; font-size: 13px; letter-spacing: 2px; }
 .tools-hint { color: #8A8AA8; }
 .tools .gem-modal-title,
@@ -1443,6 +1446,7 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .tools .vod-btn { background: #000; border-color: #30E0FF; color: #fff; }
 .tools .vod-btn:hover:not(:disabled) { background: #30E0FF; color: #000; }
 .tools .vod-btn-primary:not(:disabled) { background: #FFE040; border-color: #FFE040; color: #000; }
+.tools .vod-btn.vod-btn-danger { background: #FF4040; border-color: #FF4040; color: #000; }
 .tools .vod-btn-primary:hover:not(:disabled) { background: #fff; border-color: #fff; }
 .tools .gem-modal-opt.selected { background: #FFE040; color: #000; border-color: #FFE040; }
 .tools .vod-range,
@@ -1551,6 +1555,12 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .theme-arcade-multi .quad-name .series-pip { width: 12px; height: 11px; }
 .theme-arcade-multi .quad-name .vod-audio { right: 3px; }
 .theme-arcade-multi .quad-name .vod-audio svg { width: 16px; height: 16px; }
+/* Pad only the ends that hold series squares (left) or the music note (right): a column tracker is
+   about 140px wide, and padding both ends left room for only 5 letters */
+.quad-name:not(.has-pips) .zelda-input,
+.theme-arcade-multi .quad-name:not(.has-pips) .zelda-input { padding-left: 6px; }
+.quad-name:not(.has-audio) .zelda-input,
+.theme-arcade-multi .quad-name:not(.has-audio) .zelda-input { padding-right: 6px; }
 .theme-arcade-multi .quad-side-title { color: #FFE040; text-decoration: none; }
 .theme-arcade-multi .quad-side-info-input { border-color: #55557A; color: #FFE040; }
 .theme-arcade-multi .quad-rail-middle .quad-side-info { border-color: #55557A; }

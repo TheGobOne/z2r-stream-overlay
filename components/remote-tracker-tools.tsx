@@ -24,13 +24,14 @@ export function RemoteTrackerTools({ code, sharing, busy, error, count, onStart,
           Join code <span className="vod-time">{code || "..."}</span>
         </p>
         <div className="vod-row">
-          {sharing ? (
+          {sharing || busy ? (
+            // Also while starting, so the up-to-90 s resume wait after a reload can be cancelled
             <button type="button" className="vod-btn" onClick={onStop}>
-              Stop sharing
+              {sharing ? "Stop sharing" : "Starting... (stop)"}
             </button>
           ) : (
-            <button type="button" className="vod-btn vod-btn-primary" disabled={busy || !code} onClick={onStart}>
-              {busy ? "Starting..." : "Start sharing"}
+            <button type="button" className="vod-btn vod-btn-primary" disabled={!code} onClick={onStart}>
+              Start sharing
             </button>
           )}
           <button type="button" className="vod-btn" onClick={onNewCode}>

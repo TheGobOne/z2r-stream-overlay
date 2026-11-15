@@ -108,15 +108,18 @@ export function VodCropSelector({
 
   // Once a corner is set, keep following the pointer past the window's edge so the far corner
   // can be reached, and let a click just outside the window finish the crop at the nearest edge.
+  // Bound once per corner; the handlers read the latest render's helpers through this ref
+  const latest = useRef({ constrain, clientToVideoPoint, finish })
+  latest.current = { constrain, clientToVideoPoint, finish }
   useEffect(() => {
     const selector = selectorRef.current
     if (!corner || !selector) return
     const view = selector.ownerDocument.defaultView ?? window
-    const onMove = (e: PointerEvent) =>
-      setPointer(constrain(corner, clientToVideoPoint(selector.getBoundingClientRect(), e.clientX, e.clientY)))
+    const at = (e: PointerEvent) => latest.current.clientToVideoPoint(selector.getBoundingClientRect(), e.clientX, e.clientY)
+    const onMove = (e: PointerEvent) => setPointer(latest.current.constrain(corner, at(e)))
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || selector.contains(e.target as Node)) return
-      finish(corner, clientToVideoPoint(selector.getBoundingClientRect(), e.clientX, e.clientY))
+      latest.current.finish(corner, at(e))
     }
     view.addEventListener("pointermove", onMove)
     view.addEventListener("pointerdown", onDown)
@@ -124,7 +127,7 @@ export function VodCropSelector({
       view.removeEventListener("pointermove", onMove)
       view.removeEventListener("pointerdown", onDown)
     }
-  })
+  }, [corner])
 
   function finish(a: Point, raw: Point) {
     const b = constrain(a, raw)
@@ -202,7 +205,6 @@ export function VodCropSelector({
       role="application"
       aria-label="Select crop area"
       onPointerDown={handlePointerDown}
-      onPointerMove={(e) => corner && setPointer(constrain(corner, toVideoPoint(e)))}
       onPointerUp={handlePointerUp}
       onContextMenu={(e) => {
         e.preventDefault()

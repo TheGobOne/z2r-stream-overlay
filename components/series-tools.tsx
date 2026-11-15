@@ -6,10 +6,12 @@ type Props = {
   bestOf: 1 | 3 | 5
   onBestOfChange: (value: 1 | 3 | 5) => void
   onChange: (runner: number, wins: number) => void
+  /** Zero every score for a new series (Clear overlay keeps the score between games). */
+  onReset: () => void
 }
 
 /** Games already won in a best-of series, shown as squares on each name plate. */
-export function SeriesTools({ names, wins, bestOf, onBestOfChange, onChange }: Props) {
+export function SeriesTools({ names, wins, bestOf, onBestOfChange, onChange, onReset }: Props) {
   const toWin = Math.ceil(bestOf / 2)
   return (
     <section className="tools-card" aria-labelledby="tools-series-title">
@@ -45,8 +47,13 @@ export function SeriesTools({ names, wins, bestOf, onBestOfChange, onChange }: P
             </button>
           </div>
         ))}
+        <div className="vod-row">
+          <button type="button" className="vod-btn" disabled={wins.every((w) => w === 0)} onClick={onReset}>
+            New series (scores to 0)
+          </button>
+        </div>
         <p className="tools-hint">
-          With a racetime room linked, the runner who finishes 1st gets a win automatically, once per room. Squares show on each name plate. Best of 1 hides them.
+          Clear overlay keeps the score between games. With a racetime room linked, the runner who finishes 1st gets a win automatically, once per room. Squares show on each name plate. Best of 1 hides them.
         </p>
       </div>
     </section>
