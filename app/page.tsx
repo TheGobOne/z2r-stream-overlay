@@ -1019,6 +1019,16 @@ export default function StreamOverlay() {
       } else quadRef.current?.setVolume(action.runner, action.value)
       return
     }
+    if (action.type === "toggleBossBadge") {
+      const index = BOSS_BADGES.indexOf(action.value)
+      if (index < 0) return
+      return setBossBadges((prev) => {
+        const next = { ...prev }
+        if (next[action.id] === index) delete next[action.id]
+        else next[action.id] = index
+        return next
+      })
+    }
     if (action.type !== "toggleItemLocation") return trackerActionRef.current(action)
     // The same location sent again clears it
     setItemBadges((prev) => {

@@ -2,7 +2,7 @@ import { BOSSES, ITEMS, type TrackerIcon } from "@/lib/tracker-catalog"
 import type { TrackerAction } from "@/lib/tracker-link"
 
 /** A tracker action, or an item location (the badge on an item) that clears itself when sent twice. */
-export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "audio"; runners: number[] } | { type: "volume"; runner: number; value: number } | PollAction
+export type ChatAction = TrackerAction | { type: "toggleItemLocation"; id: string; value: string } | { type: "toggleBossBadge"; id: string; value: string } | { type: "audio"; runners: number[] } | { type: "volume"; runner: number; value: number } | PollAction
 /**
  * Identifies a toggling command (boss, item, item location) by what it changes, so the chat hook can ignore the same
  * one repeated by several viewers. Null for commands that set a value (votes, volume, sound), where repeats are harmless.
@@ -13,7 +13,8 @@ export function toggleKey(action: ChatAction): string | null {
     case "toggleItem":
       return `${action.type}:${action.runner}:${action.id}`
     case "toggleItemLocation":
-      return `location:${action.id}:${action.value}`
+    case "toggleBossBadge":
+      return `${action.type}:${action.id}:${action.value}`
     default:
       return null
   }
@@ -46,6 +47,19 @@ const TOWNS: Record<string, string> = {
   oldkasuto: "OK",
 }
 
+/** Where a palace is, as chat writes it, mapped to the boss badge text. */
+const BOSS_PLACES: Record<string, string> = {
+  w: "W",
+  west: "W",
+  e: "E",
+  east: "E",
+  mi: "MI",
+  maze: "MI",
+  mazeisland: "MI",
+  dv: "DV",
+  deathvalley: "DV",
+}
+
 /** The badge code for a location typed in chat, or null. */
 function resolveLocation(words: string[]): string | null {
   const key = norm(words.join(""))
@@ -57,6 +71,16 @@ function resolveLocation(words: string[]): string | null {
 /** `!hammer 4`, `!magic key da` or `!magic key new kasuto`: the item's name, then where it was found. */
 function parseLocationCommand(command: string, rest: string[]): ParsedCommand | null {
   if (!command.startsWith("!") || rest.length === 0) return null
+  // `!p3 dv`, `!palace 3 east`: where a palace is, shown as the badge on its boss
+  const palace = /^(?:palace|p)([1-7])?$/.exec(command.slice(1))
+  if (palace) {
+    const words = palace[1] ? rest : rest.slice(1)
+    const number = palace[1] ?? /^[1-7]$/.exec(rest[0] ?? "")?.[0]
+    const badge = BOSS_PLACES[norm(words.join(""))]
+    const boss = number ? BOSSES[Number(number) - 1] : null
+    if (!boss || !badge) return null
+    return { action: { type: "toggleBossBadge", id: boss.id, value: badge }, summary: `${boss.alt}: ${badge}` }
+  }
   const words = [command.slice(1), ...rest]
   // Try the longest location first (two words for "new kasuto"), keeping at least one word for the item
   for (const size of [2, 1]) {
@@ -94,6 +118,9 @@ const ALIASES: Record<string, string> = {
   dstab: "downstab",
   ustab: "upstab",
   jumpspell: "jump",
+  carock: "karock",
+  carrock: "karock",
+  karrock: "karock",
 }
 
 function findIcon(list: TrackerIcon[], words: string[]): TrackerIcon | null {
@@ -111,9 +138,9 @@ function findIcon(list: TrackerIcon[], words: string[]): TrackerIcon | null {
 }
 
 /**
- * `!boss horsehead 2` toggles the boss for player 2; the same command again undoes it. `!item` does the same for items.
- * The player number is required. Returns null when the text is not one of these commands,
- * has no valid player number, or does not name a boss or item.
+ * `!2p hammer` toggles the item (or spell) for player 2; `!2p palace 1` or `!2p p1` toggles that palace's boss.
+ * The same command again undoes it. Returns null when the text is not one of these commands,
+ * has no valid player, or does not name an item, spell or palace.
  */
 export function parseChatCommand(text: string, runnerCount: number): ParsedCommand | null {
   const parts = text.trim().split(/\s+/)
@@ -141,17 +168,15 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
     if (runner >= runnerCount || percent > 100) return null
     return { action: { type: "volume", runner, value: percent / 100 }, summary: `Player ${runner + 1} volume ${percent}` }
   }
-  const match = /^!(boss|item)$/.exec(command)
-  if (!match) return parseLocationCommand(command, parts)
-  const isBoss = match[1] === "boss"
+  // `!1p hammer`, `!1p jump`, `!1p palace 1` or `!1p p1`: toggles that item, spell or palace boss for the player
+  const player = /^!([1-4]p)$/.exec(command)
+  if (!player) return parseLocationCommand(command, parts)
+  const runner = Number(player[1][0]) - 1
+  if (runner >= runnerCount || parts.length === 0) return null
 
-  const last = parts.pop() ?? ""
-  if (!PLAYER.test(last)) return null
-  const runner = Number(last[0]) - 1
-  if (runner >= runnerCount) return null
-
-  const icon = findIcon(isBoss ? BOSSES : ITEMS, parts)
+  const palace = /^(?:palace|p)?([1-7])$/.exec(norm(parts.join("")))
+  const icon = palace ? BOSSES[Number(palace[1]) - 1] : (findIcon(ITEMS, parts) ?? findIcon(BOSSES, parts))
   if (!icon) return null
-  const action: TrackerAction = { type: isBoss ? "toggleBoss" : "toggleItem", runner, id: icon.id }
+  const action: TrackerAction = { type: BOSSES.includes(icon) ? "toggleBoss" : "toggleItem", runner, id: icon.id }
   return { action, summary: `Toggled ${icon.alt} for player ${runner + 1}` }
 }

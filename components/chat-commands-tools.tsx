@@ -85,9 +85,9 @@ export function ChatCommandsTools({
           <input type="checkbox" checked={everyone} onChange={(e) => onEveryone(e.target.checked)} />
           <span className="tools-hint">Anyone in chat can use commands (uncheck for you and mods only)</span>
         </label>
-        <p className="tools-hint">!boss horsehead 2p &nbsp; !item hammer 1p &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !listen 1p</p>
+        <p className="tools-hint">!2p palace 1 &nbsp; !1p hammer &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !listen 1p</p>
         <p className="tools-hint">
-          !boss and !item need a player written 1p to 4p. !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird. The same boss, item or location command from several people counts once per 10 seconds, so a crowd doesn't flip it back and forth; you and mods can repeat it right away.
+          Start with the player, 1p to 4p, then an item, a spell or a palace: !1p hammer, !3p jump, !2p palace 1 or !2p p1 (palace 1 to 7). !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird. The same boss, item or location command from several people counts once per 10 seconds, so a crowd doesn't flip it back and forth; you and mods can repeat it right away.
         </p>
         <p className="tools-hint">Sound vote</p>
         <div className="vod-row">
