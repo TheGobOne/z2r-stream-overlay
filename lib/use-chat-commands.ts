@@ -11,7 +11,7 @@ const EVERYONE_KEY = "z2r-chat-everyone"
 const POLL_SECONDS_KEY = "z2r-chat-poll-seconds"
 const LOCK_MINUTES_KEY = "z2r-chat-lock-minutes"
 const DEFAULT_POLL_SECONDS = 60
-const DEFAULT_LOCK_MINUTES = 15
+const DEFAULT_LOCK_MINUTES = 5
 const MAX_PER_SECOND = 10
 /** The same toggle from several viewers counts once in this window; the streamer and mods skip the wait. */
 const DUPLICATE_MS = 10_000
