@@ -1508,8 +1508,8 @@ export default function StreamOverlay() {
             bossBadges={bossBadges}
             bossBadgeLabels={BOSS_BADGES}
             itemBadges={itemBadges}
-            onBossContextMenu={(id) => cycleBadge(id)}
-            onClearBossBadge={clearBossBadge}
+            onBossContextMenu={() => {}}
+            onClearBossBadge={() => {}}
             onClearItemBadge={clearItemBadge}
             linkToTimer={linkVodsToTimer}
             onLinkToTimerChange={setLinkVodsToTimer}
@@ -2133,8 +2133,6 @@ export default function StreamOverlay() {
               key={boss.id}
               className={`boss-btn ${leftDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleLeftBoss(boss.id)}
-              onContextMenu={(e) => { e.preventDefault(); cycleBadge(boss.id) }}
-              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearBossBadge(boss.id) } }}
               aria-label={`${boss.alt} — ${leftDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
@@ -2153,8 +2151,6 @@ export default function StreamOverlay() {
               key={`right-${boss.id}`}
               className={`boss-btn ${rightDefeated.has(boss.id) ? "defeated" : "active"}`}
               onClick={() => toggleRightBoss(boss.id)}
-              onContextMenu={(e) => { e.preventDefault(); cycleBadge(boss.id) }}
-              onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); clearBossBadge(boss.id) } }}
               aria-label={`${boss.alt} — ${rightDefeated.has(boss.id) ? "defeated" : "alive"}`}
               title={boss.alt}
             >
