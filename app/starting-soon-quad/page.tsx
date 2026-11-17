@@ -16,10 +16,10 @@ type Saved = { p1: string; p2: string; p3: string; p4: string; line: string; tit
 type Slot = "p1" | "p2" | "p3" | "p4"
 
 const SLOTS: { key: Slot; tag: string; color: string; x: number; y: number }[] = [
-  { key: "p1", tag: "1P", color: "#FF4040", x: 148, y: 190 },
-  { key: "p2", tag: "2P", color: "#30E0FF", x: 748, y: 190 },
-  { key: "p3", tag: "3P", color: "#FFE040", x: 148, y: 490 },
-  { key: "p4", tag: "4P", color: "#FF50D0", x: 748, y: 490 },
+  { key: "p1", tag: "1P", color: "#FF4040", x: 148, y: 148 },
+  { key: "p2", tag: "2P", color: "#30E0FF", x: 748, y: 148 },
+  { key: "p3", tag: "3P", color: "#FFE040", x: 148, y: 448 },
+  { key: "p4", tag: "4P", color: "#FF50D0", x: 748, y: 448 },
 ]
 const FRAME_W = 560
 const FRAME_H = 260
@@ -134,7 +134,7 @@ export default function StartingSoonQuadPage() {
           text-transform: uppercase; text-align: center; width: 100%; padding: 0; caret-color: #FFE040;
         }
         .ss-input::placeholder { color: rgba(255, 255, 255, 0.18); }
-        .ss-title { left: 0; width: ${STAGE_W}px; top: 36px; font-size: 64px; color: #FFE040; text-align: center; letter-spacing: 6px; }
+        .ss-title { left: 0; width: ${STAGE_W}px; top: 44px; font-size: 64px; color: #FFE040; text-align: center; letter-spacing: 6px; }
         .ss-title .ss-input { font-size: 64px; letter-spacing: 6px; color: #FFE040; }
         .ss-tag { font-size: 24px; letter-spacing: 3px; width: 60px; }
         .ss-name { width: 440px; height: 80px; display: flex; align-items: center; }
@@ -143,13 +143,10 @@ export default function StartingSoonQuadPage() {
           transform: translate(-50%, -50%); z-index: 2; padding: 4px 10px 6px;
           font-size: 22px; line-height: 1; color: #FFE040; background: #000; box-shadow: 0 0 0 2px #FFE040;
         }
-        .ss-line { left: 0; width: ${STAGE_W}px; top: 118px; font-size: 24px; letter-spacing: 3px; text-align: center; color: #fff; }
+        .ss-line { left: 0; width: ${STAGE_W}px; top: 748px; font-size: 24px; letter-spacing: 3px; text-align: center; color: #fff; }
         .ss-line .ss-input { font-size: 24px; letter-spacing: 3px; }
-        .ss-press { left: 0; width: ${STAGE_W}px; top: 772px; text-align: center; font-size: 24px; color: #30E0FF; letter-spacing: 4px; animation: ss-blink 1.2s steps(2, jump-none) infinite; }
-        @keyframes ss-blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
         .ss-frame { background: var(--c); clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px); }
         .ss-frame > i { position: absolute; inset: 4px; background: #000; clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px); }
-        @media (prefers-reduced-motion: reduce) { .ss-press { animation: none; } }
       `}</style>
       <div className="ss-stage" style={{ ["--ss-scale" as string]: scale }}>
         <ArcadeSky />
@@ -174,12 +171,14 @@ export default function StartingSoonQuadPage() {
 
         {pairs && (
           <>
-            <div className="ss-vs-badge" style={{ position: "absolute", left: STAGE_W / 2, top: 190 + FRAME_H / 2 }}>VS</div>
-            <div className="ss-vs-badge" style={{ position: "absolute", left: STAGE_W / 2, top: 490 + FRAME_H / 2 }}>VS</div>
+            <div className="ss-vs-badge" style={{ position: "absolute", left: STAGE_W / 2, top: SLOTS[0].y + FRAME_H / 2 }}>VS</div>
+            <div className="ss-vs-badge" style={{ position: "absolute", left: STAGE_W / 2, top: SLOTS[2].y + FRAME_H / 2 }}>VS</div>
           </>
         )}
 
-        <div className="ss-press">PRESS START</div>
+        <div className="ss-line">
+          <input className="ss-input" value={data.line} onChange={(e) => set("line")(e.target.value)} placeholder="RACE INFO" spellCheck={false} aria-label="Race info" />
+        </div>
       </div>
     </main>
   )
