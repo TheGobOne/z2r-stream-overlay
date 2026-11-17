@@ -134,7 +134,7 @@ export default function StartingSoonQuadPage() {
           text-transform: uppercase; text-align: center; width: 100%; padding: 0; caret-color: #FFE040;
         }
         .ss-input::placeholder { color: rgba(255, 255, 255, 0.18); }
-        .ss-title { left: 0; width: ${STAGE_W}px; top: 44px; font-size: 64px; color: #FFE040; text-align: center; letter-spacing: 6px; }
+        .ss-title { left: 0; width: ${STAGE_W}px; top: 22px; font-size: 64px; color: #FFE040; text-align: center; letter-spacing: 6px; }
         .ss-title .ss-input { font-size: 64px; letter-spacing: 6px; color: #FFE040; }
         .ss-tag { font-size: 24px; letter-spacing: 3px; width: 60px; }
         .ss-name { width: 440px; height: 80px; display: flex; align-items: center; }
@@ -143,7 +143,7 @@ export default function StartingSoonQuadPage() {
           transform: translate(-50%, -50%); z-index: 2; padding: 4px 10px 6px;
           font-size: 22px; line-height: 1; color: #FFE040; background: #000; box-shadow: 0 0 0 2px #FFE040;
         }
-        .ss-line { left: 0; width: ${STAGE_W}px; top: 748px; font-size: 24px; letter-spacing: 3px; text-align: center; color: #fff; }
+        .ss-line { left: 0; width: ${STAGE_W}px; top: 748px; font-size: 24px; letter-spacing: 3px; text-align: center; color: #FFE040; }
         .ss-line .ss-input { font-size: 24px; letter-spacing: 3px; }
         .ss-frame { background: var(--c); clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px); }
         .ss-frame > i { position: absolute; inset: 4px; background: #000; clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px); }
