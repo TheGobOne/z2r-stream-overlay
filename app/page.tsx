@@ -1972,7 +1972,7 @@ export default function StreamOverlay() {
                 bossBadges={bossBadges}
                 bossBadgeLabels={BOSS_BADGES}
                 itemBadges={itemBadges}
-                onCycleBossBadge={cycleBadge}
+                onSetBossBadge={(id, index) => setBossBadges((prev) => (index === null ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== id)) : { ...prev, [id]: index }))}
                 onClearBossBadge={clearBossBadge}
                 onSetItemBadge={setItemBadge}
                 badgeOptions={BADGE_OPTIONS}

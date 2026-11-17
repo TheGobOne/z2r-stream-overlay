@@ -13,8 +13,8 @@ type Props = {
   bossBadges: Record<string, number>
   bossBadgeLabels: string[]
   itemBadges: Record<string, string>
-  /** Cycles the boss's badge, like right-clicking it on the overlay. */
-  onCycleBossBadge: (bossId: string) => void
+  /** Index into bossBadgeLabels; null clears the badge. */
+  onSetBossBadge: (bossId: string, index: number | null) => void
   onClearBossBadge: (bossId: string) => void
   /** null clears the badge. */
   onSetItemBadge: (itemId: string, value: string | null) => void
@@ -28,12 +28,13 @@ export function TrackerTools({
   bossBadges,
   bossBadgeLabels,
   itemBadges,
-  onCycleBossBadge,
+  onSetBossBadge,
   onClearBossBadge,
   onSetItemBadge,
   badgeOptions,
 }: Props) {
   const [pickerItem, setPickerItem] = useState<string | null>(null)
+  const [pickerBoss, setPickerBoss] = useState<string | null>(null)
   const [popout, setPopout] = useState<Window | null>(null)
   // Always on top is the default; the checkbox was removed, so this stays true unless a saved "0" exists
   const [onTop] = useState(() => {
@@ -118,7 +119,7 @@ export function TrackerTools({
         Bosses and items
       </h2>
       {controls(inPopout)}
-      <p className="tools-hint">Badges set here show on the overlay. Right-click: set badge. Middle-click: clear badge.</p>
+      <p className="tools-hint">Badges set here show on the overlay. Right-click a boss or item: pick a badge. Middle-click: clear badge.</p>
 
       <div className="tools-tracker-rows">
       <div className="tools-tracker-row tools-tracker-row-bosses" role="group" aria-label="Master boss set">
@@ -128,10 +129,11 @@ export function TrackerTools({
             <button
               key={boss.id}
               type="button"
-              className="boss-btn active"
+              className={`boss-btn active${pickerBoss === boss.id ? " tools-picking" : ""}`}
               onContextMenu={(e) => {
                 e.preventDefault()
-                onCycleBossBadge(boss.id)
+                setPickerItem(null)
+                setPickerBoss((current) => (current === boss.id ? null : boss.id))
               }}
               onAuxClick={(e) => {
                 if (e.button === 1) {
@@ -161,6 +163,7 @@ export function TrackerTools({
               className={`item-btn active${pickerItem === item.id ? " tools-picking" : ""}`}
               onContextMenu={(e) => {
                 e.preventDefault()
+                setPickerBoss(null)
                 setPickerItem((current) => (current === item.id ? null : item.id))
               }}
               onAuxClick={(e) => {
@@ -180,6 +183,37 @@ export function TrackerTools({
       </div>
       ))}
       </div>
+
+      {pickerBoss && (
+        <div className="item-context-menu tools-badge-menu" role="group" aria-label="Palace badge">
+          <p className="tools-hint">Badge for {bosses.find((b) => b.id === pickerBoss)?.alt}</p>
+          <div className="item-context-row">
+            {bossBadgeLabels.map((label, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  onSetBossBadge(pickerBoss, index)
+                  setPickerBoss(null)
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-label="Clear badge"
+              title="Clear"
+              onClick={() => {
+                onClearBossBadge(pickerBoss)
+                setPickerBoss(null)
+              }}
+            >
+              {"✕"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {pickerItem && (
         <div className="item-context-menu tools-badge-menu" role="group" aria-label="Item badge">
