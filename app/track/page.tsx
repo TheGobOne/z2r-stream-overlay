@@ -99,6 +99,7 @@ export default function TrackPage() {
   const [unstable, setUnstable] = useState(false)
   const clientRef = useRef<TrackerClient | null>(null)
   const [picker, setPicker] = useState<string | null>(null)
+  const [bossPicker, setBossPicker] = useState<string | null>(null)
 
   // Each join gets a number; a join that finishes after a newer one started (or after unmount) is dropped
   const joinGenRef = useRef(0)
@@ -227,6 +228,39 @@ export default function TrackPage() {
           Connection unstable. Waiting for the overlay...
         </p>
       )}
+      {snapshot && bossPicker && (
+        <div className="picker" role="group" aria-label="Set palace location">
+          <p className="muted">Location for {BOSSES.find((b) => b.id === bossPicker)?.alt}</p>
+          <div className="row">
+            {snapshot.bossBadgeLabels.map((label, index) => (
+              <button
+                key={label}
+                type="button"
+                className="action"
+                onClick={() => {
+                  clientRef.current?.send({ type: "setBossBadge", id: bossPicker, value: index })
+                  setBossPicker(null)
+                }}
+              >
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="action"
+              onClick={() => {
+                clientRef.current?.send({ type: "clearBossBadge", id: bossPicker })
+                setBossPicker(null)
+              }}
+            >
+              Clear
+            </button>
+            <button type="button" className="action" onClick={() => setBossPicker(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {snapshot && picker && (
         <div className="picker" role="group" aria-label="Set location">
           <p className="muted">Location for {ITEMS.find((it) => it.id === picker)?.alt}</p>
@@ -276,10 +310,8 @@ export default function TrackPage() {
                 badges={Object.fromEntries(Object.entries(snapshot.bossBadges).map(([id, n]) => [id, snapshot.bossBadgeLabels[n]]))}
                 onToggle={(id) => clientRef.current?.send({ type: "toggleBoss", runner: i, id, greyed: !runner.bossesGreyed.includes(id) })}
                 onRightClick={(id) => {
-                  // Send the badge to show, not "next", so a laggy double click can't skip one
-                  const current = snapshot.bossBadges[id]
-                  const value = current === undefined ? 0 : current >= snapshot.bossBadgeLabels.length - 1 ? null : current + 1
-                  clientRef.current?.send({ type: "setBossBadge", id, value })
+                  setPicker(null)
+                  setBossPicker(id)
                 }}
                 onMiddleClick={(id) => clientRef.current?.send({ type: "clearBossBadge", id })}
               />
@@ -289,7 +321,10 @@ export default function TrackPage() {
                 greyed={runner.itemsGreyed}
                 badges={snapshot.itemBadges}
                 onToggle={(id) => clientRef.current?.send({ type: "toggleItem", runner: i, id, greyed: !runner.itemsGreyed.includes(id) })}
-                onRightClick={(id) => setPicker(id)}
+                onRightClick={(id) => {
+                  setBossPicker(null)
+                  setPicker(id)
+                }}
                 onMiddleClick={(id) => clientRef.current?.send({ type: "setItemBadge", id, value: null })}
               />
             </section>
