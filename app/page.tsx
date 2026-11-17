@@ -436,6 +436,8 @@ export default function StreamOverlay() {
   // Index = overlay slot; a hole means that slot has no racetime runner (after a slot swap)
   const racetimeRunnersRef = useRef<(RacetimeRunner | undefined)[]>([])
   const racetimeEndedRef = useRef(false)
+  /** Runners whose place was set by hand; racetime no longer overwrites those. Kept across a refresh. */
+  const racetimeManualRef = useRef<Set<string>>(new Set())
   /** The linked room and its slot order, so an OBS refresh keeps polling instead of unlinking mid-race. */
   const RACETIME_KEY = "z2r-racetime"
   function saveRacetime(room: string | null) {
@@ -444,7 +446,7 @@ export default function StreamOverlay() {
       else
         localStorage.setItem(
           RACETIME_KEY,
-          JSON.stringify({ room, runners: racetimeRunnersRef.current.map((r) => r ?? null), ended: racetimeEndedRef.current }),
+          JSON.stringify({ room, runners: racetimeRunnersRef.current.map((r) => r ?? null), ended: racetimeEndedRef.current, manual: [...racetimeManualRef.current] }),
         )
     } catch {}
   }
@@ -531,6 +533,7 @@ export default function StreamOverlay() {
             ? (runner.place as Place)
             : null
       const key = runner.name.toLowerCase()
+      if (racetimeManualRef.current.has(key)) return
       if (place === null || racetimePlacesRef.current[key] === place) return
       racetimePlacesRef.current[key] = place
       setPlacements((prev) => assignPlace(prev, index, place))
@@ -622,6 +625,7 @@ export default function StreamOverlay() {
       racetimeEndedRef.current = false
       racetimeRunningRef.current = false
       racetimePlacesRef.current = {}
+      racetimeManualRef.current = new Set()
       setRacetimeRoom(room)
       saveRacetime(room)
       // More racers than the current layout holds: grow to 3 or 4 runners, then fill it once it mounts
@@ -693,6 +697,16 @@ export default function StreamOverlay() {
       saveSeries(seriesBestOf, next)
       return next
     })
+  }
+
+  /** A place set from the tools window. It sticks: racetime stops updating that runner, even after a refresh. */
+  function setPlaceByHand(player: number, place: Place | null) {
+    const known = racetimeRunnersRef.current[player]
+    if (known) {
+      racetimeManualRef.current.add(known.name.toLowerCase())
+      saveRacetime(racetimeRoom)
+    }
+    setPlacements((prev) => assignPlace(prev, player, place))
   }
 
   function unlinkRacetime() {
@@ -845,6 +859,8 @@ export default function StreamOverlay() {
     setBossBadges({})
     setItemBadges({})
     setPlacements(Array(4).fill(null))
+    // A linked room would put the places straight back
+    unlinkRacetime()
     restoredQuadRef.current = null
     setQuadNames([])
     setQuadNotDefeated(freshQuadSets(BOSSES.map((b) => b.id)))
@@ -1302,6 +1318,7 @@ export default function StreamOverlay() {
             : undefined
         })
         racetimeEndedRef.current = rt.ended === true
+        racetimeManualRef.current = new Set(Array.isArray(rt.manual) ? rt.manual.filter((k: unknown): k is string => typeof k === "string") : [])
         // A clock already in use was started by racetime (or by hand); the first poll must not restart it
         racetimeRunningRef.current = timer?.phase === 1 || timer?.phase === 2
         setRacetimeRoom(rt.room)
@@ -1907,7 +1924,7 @@ export default function StreamOverlay() {
                   onPairsChange={setQuadPairs}
                   placements={placements}
                   playerLabels={runnerCount === 2 ? [leftText, rightText] : quadNames}
-                  onPlacementChange={(player, place) => setPlacements((prev) => assignPlace(prev, player, place))}
+                  onPlacementChange={setPlaceByHand}
                 />
               </section>
                     ),
