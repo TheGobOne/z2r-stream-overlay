@@ -111,8 +111,10 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
 
   // The feed lists entrants alphabetically; room info like "A vs B Game 2" gives the intended order
   const info = typeof data.info === "string" ? data.info : ""
-  const firstLine = info.split("\n")[0].toLowerCase()
-  const at = findNames(firstLine, runners.map((r) => r.name.toLowerCase()))
+  // Room info can hold several matches ("A vs B/C vs D"), so search all of it. Spaces and punctuation are
+  // dropped on both sides: "Ceres Rose" matches "CeresRose (she/her)" and "Knucks" matches "Knucksman".
+  const text = info.toLowerCase().replace(/[^a-z0-9]/g, "")
+  const at = runners.map((r) => locateRunner(text, [r.name, r.channel ?? ""]))
   if (runners.length > 1 && at.every((i) => i >= 0)) {
     const order = runners.map((_, i) => i).sort((a, b) => at[a] - at[b])
     const sorted = order.map((i) => runners[i])
@@ -131,6 +133,21 @@ export async function fetchRace(room: string): Promise<RacetimeRace> {
     endMs: toLocal(data.ended_at) ?? toLocal(data.cancelled_at),
     over: status === "finished" || status === "cancelled",
   }
+}
+
+/**
+ * Position of a runner in the room info text (letters and digits only), or -1. Tries the name,
+ * then the Twitch channel, and shortens each one down to 5 characters so "knucksman" finds "knucks".
+ */
+function locateRunner(text: string, candidates: string[]): number {
+  for (const raw of candidates) {
+    const key = raw.replace(/\(.*?\)/g, "").toLowerCase().replace(/[^a-z0-9]/g, "")
+    for (let len = key.length; len >= 5; len--) {
+      const at = text.indexOf(key.slice(0, len))
+      if (at >= 0) return at
+    }
+  }
+  return -1
 }
 
 /**
