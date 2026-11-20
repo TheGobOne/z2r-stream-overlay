@@ -1511,21 +1511,43 @@ body:has(.vod-crop-backdrop) .vod-audio {
 /* The chat2r column sets the height and sits centered in the panel; the commands column starts at the same
    top edge, so its title lines up with chat2r's */
 .chat-help-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 6px; padding: 10px 8px; }
-.chat-help-rule { width: 2px; align-self: stretch; margin: 6px 0; background: #30E0FF; }
+.chat-help-rule { width: 2px; align-self: stretch; margin: 6px 0; background: #FFE040; }
 .chat-help-title { font-size: 15px; letter-spacing: 1.5px; color: #FFE040; white-space: nowrap; }
 .chat-help-title-blurb { color: #30E0FF; text-transform: none; }
 .chat-help-line { font-size: 11px; letter-spacing: 1px; color: #fff; white-space: nowrap; }
-.chat-help-text { font-size: 9px; letter-spacing: 0.5px; line-height: 1.3; color: #fff; }
+.chat-help-text { font-size: 10px; letter-spacing: 0.5px; line-height: 1.45; color: #fff; }
 .chat-help-text em { font-style: italic; font-synthesis: style; }
-.chat-help-col-blurb { gap: 5px; }
+.chat-help-col-blurb { gap: 9px; }
 .chat-help-warn { color: #FF4040; }
 .chat-help-poll { color: #30E0FF; white-space: normal; }
+/* Slides up over the commentary and tracking block (or the side panel in 3-4 player layouts) now and then */
+.chat-popup-clip { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+.chat-popup-duo { left: -10px; right: -10px; }
+.chat-popup { position: absolute; inset: 0; display: flex; background: #000; box-shadow: inset 0 0 0 2px #FFE040; transform: translateY(100%); transition: transform 0.6s ease-in-out; }
+.chat-popup[data-open] { transform: translateY(0); }
+.chat-popup > .chat-help { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .chat-popup { transition: none; } }
+/* 4 players: the rail is narrow, so smaller type that may wrap */
+.quad-rail-middle .quad-side-group.chat-help .chat-help-col { padding: 6px 4px; gap: 12px; justify-content: center; }
+.quad-rail-middle .quad-side-group.chat-help .chat-help-title { font-size: 12px; letter-spacing: 1px; }
+.quad-rail-middle .quad-side-group.chat-help .chat-help-line { font-size: 9px; letter-spacing: 0.5px; line-height: 1.25; white-space: normal; }
+.quad-rail-middle .quad-side-group.chat-help .chat-help-text { font-size: 10px; letter-spacing: 0.5px; line-height: 1.3; }
+.quad-rail-middle .quad-side-group.chat-help .chat-help-col-blurb { gap: 8px; }
+/* 3 players: the side panel is large, so bigger type centered in it */
+.quad-side-wide .quad-side-group.chat-help .chat-help-col { justify-content: center; gap: 16px; }
+.quad-side-wide .quad-side-group.chat-help .chat-help-title { font-size: 34px; }
+.quad-side-wide .quad-side-group.chat-help .chat-help-line { font-size: 24px; letter-spacing: 1.5px; }
+.quad-side-wide .quad-side-group.chat-help .chat-help-text { font-size: 19px; letter-spacing: 1px; line-height: 1.35; padding: 0 24px; }
 /* Fill the space between the two tracker boxes (x 430 to 1026), not just the 576px credits panel, so each column is centered in its own half */
-.credits-panel > .chat-help { width: 596px; flex: none; }
+
 /* The side rails are narrow: commands only */
 .quad-side-group.chat-help { flex-direction: column; gap: 6px; }
-.quad-side-group.chat-help .chat-help-rule,
-.quad-side-group.chat-help .chat-help-col-blurb { display: none; }
+.quad-side-group.chat-help .chat-help-rule { display: none; }
+/* Narrow rails: smaller type and wrapped lines instead of clipped ones */
+.quad-side-group.chat-help .chat-help-title { font-size: 11px; letter-spacing: 1px; white-space: normal; }
+.quad-side-group.chat-help .chat-help-line { font-size: 8px; letter-spacing: 0.5px; white-space: normal; line-height: 1.3; }
+.quad-side-group.chat-help .chat-help-poll { font-size: 8px; }
+.quad-side-group.chat-help .chat-help-text { font-size: 9px; letter-spacing: 0.5px; line-height: 1.3; }
 
 /* Race info line under the two credit columns */
 .arcade-race-title {

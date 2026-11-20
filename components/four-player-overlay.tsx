@@ -46,6 +46,10 @@ type Props = {
   linkToTimer: boolean
   onLinkToTimerChange: (value: boolean) => void
   /** Race info, commentary, tracking and the timer; each layout arranges these its own way. */
+  /** Chat command help that slides up over the side panel now and then; null when chat tracking is off. */
+  chatHelp?: ReactNode
+  /** 4 player rails: the chat2r note over the right rail while `chatHelp` (the commands) covers the left rail. */
+  chatHelpInfo?: ReactNode
   sidePanel: { info: ReactNode; commentary: ReactNode; tracking: ReactNode; status: ReactNode }
   onSidePanelContextMenu: (e: React.MouseEvent) => void
   /** Slot in the tools window where this overlay's video controls render; null while it's closed. */
@@ -116,6 +120,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     linkToTimer,
     onLinkToTimerChange,
     sidePanel,
+    chatHelp,
+    chatHelpInfo,
     onSidePanelContextMenu,
     toolsSlot,
     onRequestTools,
@@ -378,6 +384,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             <div className="quad-rail-middle" onContextMenu={onSidePanelContextMenu}>
               <p className="quad-side-title">Race info</p>
               {sidePanel.info}
+              {chatHelpInfo ? chatHelp : null}
             </div>
           ),
         },
@@ -389,6 +396,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               {sidePanel.commentary}
               {sidePanel.tracking}
               {sidePanel.status}
+              {chatHelpInfo ?? chatHelp}
             </div>
           ),
         },
@@ -534,6 +542,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
         {sidePanel.commentary}
         {sidePanel.tracking}
         {sidePanel.status}
+        {chatHelp}
       </div>
       )}
     </>

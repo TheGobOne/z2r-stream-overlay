@@ -28,7 +28,7 @@ const BoothLayout = dynamic(() => import("@/components/booth-layout").then((m) =
 const TrackerTools = dynamic(() => import("@/components/tracker-tools").then((m) => m.TrackerTools), { ssr: false })
 const RacetimeTools = dynamic(() => import("@/components/racetime-tools").then((m) => m.RacetimeTools), { ssr: false })
 const SeriesTools = dynamic(() => import("@/components/series-tools").then((m) => m.SeriesTools), { ssr: false })
-import { ChatHelp } from "@/components/chat-help"
+import { ChatHelp, ChatPopup } from "@/components/chat-help"
 const ChatCommandsTools = dynamic(() => import("@/components/chat-commands-tools").then((m) => m.ChatCommandsTools), { ssr: false })
 const StartingScreenTools = dynamic(() => import("@/components/starting-screen-tools").then((m) => m.StartingScreenTools), { ssr: false })
 const RemoteTrackerTools = dynamic(() => import("@/components/remote-tracker-tools").then((m) => m.RemoteTrackerTools), { ssr: false })
@@ -1055,6 +1055,39 @@ export default function StreamOverlay() {
     })
   })
 
+  // With chat tracking on, the command help slides up for 1 minute at the start and then every 5 minutes.
+  // It also stays up while a sound vote runs, so viewers can see the count. Only the 3 player layout alternates;
+  // the narrow 4 player rail shows the commands, and 2 players show both sections side by side.
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [helpView, setHelpView] = useState<"commands" | "info">("commands")
+  useEffect(() => {
+    if (!chat.on) {
+      setHelpOpen(false)
+      return
+    }
+    const openMs = 60_000
+    const closedMs = 4 * 60_000
+    // The 3 player layout alternates what it shows during the minute: chat2r 10s, commands 20s, chat2r 10s, commands 20s
+    const views: [number, "commands" | "info"][] = [[0, "info"], [10_000, "commands"], [30_000, "info"], [40_000, "commands"]]
+    let timer = 0
+    let viewTimers: number[] = []
+    const step = (open: boolean) => {
+      setHelpOpen(open)
+      if (open) {
+        viewTimers = views.map(([at, view]) => window.setTimeout(() => setHelpView(view), at))
+      }
+      timer = window.setTimeout(() => step(!open), open ? openMs : closedMs)
+    }
+    step(true)
+    return () => {
+      window.clearTimeout(timer)
+      viewTimers.forEach((t) => window.clearTimeout(t))
+    }
+  }, [chat.on])
+  const helpShown = helpOpen || chat.poll.phase === "voting"
+  // A running vote always shows the commands, which hold the vote count
+  const helpViewShown = chat.poll.phase === "voting" || runnerCount !== 3 ? "commands" : helpView
+
   const RESUME_RETRY_ERRORS =new Set(["unavailable-id", "network", "server-error", "socket-error", "socket-closed"])
   // Each start gets a number; stopping or a newer start bumps it, so a start that finishes late is thrown away
   const shareGenRef = useRef(0)
@@ -1544,8 +1577,10 @@ export default function StreamOverlay() {
             seriesWins={seriesWins}
             seriesToWin={seriesShown}
             onArrange={arrangeQuadRunners}
+            chatHelp={chat.on ? <ChatPopup open={helpShown} className="chat-popup-quad"><ChatHelp className="quad-side-group" view={helpViewShown} poll={chat.poll} players={runnerCount} /></ChatPopup> : null}
+            chatHelpInfo={chat.on && runnerCount === 4 ? <ChatPopup open={helpShown} className="chat-popup-quad"><ChatHelp className="quad-side-group" view="info" poll={chat.poll} players={runnerCount} /></ChatPopup> : null}
             sidePanel={{
-              info: chat.on ? <ChatHelp className="quad-side-group" poll={chat.poll} players={runnerCount} /> : (
+              info: (
                 <div className="quad-side-group quad-side-info">
                 <textarea
                   className="quad-side-info-input"
@@ -1559,7 +1594,7 @@ export default function StreamOverlay() {
                 />
                 </div>
               ),
-              commentary: chat.on ? null : (
+              commentary: (
                 <div className="quad-side-group quad-side-commentary">
                 <p className="quad-side-title">Commentary</p>
                 <input
@@ -1586,7 +1621,7 @@ export default function StreamOverlay() {
                 )}
                 </div>
               ),
-              tracking: chat.on ? null : (
+              tracking: (
                 <div className="quad-side-group quad-side-tracking">
                 <p className="quad-side-title">Tracking</p>
                 <input
@@ -1765,7 +1800,8 @@ export default function StreamOverlay() {
         {/* Commentary, tracking and race info as one block. In the Arcade layout the block is centered
             vertically in the space between the tracker boxes, so 1 commentator and 1 tracker don't leave a gap. */}
         <div className="credits-panel">
-          {chat.on ? <ChatHelp poll={chat.poll} players={runnerCount} /> : (<>
+          {chat.on && <ChatPopup open={helpShown} className="chat-popup-duo"><ChatHelp poll={chat.poll} players={runnerCount} /></ChatPopup>}
+          {(<>
           <div className="credits-row">
             <div className="credit-col">
               <div className="commentary-title">COMMENTARY</div>

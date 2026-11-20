@@ -369,6 +369,7 @@
 
 /* Race info and the broadcast block share one height so the two rails read as a matched pair. */
 .quad-rail-middle {
+  position: relative;
   flex: none;
   display: flex;
   flex-direction: column;
