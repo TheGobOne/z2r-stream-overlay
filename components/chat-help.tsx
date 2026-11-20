@@ -31,7 +31,7 @@ function PollLine({ poll, players }: { poll: PollView; players: number }) {
       </div>
     )
   }
-  return <div className="chat-help-line chat-help-poll">!listen starts a sound vote</div>
+  return <div className="chat-help-line chat-help-poll">{poll.swapOff ? "audio can't be swapped" : "!listen starts a sound vote"}</div>
 }
 
 /** Shown on the overlay while chat commands are listening, in place of commentary, tracking and race info. */

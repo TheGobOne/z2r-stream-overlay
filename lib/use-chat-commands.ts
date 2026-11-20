@@ -28,6 +28,8 @@ export type PollView = {
   counts: number[]
   /** The player the last vote picked, while locked. */
   winner: number | null
+  /** Fewer than two runners have usable audio, so there is nothing to swap between. */
+  swapOff?: boolean
 }
 
 const IDLE_POLL: PollView = { phase: "idle", endsAt: 0, counts: [0, 0, 0, 0], winner: null }
@@ -54,7 +56,7 @@ function readNumber(key: string, fallback: number, min: number, max: number) {
  * Anyone can by default; turn `everyone` off for moderators and the streamer only.
  * `currentListener` is the player with sound now (a tied vote keeps it), or null when unknown.
  */
-export function useChatCommands(runnerCount: number, currentListener: number | null, onAction: (action: PageAction) => void) {
+export function useChatCommands(runnerCount: number, currentListener: number | null, unusable: boolean[], onAction: (action: PageAction) => void) {
   const [channel, setChannelState] = useState("")
   const [on, setOnState] = useState(false)
   const [everyone, setEveryoneState] = useState(true)
@@ -69,6 +71,12 @@ export function useChatCommands(runnerCount: number, currentListener: number | n
   runnerCountRef.current = runnerCount
   const listenerRef = useRef(currentListener)
   listenerRef.current = currentListener
+  const unusableRef = useRef(unusable)
+  unusableRef.current = unusable
+  const usableCount = Array.from({ length: runnerCount }, (_, i) => !unusable[i]).filter(Boolean).length
+  const swapOff = usableCount < 2
+  const swapOffRef = useRef(swapOff)
+  swapOffRef.current = swapOff
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const everyoneRef = useRef(everyone)
@@ -94,14 +102,14 @@ export function useChatCommands(runnerCount: number, currentListener: number | n
   }
 
   function startPoll() {
-    if (pollRef.current.phase !== "idle") return false
+    if (pollRef.current.phase !== "idle" || swapOffRef.current) return false
     votesRef.current = new Map()
     publish({ phase: "voting", endsAt: Date.now() + pollSecondsRef.current * 1000, counts: [0, 0, 0, 0], winner: null })
     return true
   }
 
   function castVote(user: string, runner: number) {
-    if (pollRef.current.phase !== "voting" || runner >= runnerCountRef.current) return
+    if (pollRef.current.phase !== "voting" || runner >= runnerCountRef.current || unusableRef.current[runner]) return
     votesRef.current.set(user.toLowerCase(), runner)
     publish({ ...pollRef.current, counts: tally() })
   }
@@ -200,7 +208,7 @@ export function useChatCommands(runnerCount: number, currentListener: number | n
     everyone,
     status,
     log,
-    poll,
+    poll: { ...poll, swapOff },
     pollSeconds,
     lockMinutes,
     validChannel: clean !== "",

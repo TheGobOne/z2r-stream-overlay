@@ -325,6 +325,15 @@ export function PlayerTools({
             >
               Listen to {player.label} only
             </button>
+            <button
+              type="button"
+              className={`vod-btn${player.config.audioBad ? " vod-btn-primary" : ""}`}
+              aria-pressed={!!player.config.audioBad}
+              onClick={() => player.onChange({ audioBad: !player.config.audioBad })}
+              title="Chat can't vote for this runner. With fewer than two usable runners, the overlay says audio can't be swapped."
+            >
+              {player.config.audioBad ? "Audio marked unusable" : "Mark audio unusable"}
+            </button>
           </div>
         )}
         {cropMode && (player.config.videoId || player.config.channel) ? (

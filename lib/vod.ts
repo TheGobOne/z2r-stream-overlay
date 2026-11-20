@@ -21,6 +21,8 @@ export type VodConfig = {
   crop?: VideoRect | null
   muted: boolean
   volume: number
+  /** The streamer marked this runner's audio as unusable, so chat can't vote for it. */
+  audioBad?: boolean
 }
 
 // Transparent game-window holes in the 1456x816 overlay. The name boxes sit in the
@@ -86,6 +88,7 @@ export function restoreVodConfig(saved: unknown): VodConfig {
       : {}),
     muted: typeof v.muted === "boolean" ? v.muted : base.muted,
     volume: Math.min(1, Math.max(0, num("volume", base.volume))),
+    ...(v.audioBad === true ? { audioBad: true } : {}),
     crop: cropOk ? { x0: crop.x0, y0: crop.y0, x1: crop.x1, y1: crop.y1 } : null,
   }
 }

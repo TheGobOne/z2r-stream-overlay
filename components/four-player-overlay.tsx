@@ -209,7 +209,7 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   // Up to 24 orders x 24 stackings with bisection; only redo it when a frame's shape or place can change,
   // not on volume drags, mute, or a resume point (those fields never reach the layout math)
   const layoutKey = JSON.stringify(
-    vods.map(({ muted: _m, volume: _v, resumeSeconds: _r, loadKey: _l, startSeconds: _s, url: _u, ...shape }) => shape),
+    vods.map(({ muted: _m, volume: _v, audioBad: _a, resumeSeconds: _r, loadKey: _l, startSeconds: _s, url: _u, ...shape }) => shape),
   )
   /* eslint-disable react-hooks/exhaustive-deps */
   const layouts = useMemo(() => resolveQuadLayouts(windows, vods, fillCrop), [windows, layoutKey, fillCrop])
