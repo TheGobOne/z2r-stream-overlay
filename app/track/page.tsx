@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { BOSSES, ITEMS, type TrackerIcon } from "@/lib/tracker-catalog"
+import { ItemIcon } from "@/components/item-icon"
+import { BOSSES, ITEMS, LINKABLE_ITEM, LINK_PREFIX, LINK_SPELLS, linkedSpellId, type TrackerIcon } from "@/lib/tracker-catalog"
 import { joinTracker, normalizeCode, type TrackerClient, type TrackerSnapshot } from "@/lib/tracker-link"
 
 function IconGrid({
@@ -22,16 +23,20 @@ function IconGrid({
   label: string
 }) {
   return (
-    <div role="group" aria-label={label} style={{ display: "grid", gridTemplateColumns: "repeat(8, 40px)", gap: 4 }}>
+    <div role="group" aria-label={label} className="icon-grid">
       {icons.map((icon) => {
         const off = greyed.includes(icon.id)
         const badge = badges[icon.id]
+        const linked = linkedSpellId(badge)
+        const linkedName = linked ? ITEMS.find((i) => i.id === linked)?.alt : undefined
         return (
           <button
             key={icon.id}
             type="button"
+            className="cell"
+            data-off={off || undefined}
             title={`${icon.alt}. Click: toggle. Right-click: set location. Middle-click: clear.`}
-            aria-label={`${icon.alt}: ${off ? "not yet" : "got it"}${badge ? `, location ${badge}` : ""}`}
+            aria-label={`${icon.alt}: ${off ? "not yet" : "got it"}${linkedName ? `, linked with ${linkedName}` : badge ? `, location ${badge}` : ""}`}
             aria-pressed={!off}
             onClick={() => onToggle(icon.id)}
             onContextMenu={(e) => {
@@ -44,46 +49,9 @@ function IconGrid({
                 onMiddleClick(icon.id)
               }
             }}
-            style={{
-              position: "relative",
-              width: 40,
-              height: 40,
-              padding: 4,
-              border: "1px solid var(--line)",
-              background: "var(--cell)",
-              borderRadius: 4,
-              cursor: "pointer",
-            }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={icon.src}
-              alt=""
-              style={{
-                width: "100%",
-                height: "100%",
-                imageRendering: "pixelated",
-                opacity: off ? 0.3 : 1,
-                filter: off ? "grayscale(1)" : "none",
-              }}
-            />
-            {badge && (
-              <span
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: 0,
-                  padding: "0 3px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  background: "var(--accent)",
-                  color: "#fff",
-                  borderRadius: 3,
-                }}
-              >
-                {badge}
-              </span>
-            )}
+            <ItemIcon item={icon} badge={badge} />
+            {badge && !linked && <span className="badge">{badge}</span>}
           </button>
         )
       })}
@@ -182,40 +150,63 @@ export default function TrackPage() {
 
   return (
     <main className="track-page">
+      {/* Same look as the overlay's tools window: black, the Zelda II font, cyan notched frames, yellow headings */}
       <style>{`
-        .track-page { --bg: #f4f4f2; --fg: #1d1d1b; --muted: #5f5f5a; --line: #c9c9c3; --cell: #ffffff; --accent: #b0381e;
-          min-height: 100vh; background: var(--bg); color: var(--fg); font-family: system-ui, sans-serif; padding: 16px; }
-        @media (prefers-color-scheme: dark) {
-          .track-page { --bg: #151515; --fg: #ececea; --muted: #a4a49e; --line: #3a3a37; --cell: #222220; --accent: #e2643f; }
-        }
-        .track-page h1 { font-size: 20px; margin: 0 0 12px; }
-        .track-page h2 { font-size: 16px; margin: 0 0 8px; }
-        .track-page .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-        .track-page input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); background: var(--cell); color: var(--fg); border-radius: 4px; text-transform: uppercase; width: 10ch; }
-        .track-page button.action { font: inherit; padding: 6px 12px; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 4px; cursor: pointer; }
-        .track-page .muted { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
-        .track-page .error { color: var(--accent); font-size: 14px; margin: 0 0 12px; }
-        .track-page .runners { display: flex; flex-wrap: wrap; gap: 24px; }
-        .track-page .picker { margin-bottom: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--cell); }
-        .track-page section { display: flex; flex-direction: column; gap: 8px; }
+        .track-page { --cyan: #30E0FF; --yellow: #FFE040; --red: #FF4040; --muted: #8A8AA8; --frame: var(--cyan);
+          min-height: 100vh; background: #000; color: #fff; padding: 20px 16px 40px;
+          font-family: 'ZeldaII', monospace; font-size: 12px; line-height: 1.6; }
+        .track-page * { box-sizing: border-box; }
+        .track-page h1 { margin: 0 0 18px; font-size: 20px; letter-spacing: 3px; color: var(--yellow); text-transform: uppercase; font-weight: normal; }
+        .track-page h2 { margin: 0; font-size: 13px; letter-spacing: 2px; color: var(--yellow); text-transform: uppercase; font-weight: normal; }
+        .track-page .card { position: relative; padding: 18px; background: #000; box-shadow: inset 0 0 0 4px var(--frame);
+          clip-path: polygon(6px 0, calc(100% - 6px) 0, calc(100% - 6px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 6px), 0 calc(100% - 6px), 0 6px, 6px 6px); }
+        .track-page .join { display: inline-flex; flex-direction: column; gap: 10px; margin-bottom: 18px; max-width: 100%; }
+        .track-page .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .track-page label { color: var(--yellow); letter-spacing: 1px; text-transform: uppercase; }
+        .track-page input { font: inherit; font-size: 14px; letter-spacing: 2px; padding: 7px 10px; width: 12ch; border: 2px solid var(--cyan); background: #000; color: var(--yellow); border-radius: 0; text-transform: uppercase; }
+        .track-page input:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+        .track-page button.action { font: inherit; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 8px 12px; border: 2px solid var(--cyan); background: #000; color: #fff; border-radius: 0; cursor: pointer; min-height: 34px; }
+        .track-page button.action:hover:not(:disabled) { background: var(--cyan); color: #000; }
+        .track-page button.action.primary { background: var(--yellow); border-color: var(--yellow); color: #000; }
+        .track-page button.action.primary:hover:not(:disabled) { background: #fff; border-color: #fff; }
+        .track-page button.action.icon { padding: 4px; min-width: 38px; }
+        .track-page button.action.icon img { display: block; width: 24px; height: 24px; image-rendering: pixelated; }
+        .track-page button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .track-page button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+        .track-page .muted { margin: 0 0 14px; color: var(--muted); }
+        .track-page .error { margin: 0 0 14px; color: var(--red); }
+        .track-page .runners { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+        .track-page .runner { display: flex; flex-direction: column; gap: 14px; }
+        .track-page .picker { display: inline-flex; flex-direction: column; gap: 10px; margin-bottom: 18px; max-width: 100%; --frame: var(--yellow); }
+        .track-page .picker .muted { margin: 0; }
+        .track-page .icon-grid { display: grid; grid-template-columns: repeat(8, 40px); gap: 6px; }
+        .track-page .cell { position: relative; width: 40px; height: 40px; padding: 0; border: 0; background: none; cursor: pointer; }
+        .track-page .cell:hover { outline: 2px solid var(--cyan); outline-offset: 2px; }
+        .track-page .cell:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+        .track-page .cell img { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+        .track-page .cell[data-off] img { opacity: 0.35; filter: grayscale(1); }
+        .track-page .badge { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 2;
+          font-size: 13.5px; line-height: 1; color: #ffd700; text-shadow: -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000; }
       `}</style>
       <h1>Z2R remote tracker</h1>
-      <div className="row">
-        <label htmlFor="code">Join code</label>
-        <input
-          id="code"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            // Same rule as the Join button: no second link while one is being made
-            if (e.key === "Enter" && !(status === "joining" && !error)) void join(draft)
-          }}
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <button type="button" className="action" disabled={status === "joining" && !error} onClick={() => join(draft)}>
-          {status === "joining" ? "Joining..." : status === "joined" ? "Rejoin" : "Join"}
-        </button>
+      <div className="card join">
+        <div className="row">
+          <label htmlFor="code">Join code</label>
+          <input
+            id="code"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // Same rule as the Join button: no second link while one is being made
+              if (e.key === "Enter" && !(status === "joining" && !error)) void join(draft)
+            }}
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <button type="button" className="action primary" disabled={status === "joining" && !error} onClick={() => join(draft)}>
+            {status === "joining" ? "Joining..." : status === "joined" ? "Rejoin" : "Join"}
+          </button>
+        </div>
       </div>
       {error && (
         <p className="error" role="alert">
@@ -229,7 +220,7 @@ export default function TrackPage() {
         </p>
       )}
       {snapshot && bossPicker && (
-        <div className="picker" role="group" aria-label="Set palace location">
+        <div className="card picker" role="group" aria-label="Set palace location">
           <p className="muted">Location for {BOSSES.find((b) => b.id === bossPicker)?.alt}</p>
           <div className="row">
             {snapshot.bossBadgeLabels.map((label, index) => (
@@ -262,8 +253,32 @@ export default function TrackPage() {
         </div>
       )}
       {snapshot && picker && (
-        <div className="picker" role="group" aria-label="Set location">
+        <div className="card picker" role="group" aria-label="Set location">
           <p className="muted">Location for {ITEMS.find((it) => it.id === picker)?.alt}</p>
+          {picker === LINKABLE_ITEM && (
+            <div className="row" role="group" aria-label="Link Fire to another spell">
+              {LINK_SPELLS.map((id) => {
+                const spell = ITEMS.find((i) => i.id === id)
+                if (!spell) return null
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="action icon"
+                    title={`Link Fire with ${spell.alt}`}
+                    aria-label={`Link Fire with ${spell.alt}`}
+                    onClick={() => {
+                      clientRef.current?.send({ type: "setItemBadge", id: picker, value: `${LINK_PREFIX}${id}` })
+                      setPicker(null)
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={spell.src} alt="" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {snapshot.badgeOptions.map((row, r) => (
             <div key={r} className="row">
               {row.map((option) => (
@@ -301,7 +316,7 @@ export default function TrackPage() {
       {snapshot && (
         <div className="runners" aria-disabled={status !== "joined" || unstable} style={status !== "joined" || unstable ? { opacity: 0.4, pointerEvents: "none" } : undefined}>
           {snapshot.runners.map((runner, i) => (
-            <section key={i} aria-label={runner.name || `Player ${i + 1}`}>
+            <section key={i} className="card runner" aria-label={runner.name || `Player ${i + 1}`}>
               <h2>{runner.name || `Player ${i + 1}`}</h2>
               <IconGrid
                 label="Bosses"

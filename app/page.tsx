@@ -13,7 +13,8 @@ import { useChatCommands } from "@/lib/use-chat-commands"
 import { hostTrackers, newJoinCode, TrackerLinkError, type TrackerAction, type TrackerHost, type TrackerSnapshot } from "@/lib/tracker-link"
 import { fetchRace, parseRoom, type RacetimeRace, type RacetimeRunner } from "@/lib/racetime"
 import { QUAD_LAYOUT, TRIO_LAYOUT } from "@/lib/quad"
-import { BOSSES, ITEMS } from "@/lib/tracker-catalog"
+import { BOSSES, ITEMS, LINKABLE_ITEM, linkedSpellId } from "@/lib/tracker-catalog"
+import { ItemIcon } from "@/components/item-icon"
 import { ARCADE_WINDOWS, createVodConfig, restoreVodConfig, hasSource, resolveVodLayouts, VOD_WINDOWS, type VodConfig, type VodSide } from "@/lib/vod"
 import { ArcadeDecor } from "@/components/arcade-decor"
 import { useFitFontSize } from "@/lib/use-fit-font"
@@ -960,7 +961,7 @@ export default function StreamOverlay() {
       case "setBossBadge":
         return isBoss && (a.value === null || (Number.isInteger(a.value) && (a.value as number) >= 0 && (a.value as number) < BOSS_BADGES.length))
       case "setItemBadge":
-        return isItem && (a.value === null || (typeof a.value === "string" && BADGE_OPTIONS.some((row) => row.includes(a.value as string))))
+        return isItem && (a.value === null || (typeof a.value === "string" && (BADGE_OPTIONS.some((row) => row.includes(a.value as string)) || (a.id === LINKABLE_ITEM && !!linkedSpellId(a.value)))))
       default:
         return false
     }
@@ -1186,7 +1187,7 @@ export default function StreamOverlay() {
   )
 
   function renderItemBadge(value: string | undefined) {
-    if (value === undefined) return null
+    if (value === undefined || linkedSpellId(value)) return null
     return <span className="item-badge num-badge">{value}</span>
   }
 
@@ -2228,7 +2229,7 @@ export default function StreamOverlay() {
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
-              <img src={item.src} alt={item.alt} />
+              <ItemIcon item={item} badge={itemBadges[item.id]} alt={item.alt} />
               {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
@@ -2246,7 +2247,7 @@ export default function StreamOverlay() {
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
-              <img src={item.src} alt={item.alt} />
+              <ItemIcon item={item} badge={itemBadges[item.id]} alt={item.alt} />
               {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
@@ -2264,7 +2265,7 @@ export default function StreamOverlay() {
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
-              <img src={item.src} alt={item.alt} />
+              <ItemIcon item={item} badge={itemBadges[item.id]} alt={item.alt} />
               {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
@@ -2282,7 +2283,7 @@ export default function StreamOverlay() {
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
-              <img src={item.src} alt={item.alt} />
+              <ItemIcon item={item} badge={itemBadges[item.id]} alt={item.alt} />
               {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
@@ -2300,7 +2301,7 @@ export default function StreamOverlay() {
               aria-label={`${item.alt} — ${leftCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
-              <img src={item.src} alt={item.alt} />
+              <ItemIcon item={item} badge={itemBadges[item.id]} alt={item.alt} />
               {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}
@@ -2318,7 +2319,7 @@ export default function StreamOverlay() {
               aria-label={`${item.alt} — ${rightCollected.has(item.id) ? "collected" : "not collected"}`}
               title={item.alt}
             >
-              <img src={item.src} alt={item.alt} />
+              <ItemIcon item={item} badge={itemBadges[item.id]} alt={item.alt} />
               {renderItemBadge(itemBadges[item.id])}
             </button>
           ))}

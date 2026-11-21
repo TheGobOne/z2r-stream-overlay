@@ -1,0 +1,36 @@
+/* Fire linked to another spell: both icons whole, Fire left and the spell right, with a slash between.
+   A hidden full-size icon keeps the tile the size it is wherever the icon is used (rails, tools, remote page). */
+.item-link {
+  position: relative;
+  display: grid;
+}
+span.item-link > .item-link-size {
+  visibility: hidden;
+}
+.item-link-pair {
+  position: absolute;
+  inset: 0;
+}
+/* The slash is a 45 degree line across 66% of the tile. Fire sits in the top left corner and the other
+   spell in the bottom right, each 60% of the tile wide with its inner corner next to the line. */
+.item-link-pair svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+span.item-link .item-link-pair img {
+  position: absolute;
+  width: 60%;
+  height: auto;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+span.item-link .item-link-pair img:first-child {
+  left: -10%;
+  top: -7%;
+}
+span.item-link .item-link-pair img:last-child {
+  right: -10%;
+  bottom: -7%;
+}

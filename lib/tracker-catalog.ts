@@ -11,6 +11,19 @@ export const BOSSES: TrackerIcon[] = [
   { id: "thunderbird", src: "/icons/thunderbird.png", alt: "Thunderbird" },
 ]
 
+/** Fire can be linked to another spell; the link is stored as an item badge with this prefix. */
+export const LINK_PREFIX = "link:"
+export const LINKABLE_ITEM = "fire"
+/** The spells Fire can be linked with. */
+export const LINK_SPELLS = ["shield", "jump", "life", "fairy", "reflect", "spell", "thunder"]
+
+/** The spell a badge value links to, or null when it is an ordinary badge. */
+export function linkedSpellId(value: string | undefined): string | null {
+  if (!value?.startsWith(LINK_PREFIX)) return null
+  const id = value.slice(LINK_PREFIX.length)
+  return LINK_SPELLS.includes(id) ? id : null
+}
+
 // Row 1: candle, glove, raft, boots, flute, cross, downstab, upstab
 // Row 2: hammer, magickey, trophy, mirror, noteforriverman, wateroflife, water, kid
 // Row 3: shield, jump, life, fairy, fire, reflect, spell, thunder

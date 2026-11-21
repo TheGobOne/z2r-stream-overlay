@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
+import { ItemIcon } from "@/components/item-icon"
+import { LINKABLE_ITEM, LINK_PREFIX, LINK_SPELLS, linkedSpellId } from "@/lib/tracker-catalog"
 
 const ON_TOP_KEY = "tracker-tools-on-top"
 
@@ -175,8 +177,8 @@ export function TrackerTools({
               aria-label={`${item.alt}: right-click to set badge`}
               title={item.alt}
             >
-              <img src={item.src} alt="" />
-              {badge !== undefined && <span className="item-badge num-badge">{badge}</span>}
+              <ItemIcon item={item} badge={badge} />
+              {badge !== undefined && !linkedSpellId(badge) && <span className="item-badge num-badge">{badge}</span>}
             </button>
           )
         })}
@@ -218,6 +220,28 @@ export function TrackerTools({
       {pickerItem && (
         <div className="item-context-menu tools-badge-menu" role="group" aria-label="Item badge">
           <p className="tools-hint">Badge for {items.find((i) => i.id === pickerItem)?.alt}</p>
+          {pickerItem === LINKABLE_ITEM && (
+            <div className="item-context-row" role="group" aria-label="Link Fire to another spell">
+              {LINK_SPELLS.map((id) => {
+                const spell = items.find((i) => i.id === id)
+                if (!spell) return null
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    title={`Link Fire with ${spell.alt}`}
+                    aria-label={`Link Fire with ${spell.alt}`}
+                    onClick={() => {
+                      onSetItemBadge(pickerItem, `${LINK_PREFIX}${id}`)
+                      setPickerItem(null)
+                    }}
+                  >
+                    <img src={spell.src} alt="" width={24} height={24} style={{ imageRendering: "pixelated", display: "block" }} />
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {badgeOptions.map((row, r) => (
             <div key={r} className="item-context-row">
               {row.map((option) => (

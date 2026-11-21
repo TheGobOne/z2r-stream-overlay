@@ -6,6 +6,8 @@ import { VodPlayer, type VodPlayerHandle } from "@/components/vod-player"
 import { SeriesPips } from "@/components/series-pips"
 import { ARCADE_COLORS, ARCADE_YELLOW, ArcadeFrame, ArcadeSky } from "@/components/arcade-decor"
 import { AudioBadge } from "@/components/audio-badge"
+import { ItemIcon } from "@/components/item-icon"
+import { linkedSpellId } from "@/lib/tracker-catalog"
 import { useFitFontSize } from "@/lib/use-fit-font"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
@@ -366,8 +368,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
                   aria-label={`${item.alt} — ${off ? "not collected" : "collected"}`}
                   title={item.alt}
                 >
-                  <img src={item.src || "/placeholder.svg"} alt="" />
-                  {badge !== undefined && <span className="item-badge num-badge">{badge}</span>}
+                  <ItemIcon item={item} badge={badge} />
+                  {badge !== undefined && !linkedSpellId(badge) && <span className="item-badge num-badge">{badge}</span>}
                 </button>
               )
             })}
