@@ -16,6 +16,8 @@ concurrency:
 
 jobs:
   build:
+    # origin also pushes to the old v0 repo, which has Pages off
+    if: github.repository == 'TheGobOne/z2r-stream-overlay'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
