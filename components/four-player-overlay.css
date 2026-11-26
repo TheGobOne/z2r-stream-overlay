@@ -309,6 +309,20 @@
   outline-offset: -1px;
 }
 
+/* The player number chat commands use, just outside the name plate on the screen-edge side */
+.quad-pnum {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: 'ZeldaII', monospace;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--pc, #FFE040);
+  pointer-events: none;
+}
+.quad-pnum-left { right: calc(100% + 3px); }
+.quad-pnum-right { left: calc(100% + 3px); }
+
 .quad-name::before, .quad-name::after {
   content: "";
   position: absolute;

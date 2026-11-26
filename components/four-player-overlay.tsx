@@ -11,7 +11,7 @@ import { linkedSpellId } from "@/lib/tracker-catalog"
 import { useFitFontSize } from "@/lib/use-fit-font"
 import { PlaceBadge, type Placements } from "@/components/place-badge"
 import { createVodConfig, hasSource, type VodConfig, type WindowRect } from "@/lib/vod"
-import { BRICK_W, QUAD_TRACKER_WIDTH, betterArrangement, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
+import { QUAD_TRACKER_WIDTH,betterArrangement, resolveQuadLayouts, type GridLayout } from "@/lib/quad"
 import "./four-player-overlay.css"
 import dynamic from "next/dynamic"
 
@@ -260,29 +260,21 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
     )
   })()
 
-  // With a crop, the black bar beside the picture joins the tracker column, so center the tracker in that space
+  // Centers the tracker in the open space beside the video. With a crop, any black bar beside the picture joins it.
   const trackerLeft = (i: number) => {
     const cell = cells[i]
-    const maxLeft = cell.left + cell.width - QUAD_TRACKER_WIDTH
-    return Math.min(maxLeft, Math.max(cell.left, Math.round(rawTrackerLeft(i) / BRICK_W) * BRICK_W))
-  }
-
-  const rawTrackerLeft = (i: number) => {
-    const cell = cells[i]
-    const cellRight = cell.left + cell.width
+    const win = windows[i]
     const onLeft = layout.trackerSides[i] === "left"
-    const fallback = onLeft ? cell.left : cellRight - QUAD_TRACKER_WIDTH
+    let from = onLeft ? cell.left : win.left + win.width
+    let to = onLeft ? win.left : cell.left + cell.width
     const crop = vods[i].crop
-    if (!crop || !hasSource(vods[i])) return fallback
-    const frame = layouts[i]
-    if (onLeft) {
-      const cropLeft = Math.min(windows[i].width, Math.max(0, frame.left + crop.x0 * frame.width))
-      const spaceRight = windows[i].left + cropLeft
-      return Math.max(fallback, cell.left + (spaceRight - cell.left - QUAD_TRACKER_WIDTH) / 2)
+    if (crop && hasSource(vods[i])) {
+      const frame = layouts[i]
+      const inWindow = (x: number) => win.left + Math.min(win.width, Math.max(0, frame.left + x * frame.width))
+      if (onLeft) to = inWindow(crop.x0)
+      else from = inWindow(crop.x1)
     }
-    const cropRight = Math.min(windows[i].width, Math.max(0, frame.left + crop.x1 * frame.width))
-    const spaceLeft = windows[i].left + cropRight
-    return Math.min(fallback, spaceLeft + (cellRight - spaceLeft - QUAD_TRACKER_WIDTH) / 2)
+    return from + (to - from - QUAD_TRACKER_WIDTH) / 2
   }
 
   const hasThunderbird = bosses.some((boss) => boss.id === "thunderbird")
@@ -297,6 +289,11 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               if (hasSource(vods[i])) openPanel(i, e)
             }}
           >
+            {!rail && (
+              <span className={`quad-pnum quad-pnum-${layout.trackerSides[i]}`} aria-hidden="true">
+                {i + 1}P
+              </span>
+            )}
             <SeriesPips wins={seriesWins[i] ?? 0} toWin={seriesToWin} />
             <QuadNameInput
               index={i}

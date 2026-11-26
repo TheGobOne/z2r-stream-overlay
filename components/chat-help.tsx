@@ -21,6 +21,8 @@ function PollLine({ poll, players }: { poll: PollView; players: number }) {
     return (
       <div className="chat-help-line chat-help-poll">
         VOTE {clock(poll.endsAt - now)} {poll.counts.slice(0, players).map((c, i) => `${i + 1}P ${c}`).join(" ")}
+        <br />
+        type !listen 1p to vote
       </div>
     )
   }

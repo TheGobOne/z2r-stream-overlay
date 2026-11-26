@@ -1,4 +1,4 @@
-import { BOSSES, ITEMS, type TrackerIcon } from "@/lib/tracker-catalog"
+import { BOSSES, ITEMS, LINKABLE_ITEM, LINK_PREFIX, LINK_SPELLS, type TrackerIcon } from "@/lib/tracker-catalog"
 import type { TrackerAction } from "@/lib/tracker-link"
 
 /** A tracker action, or an item location (the badge on an item) that clears itself when sent twice. */
@@ -82,6 +82,13 @@ function parseLocationCommand(command: string, rest: string[]): ParsedCommand | 
     const boss = number ? BOSSES[Number(number) - 1] : null
     if (!boss || !badge) return null
     return { action: { type: "toggleBossBadge", id: boss.id, value: badge }, summary: `${boss.alt}: ${badge}` }
+  }
+  // `!fire jump`: the spell Fire is linked with. Checked before runner names, like locations.
+  if (command === `!${LINKABLE_ITEM}`) {
+    const spell = findIcon(ITEMS, rest)
+    if (spell && LINK_SPELLS.includes(spell.id)) {
+      return { action: { type: "toggleItemLocation", id: LINKABLE_ITEM, value: `${LINK_PREFIX}${spell.id}` }, summary: `Fire linked with ${spell.alt}` }
+    }
   }
   const words = [command.slice(1), ...rest]
   // Try the longest location first (two words for "new kasuto"), keeping at least one word for the item

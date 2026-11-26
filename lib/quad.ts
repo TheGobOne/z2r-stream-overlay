@@ -34,6 +34,9 @@ export type GridLayout = {
 
 export type TrackerSide = "left" | "right"
 
+/** Pixels taken off each video's width so the picture isn't stretched; the tracker is centered in the wider gap. */
+const VIDEO_TRIM = 50
+
 function buildLayout(
   cells: WindowRect[],
   panel: WindowRect,
@@ -42,10 +45,11 @@ function buildLayout(
 ): GridLayout {
   // Each cell's tracker column sits beside its video, so a zoomed frame can spill
   // sideways under the tracker and divider without ever reaching the next player's video.
+  const beside = QUAD_TRACKER_WIDTH + VIDEO_TRIM
   const windows = cells.map((cell, i) => ({
-    left: trackerSides[i] === "left" ? cell.left + QUAD_TRACKER_WIDTH : cell.left,
+    left: trackerSides[i] === "left" ? cell.left + beside : cell.left,
     top: cell.top,
-    width: cell.width - QUAD_TRACKER_WIDTH,
+    width: cell.width - beside,
     height: cell.height,
   }))
   return {
