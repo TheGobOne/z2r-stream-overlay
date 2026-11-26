@@ -62,7 +62,8 @@ const BOSS_PLACES: Record<string, string> = {
 
 /** The badge code for a location typed in chat, or null. */
 function resolveLocation(words: string[]): string | null {
-  const key = norm(words.join(""))
+  // `p3` and `palace 3` mean the same as `3`
+  const key = norm(words.join("")).replace(/^(?:palace|p)(?=[1-6]$)/, "")
   if (TOWNS[key]) return TOWNS[key]
   const upper = key.toUpperCase()
   return LOCATIONS.has(upper) ? upper : null
