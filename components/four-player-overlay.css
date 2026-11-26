@@ -317,15 +317,18 @@
   font-family: 'ZeldaII', monospace;
   font-size: 11px;
   line-height: 1;
+  width: 26px;
+  text-align: center;
   color: var(--pc, #FFE040);
   pointer-events: none;
 }
 .quad-pnum-left { right: calc(100% + 3px); }
 .quad-pnum-right { left: calc(100% + 3px); }
+/* With the music note above it, the number moves down so the pair is centered on the name plate */
+.quad-name:has(.vod-audio) .quad-pnum { top: calc(50% + 5px); transform: none; }
 /* Rail name plates leave room on both sides for the player number */
 .quad-rail .quad-name { width: calc(100% - 56px); }
-/* Column trackers too. The number side gets more room than the note side, so the number stays inside the
-   frame and the note never reaches the video, which would pause Twitch */
+/* Column trackers too. The number side gets more room, so the number and note stay inside the frame */
 .quad-tracker .quad-name { width: calc(100% - 15px); }
 .quad-tracker .quad-name.num-left { margin: 0 3px 0 12px; }
 .quad-tracker .quad-name.num-right { margin: 0 12px 0 3px; }
@@ -514,3 +517,9 @@
 .quad-tracker .item-badge.num-badge {
   font-size: 10px;
 }
+
+/* Spread the tracker icons into the room around them. Widths hold exactly 4 icons (3 player) or 6 (rails) per item row. */
+.quad-tracker .quad-grid { gap: 6px 10px; width: 150px; flex-shrink: 0; }
+.quad-tracker .quad-grid.quad-grid-3 { width: 110px; }
+.quad-rail .quad-grid { gap: 4px 4px; width: 200px; flex-shrink: 0; }
+.quad-rail .quad-grid.quad-grid-boss-wrap { gap: 4px 10px; width: 150px; }

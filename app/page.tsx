@@ -89,6 +89,13 @@ function TimerText({
   return <>{running ? text : formatTimer(pausedMs)}</>
 }
 
+/** A 2 player credit or race info line, shrunk as needed so a long one stays whole. */
+function FitInput({ value, letterSpacing = 0.75, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { value: string; letterSpacing?: number }) {
+  const ref = useRef<HTMLInputElement>(null)
+  const fontSize = useFitFontSize(ref, value, { base: 15, min: 8, letterSpacing })
+  return <input {...props} ref={ref} value={value} style={{ fontSize }} />
+}
+
 export default function StreamOverlay() {
   preload(ZELDA_FONT, { as: "font", type: "font/ttf", crossOrigin: "anonymous" })
   const [leftText, setLeftText] = useState("")
@@ -1808,7 +1815,7 @@ export default function StreamOverlay() {
             <div className="credit-col">
               <div className="commentary-title">COMMENTARY</div>
               <div className="commentary-container" onContextMenu={reopenSetup}>
-                <input
+                <FitInput
                   type="text"
                   className="commentary-input"
                   value={commentator1}
@@ -1818,7 +1825,7 @@ export default function StreamOverlay() {
                   autoComplete="off"
                 />
                 {commentatorCount === 2 && (
-                  <input
+                  <FitInput
                     type="text"
                     className="commentary-input"
                     value={commentator2}
@@ -1833,7 +1840,7 @@ export default function StreamOverlay() {
             <div className="credit-col">
               <div className="tracking-title">TRACKING</div>
               <div className="tracking-container" onContextMenu={reopenSetup}>
-                <input
+                <FitInput
                   type="text"
                   className="tracking-input"
                   value={tracking}
@@ -1843,7 +1850,7 @@ export default function StreamOverlay() {
                   autoComplete="off"
                 />
                 {creditTrackers === 2 && (
-                  <input
+                  <FitInput
                     type="text"
                     className="tracking-input"
                     value={tracking2}
@@ -1863,9 +1870,10 @@ export default function StreamOverlay() {
               <div className="race-col">
                 <div className="arcade-race-title">RACE INFO</div>
                 <div className="arcade-race-container" onContextMenu={reopenSetup}>
-                  <input
+                  <FitInput
                     type="text"
                     className="arcade-race-input"
+                    letterSpacing={1}
                     value={raceInfo}
                     onChange={(e) => setRaceInfo(e.target.value)}
                     placeholder="RACE INFO"

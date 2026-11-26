@@ -1605,9 +1605,10 @@ body:has(.vod-crop-backdrop) .vod-audio {
 .theme-arcade-multi .quad-name .zelda-input { color: #fff; padding-left: 34px; padding-right: 6px; }
 .theme-arcade-multi .quad-name .series-pips { left: 4px; gap: 1px; }
 .theme-arcade-multi .quad-name .series-pip { width: 12px; height: 11px; }
-/* The music note sits just outside the name plate, opposite the player number */
-.theme-arcade-multi .quad-name.num-left .vod-audio { left: calc(100% + 3px); right: auto; }
-.theme-arcade-multi .quad-name.num-right .vod-audio { right: calc(100% + 3px); }
+/* The music note stacks above the player number, outside the name plate on the screen-edge side */
+.theme-arcade-multi .quad-name .vod-audio { top: calc(50% - 15px); transform: none; width: 26px; justify-content: center; }
+.theme-arcade-multi .quad-name.num-left .vod-audio { right: calc(100% + 3px); left: auto; }
+.theme-arcade-multi .quad-name.num-right .vod-audio { left: calc(100% + 3px); right: auto; }
 .theme-arcade-multi .quad-name .vod-audio svg { width: 16px; height: 16px; }
 /* Pad the left end only when it holds series squares: a column tracker is about 140px wide */
 .quad-name:not(.has-pips) .zelda-input,
