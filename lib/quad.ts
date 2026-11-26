@@ -101,9 +101,24 @@ export const QUAD_LAYOUT = buildRailLayout(
 )
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
+// The space between the boxes equals the space outside them, across and down.
+const TRIO_BOX_WIDTH = 639
+const TRIO_BOX_HEIGHT = 355
+
+function trioRect(column: 0 | 1, row: 0 | 1): WindowRect {
+  const gapX = (STAGE_WIDTH - 2 * TRIO_BOX_WIDTH) / 3
+  const gapY = (STAGE_HEIGHT - 2 * TRIO_BOX_HEIGHT) / 3
+  return {
+    left: gapX + column * (TRIO_BOX_WIDTH + gapX),
+    top: gapY + row * (TRIO_BOX_HEIGHT + gapY),
+    width: TRIO_BOX_WIDTH,
+    height: TRIO_BOX_HEIGHT,
+  }
+}
+
 export const TRIO_LAYOUT = buildLayout(
-  [brickRect(1, 1, 18, 10), brickRect(22, 1, 18, 10), brickRect(1, 12, 18, 10)],
-  brickRect(22, 12, 18, 10),
+  [trioRect(0, 0), trioRect(1, 0), trioRect(0, 1)],
+  trioRect(1, 1),
   "wide",
   ["left", "right", "left"],
 )
