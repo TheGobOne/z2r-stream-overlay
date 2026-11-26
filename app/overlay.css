@@ -1602,17 +1602,16 @@ body:has(.vod-crop-backdrop) .vod-audio {
 }
 .theme-arcade-multi .quad-name::before,
 .theme-arcade-multi .quad-name::after { display: none; }
-.theme-arcade-multi .quad-name .zelda-input { color: #fff; padding-left: 34px; padding-right: 26px; }
+.theme-arcade-multi .quad-name .zelda-input { color: #fff; padding-left: 34px; padding-right: 6px; }
 .theme-arcade-multi .quad-name .series-pips { left: 4px; gap: 1px; }
 .theme-arcade-multi .quad-name .series-pip { width: 12px; height: 11px; }
-.theme-arcade-multi .quad-name .vod-audio { right: 3px; }
+/* The music note sits just outside the name plate, opposite the player number */
+.theme-arcade-multi .quad-name.num-left .vod-audio { left: calc(100% + 3px); right: auto; }
+.theme-arcade-multi .quad-name.num-right .vod-audio { right: calc(100% + 3px); }
 .theme-arcade-multi .quad-name .vod-audio svg { width: 16px; height: 16px; }
-/* Pad only the ends that hold series squares (left) or the music note (right): a column tracker is
-   about 140px wide, and padding both ends left room for only 5 letters */
+/* Pad the left end only when it holds series squares: a column tracker is about 140px wide */
 .quad-name:not(.has-pips) .zelda-input,
 .theme-arcade-multi .quad-name:not(.has-pips) .zelda-input { padding-left: 6px; }
-.quad-name:not(.has-audio) .zelda-input,
-.theme-arcade-multi .quad-name:not(.has-audio) .zelda-input { padding-right: 6px; }
 .theme-arcade-multi .quad-side-title { color: #FFE040; text-decoration: none; }
 .theme-arcade-multi .quad-side-info-input { border-color: #55557A; color: #FFE040; }
 .theme-arcade-multi .quad-rail-middle .quad-side-info { border-color: #55557A; }

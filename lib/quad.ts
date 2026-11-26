@@ -34,8 +34,8 @@ export type GridLayout = {
 
 export type TrackerSide = "left" | "right"
 
-/** Pixels taken off each video's width so the picture isn't stretched; the tracker is centered in the wider gap. */
-const VIDEO_TRIM = 50
+/** The shape of the 3 and 4 player video windows. */
+const VIDEO_ASPECT = 4 / 3
 
 function buildLayout(
   cells: WindowRect[],
@@ -45,13 +45,16 @@ function buildLayout(
 ): GridLayout {
   // Each cell's tracker column sits beside its video, so a zoomed frame can spill
   // sideways under the tracker and divider without ever reaching the next player's video.
-  const beside = QUAD_TRACKER_WIDTH + VIDEO_TRIM
-  const windows = cells.map((cell, i) => ({
-    left: trackerSides[i] === "left" ? cell.left + beside : cell.left,
-    top: cell.top,
-    width: cell.width - beside,
-    height: cell.height,
-  }))
+  // The tracker is centered in whatever the video leaves free.
+  const windows = cells.map((cell, i) => {
+    const width = cell.height * VIDEO_ASPECT
+    return {
+      left: trackerSides[i] === "left" ? cell.left + cell.width - width : cell.left,
+      top: cell.top,
+      width,
+      height: cell.height,
+    }
+  })
   return {
     count: cells.length,
     cells,
@@ -78,32 +81,24 @@ function buildRailLayout(windows: WindowRect[], rails: { left: WindowRect; right
   }
 }
 
-// Wide Quad: four 12x10-brick windows in the middle, one brick apart, with a six-brick black rail on
-// each side. Each rail holds two runners' name and trackers (P1/P3 left, P2/P4 right) around a block
-// of race info on the left and commentary, tracking and the timer on the right.
-// Each video is trimmed on its rail side, and the rail takes that space.
+// Wide Quad: four 4:3 windows in the middle with a black rail on each side. Each rail holds two
+// runners' name and trackers (P1/P3 left, P2/P4 right) around a block of race info on the left and
+// commentary, tracking and the timer on the right. The spacing is tighter than a brick so that the
+// rails stay wide enough for the six-icon tracker rows.
+const RAIL_WIDTH = 207
+const RAIL_GAP = 20
+const QUAD_VIDEO_WIDTH = 10 * BRICK_H * VIDEO_ASPECT
+const RAIL_EDGE = (STAGE_WIDTH - 2 * RAIL_WIDTH - 2 * QUAD_VIDEO_WIDTH - 3 * RAIL_GAP) / 2
+const QUAD_COLUMNS = [RAIL_EDGE + RAIL_WIDTH + RAIL_GAP, RAIL_EDGE + RAIL_WIDTH + 2 * RAIL_GAP + QUAD_VIDEO_WIDTH]
+
+function railRect(left: number): WindowRect {
+  return { ...brickRect(0, 1, 1, 21), left, width: RAIL_WIDTH }
+}
+
 export const QUAD_LAYOUT = buildRailLayout(
-  [
-    trimLeft(brickRect(8, 1, 12, 10)),
-    trimRight(brickRect(21, 1, 12, 10)),
-    trimLeft(brickRect(8, 12, 12, 10)),
-    trimRight(brickRect(21, 12, 12, 10)),
-  ],
-  {
-    left: trimRight(brickRect(1, 1, 6, 21), -VIDEO_TRIM),
-    right: trimLeft(brickRect(34, 1, 6, 21), -VIDEO_TRIM),
-  },
+  [1, 12].flatMap((row) => QUAD_COLUMNS.map((left) => ({ ...brickRect(0, row, 1, 10), left, width: QUAD_VIDEO_WIDTH }))),
+  { left: railRect(RAIL_EDGE), right: railRect(STAGE_WIDTH - RAIL_EDGE - RAIL_WIDTH) },
 )
-
-/** The rect with `by` pixels taken off its left edge (negative grows it). */
-function trimLeft(r: WindowRect, by = VIDEO_TRIM): WindowRect {
-  return { ...r, left: r.left + by, width: r.width - by }
-}
-
-/** The rect with `by` pixels taken off its right edge (negative grows it). */
-function trimRight(r: WindowRect, by = VIDEO_TRIM): WindowRect {
-  return { ...r, width: r.width - by }
-}
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
 export const TRIO_LAYOUT = buildLayout(

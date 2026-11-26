@@ -280,17 +280,19 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
   const hasThunderbird = bosses.some((boss) => boss.id === "thunderbird")
 
   // One runner's name plate and trackers; `rail` swaps the grid widths for the Wide Quad rails
-  const renderRunner = (i: number, rail: boolean) => (
+  const renderRunner = (i: number, rail: boolean) => {
+    // The screen-edge side of the name. Rails hold P1/P3 on the left of the screen and P2/P4 on the right.
+    const numSide = rail ? (i % 2 === 0 ? "left" : "right") : layout.trackerSides[i]
+    return (
     <>
           <div
-            className={`quad-name${seriesToWin > 0 ? " has-pips" : ""}${hasSource(vods[i]) ? " has-audio" : ""}`}
+            className={`quad-name num-${numSide}${seriesToWin > 0 ? " has-pips" : ""}`}
             style={{ ["--pc" as string]: ARCADE_COLORS[i] }}
             onContextMenu={(e) => {
               if (hasSource(vods[i])) openPanel(i, e)
             }}
           >
-            {/* Rails hold P1/P3 on the left of the screen and P2/P4 on the right */}
-            <span className={`quad-pnum quad-pnum-${rail ? (i % 2 === 0 ? "left" : "right") : layout.trackerSides[i]}`} aria-hidden="true">
+            <span className={`quad-pnum quad-pnum-${numSide}`} aria-hidden="true">
               {i + 1}P
             </span>
             <SeriesPips wins={seriesWins[i] ?? 0} toWin={seriesToWin} />
@@ -371,7 +373,8 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
             })}
           </div>
     </>
-  )
+    )
+  }
 
   const railSides = rails
     ? [

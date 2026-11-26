@@ -324,6 +324,11 @@
 .quad-pnum-right { left: calc(100% + 3px); }
 /* Rail name plates leave room on both sides for the player number */
 .quad-rail .quad-name { width: calc(100% - 56px); }
+/* Column trackers too. The number side gets more room than the note side, so the number stays inside the
+   frame and the note never reaches the video, which would pause Twitch */
+.quad-tracker .quad-name { width: calc(100% - 15px); }
+.quad-tracker .quad-name.num-left { margin: 0 3px 0 12px; }
+.quad-tracker .quad-name.num-right { margin: 0 12px 0 3px; }
 
 .quad-name::before, .quad-name::after {
   content: "";
