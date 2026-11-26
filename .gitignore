@@ -29,3 +29,6 @@ downloads/
 
 # Static export for GitHub Pages
 out/
+
+# Personal Claude project instructions, never committed
+CLAUDE.md
