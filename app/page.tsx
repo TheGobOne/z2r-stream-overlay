@@ -1057,7 +1057,7 @@ export default function StreamOverlay() {
     })
   })
 
-  // With chat tracking on, the command help slides up for 1 minute at the start and then every 5 minutes.
+  // With chat tracking on, the command help slides up for 1 minute at the start and then every 3 minutes.
   // It also stays up while a sound vote runs, so viewers can see the count. Only the 3 player layout alternates;
   // the narrow 4 player rail shows the commands, and 2 players show both sections side by side.
   const [helpOpen, setHelpOpen] = useState(false)
@@ -1068,7 +1068,7 @@ export default function StreamOverlay() {
       return
     }
     const openMs = 60_000
-    const closedMs = 4 * 60_000
+    const closedMs = 2 * 60_000
     // The 3 player layout alternates what it shows during the minute: chat2r 10s, commands 20s, chat2r 10s, commands 20s
     const views: [number, "commands" | "info"][] = [[0, "info"], [10_000, "commands"], [30_000, "info"], [40_000, "commands"]]
     let timer = 0
