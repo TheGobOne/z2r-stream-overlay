@@ -56,7 +56,7 @@ function readNumber(key: string, fallback: number, min: number, max: number) {
  * Anyone can by default; turn `everyone` off for moderators and the streamer only.
  * `currentListener` is the player with sound now (a tied vote keeps it), or null when unknown.
  */
-export function useChatCommands(runnerCount: number, currentListener: number | null, unusable: boolean[], onAction: (action: PageAction) => void) {
+export function useChatCommands(runnerNames: string[], runnerCount: number, currentListener: number | null, unusable: boolean[], onAction: (action: PageAction) => void) {
   const [channel, setChannelState] = useState("")
   const [on, setOnState] = useState(false)
   const [everyone, setEveryoneState] = useState(true)
@@ -69,6 +69,8 @@ export function useChatCommands(runnerCount: number, currentListener: number | n
 
   const runnerCountRef = useRef(runnerCount)
   runnerCountRef.current = runnerCount
+  const namesRef = useRef(runnerNames)
+  namesRef.current = runnerNames
   const listenerRef = useRef(currentListener)
   listenerRef.current = currentListener
   const unusableRef = useRef(unusable)
@@ -163,7 +165,7 @@ export function useChatCommands(runnerCount: number, currentListener: number | n
       clean,
       (message) => {
         if (!message.privileged && !everyoneRef.current) return
-        const parsed = parseChatCommand(message.text, runnerCountRef.current)
+        const parsed = parseChatCommand(message.text, runnerCountRef.current, namesRef.current)
         if (!parsed) return
         if (parsed.modOnly && !message.privileged) {
           // Show it in the card so a command that seems to do nothing can be told apart from one that was refused

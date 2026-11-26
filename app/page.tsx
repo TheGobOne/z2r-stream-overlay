@@ -1019,7 +1019,7 @@ export default function StreamOverlay() {
   // Who has sound now, for a tied sound vote (known for two runners only)
   const currentListener = runnerCount === 2 ? (!vods.left.muted ? 0 : !vods.right.muted ? 1 : null) : null
   const audioUnusable = (runnerCount === 2 ? [vods.left, vods.right] : quadVods).map((v) => !!v?.audioBad)
-  const chat = useChatCommands(runnerCount, currentListener, audioUnusable, (action) => {
+  const chat = useChatCommands(runnerCount === 2 ? [leftText, rightText] : quadNames, runnerCount, currentListener, audioUnusable, (action) => {
     if (action.type === "audio") {
       // Only the named players have sound; everyone else is muted
       if (runnerCount === 2) {

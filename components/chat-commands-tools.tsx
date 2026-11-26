@@ -87,7 +87,7 @@ export function ChatCommandsTools({
         </label>
         <p className="tools-hint">!2p palace 1 &nbsp; !1p hammer &nbsp; !hammer 4 &nbsp; !mk da &nbsp; !listen 1p</p>
         <p className="tools-hint">
-          Start with the player, 1p to 4p, then an item, a spell or a palace: !1p hammer, !3p jump, !2p palace 1 or !2p p1 (palace 1 to 7). !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird. The same boss, item or location command from several people counts once per 10 seconds, so a crowd doesn't flip it back and forth; you and mods can repeat it right away.
+          Start with the player, 1p to 4p, then an item, a spell or a palace: !1p hammer, !3p jump, !2p palace 1 or !2p p1 (palace 1 to 7; gp is palace 7). A runner&apos;s name works in place of 1p to 4p, written without spaces, and 3 or more letters of it are enough if only one runner matches: !gob hammer. !hammer 4 sets where an item was found: palace 1 to 6, or RA RU SA MD NA DA NK OK W E MI DM. Boss, item and location commands undo when sent again. Names can be short: mk, wol, bird. The same boss, item or location command from several people counts once per 10 seconds, so a crowd doesn't flip it back and forth; you and mods can repeat it right away.
         </p>
         <p className="tools-hint">Sound vote</p>
         <div className="vod-row">

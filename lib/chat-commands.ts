@@ -72,10 +72,12 @@ function resolveLocation(words: string[]): string | null {
 function parseLocationCommand(command: string, rest: string[]): ParsedCommand | null {
   if (!command.startsWith("!") || rest.length === 0) return null
   // `!p3 dv`, `!palace 3 east`: where a palace is, shown as the badge on its boss
-  const palace = /^(?:palace|p)([1-7])?$/.exec(command.slice(1))
+  const palace = /^(?:palace|p|gp)([1-7])?$/.exec(command.slice(1))
   if (palace) {
-    const words = palace[1] ? rest : rest.slice(1)
-    const number = palace[1] ?? /^[1-7]$/.exec(rest[0] ?? "")?.[0]
+    // `!gp` is palace 7 (the Great Palace), so its words start right away
+    const implied = command === "!gp"
+    const words = palace[1] || implied ? rest : rest.slice(1)
+    const number = implied ? "7" : (palace[1] ?? /^[1-7]$/.exec(rest[0] ?? "")?.[0])
     const badge = BOSS_PLACES[norm(words.join(""))]
     const boss = number ? BOSSES[Number(number) - 1] : null
     if (!boss || !badge) return null
@@ -137,12 +139,34 @@ function findIcon(list: TrackerIcon[], words: string[]): TrackerIcon | null {
   return null
 }
 
+/** The runner whose name is, or contains (3 letters or more), what chat typed. Null when none or several match. */
+function findRunner(typed: string, names: string[]): number | null {
+  const q = norm(typed)
+  if (!q) return null
+  const clean = names.map(norm)
+  let hits = clean.flatMap((name, i) => (name === q ? [i] : []))
+  if (hits.length === 0 && q.length >= 3) hits = clean.flatMap((name, i) => (name.includes(q) ? [i] : []))
+  return hits.length === 1 ? hits[0] : null
+}
+
+/** Toggles the item, spell or palace boss the words name, for one runner. */
+function parseToggle(runner: number, words: string[]): ParsedCommand | null {
+  if (words.length === 0) return null
+  // "gp" is palace 7, the Great Palace
+  const palace = /^(?:palace|p|gp)?([1-7])$|^gp$/.exec(norm(words.join("")))
+  const number = palace && (palace[1] ?? "7")
+  const icon = number ? BOSSES[Number(number) - 1] : (findIcon(ITEMS, words) ?? findIcon(BOSSES, words))
+  if (!icon) return null
+  const action: TrackerAction = { type: BOSSES.includes(icon) ? "toggleBoss" : "toggleItem", runner, id: icon.id }
+  return { action, summary: `Toggled ${icon.alt} for player ${runner + 1}` }
+}
+
 /**
  * `!2p hammer` toggles the item (or spell) for player 2; `!2p palace 1` or `!2p p1` toggles that palace's boss.
- * The same command again undoes it. Returns null when the text is not one of these commands,
- * has no valid player, or does not name an item, spell or palace.
+ * A runner's name, or part of it, works in place of `2p`. The same command again undoes it.
+ * Returns null when the text is not one of these commands, has no valid player, or does not name an item, spell or palace.
  */
-export function parseChatCommand(text: string, runnerCount: number): ParsedCommand | null {
+export function parseChatCommand(text: string, runnerCount: number, names: string[] = []): ParsedCommand | null {
   const parts = text.trim().split(/\s+/)
   const command = (parts.shift() ?? "").toLowerCase()
   // `!sound 1p`: that player has the sound and everyone else is muted. Only one player can have sound at a time.
@@ -170,13 +194,13 @@ export function parseChatCommand(text: string, runnerCount: number): ParsedComma
   }
   // `!1p hammer`, `!1p jump`, `!1p palace 1` or `!1p p1`: toggles that item, spell or palace boss for the player
   const player = /^!([1-4]p)$/.exec(command)
-  if (!player) return parseLocationCommand(command, parts)
-  const runner = Number(player[1][0]) - 1
-  if (runner >= runnerCount || parts.length === 0) return null
-
-  const palace = /^(?:palace|p)?([1-7])$/.exec(norm(parts.join("")))
-  const icon = palace ? BOSSES[Number(palace[1]) - 1] : (findIcon(ITEMS, parts) ?? findIcon(BOSSES, parts))
-  if (!icon) return null
-  const action: TrackerAction = { type: BOSSES.includes(icon) ? "toggleBoss" : "toggleItem", runner, id: icon.id }
-  return { action, summary: `Toggled ${icon.alt} for player ${runner + 1}` }
+  if (player) {
+    const runner = Number(player[1][0]) - 1
+    return runner < runnerCount ? parseToggle(runner, parts) : null
+  }
+  // Location commands come first, so a runner name never changes what `!hammer 4` means
+  const location = parseLocationCommand(command, parts)
+  if (location || !command.startsWith("!")) return location
+  const named = findRunner(command.slice(1), names.slice(0, runnerCount))
+  return named === null ? null : parseToggle(named, parts)
 }
