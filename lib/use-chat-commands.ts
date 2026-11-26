@@ -166,7 +166,15 @@ export function useChatCommands(runnerNames: string[], runnerCount: number, curr
       (message) => {
         if (!message.privileged && !everyoneRef.current) return
         const parsed = parseChatCommand(message.text, runnerCountRef.current, namesRef.current)
-        if (!parsed) return
+        if (!parsed) {
+          // TEMP debug: remove once name tracking is confirmed on stream
+          if (message.text.startsWith("!")) {
+            const seen = namesRef.current.slice(0, runnerCountRef.current).map((n) => `[${n ?? ""}]`).join(" ")
+            const text = `no match "${message.text}" | ${runnerCountRef.current} runners, names: ${seen || "none"}`
+            setLog((prev) => [{ id: nextId++, user: message.user, text }, ...prev].slice(0, LOG_LENGTH))
+          }
+          return
+        }
         if (parsed.modOnly && !message.privileged) {
           // Show it in the card so a command that seems to do nothing can be told apart from one that was refused
           setLog((prev) => [{ id: nextId++, user: message.user, text: `${parsed.summary} (ignored: mods and the streamer only)` }, ...prev].slice(0, LOG_LENGTH))
