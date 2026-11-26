@@ -289,11 +289,10 @@ export const FourPlayerOverlay = forwardRef<QuadOverlayHandle, Props>(function F
               if (hasSource(vods[i])) openPanel(i, e)
             }}
           >
-            {!rail && (
-              <span className={`quad-pnum quad-pnum-${layout.trackerSides[i]}`} aria-hidden="true">
-                {i + 1}P
-              </span>
-            )}
+            {/* Rails hold P1/P3 on the left of the screen and P2/P4 on the right */}
+            <span className={`quad-pnum quad-pnum-${rail ? (i % 2 === 0 ? "left" : "right") : layout.trackerSides[i]}`} aria-hidden="true">
+              {i + 1}P
+            </span>
             <SeriesPips wins={seriesWins[i] ?? 0} toWin={seriesToWin} />
             <QuadNameInput
               index={i}

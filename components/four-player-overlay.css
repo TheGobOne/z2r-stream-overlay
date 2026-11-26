@@ -322,6 +322,8 @@
 }
 .quad-pnum-left { right: calc(100% + 3px); }
 .quad-pnum-right { left: calc(100% + 3px); }
+/* Rail name plates leave room on both sides for the player number */
+.quad-rail .quad-name { width: calc(100% - 56px); }
 
 .quad-name::before, .quad-name::after {
   content: "";

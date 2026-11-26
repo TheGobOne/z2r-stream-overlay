@@ -81,10 +81,29 @@ function buildRailLayout(windows: WindowRect[], rails: { left: WindowRect; right
 // Wide Quad: four 12x10-brick windows in the middle, one brick apart, with a six-brick black rail on
 // each side. Each rail holds two runners' name and trackers (P1/P3 left, P2/P4 right) around a block
 // of race info on the left and commentary, tracking and the timer on the right.
+// Each video is trimmed on its rail side, and the rail takes that space.
 export const QUAD_LAYOUT = buildRailLayout(
-  [brickRect(8, 1, 12, 10), brickRect(21, 1, 12, 10), brickRect(8, 12, 12, 10), brickRect(21, 12, 12, 10)],
-  { left: brickRect(1, 1, 6, 21), right: brickRect(34, 1, 6, 21) },
+  [
+    trimLeft(brickRect(8, 1, 12, 10)),
+    trimRight(brickRect(21, 1, 12, 10)),
+    trimLeft(brickRect(8, 12, 12, 10)),
+    trimRight(brickRect(21, 12, 12, 10)),
+  ],
+  {
+    left: trimRight(brickRect(1, 1, 6, 21), -VIDEO_TRIM),
+    right: trimLeft(brickRect(34, 1, 6, 21), -VIDEO_TRIM),
+  },
 )
+
+/** The rect with `by` pixels taken off its left edge (negative grows it). */
+function trimLeft(r: WindowRect, by = VIDEO_TRIM): WindowRect {
+  return { ...r, left: r.left + by, width: r.width - by }
+}
+
+/** The rect with `by` pixels taken off its right edge (negative grows it). */
+function trimRight(r: WindowRect, by = VIDEO_TRIM): WindowRect {
+  return { ...r, width: r.width - by }
+}
 
 // Players 1 and 2 split the top half, player 3 takes the bottom-left quadrant and the panel the bottom-right.
 export const TRIO_LAYOUT = buildLayout(
