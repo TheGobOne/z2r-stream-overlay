@@ -65,7 +65,7 @@ export function RacetimeTools({ room, summary, error, busy, onImport, onUnlink, 
         )}
         {room && !error && <p className="tools-hint">Linked to {room}. {summary}</p>}
         <p className="tools-hint">
-          Fills the player names and live Twitch channels from the room and keeps the timer on the race clock. Runners without a linked Twitch account keep their current video.
+          Fills the player names and live Twitch channels from the room and keeps the timer on the race clock. Runners without a linked Twitch account keep their current video. You can rename a player: places and series wins still follow the racetime runner, and importing again keeps your name.
         </p>
       </div>
     </section>

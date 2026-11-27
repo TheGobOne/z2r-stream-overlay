@@ -499,14 +499,18 @@ export default function StreamOverlay() {
   const timerPhaseRef = useRef(timerPhase)
   timerPhaseRef.current = timerPhase
 
+  /** Names on screen at the last import, by lowercase racetime name, so a rename survives the next one. */
+  const keptNamesRef = useRef(new Map<string, string>())
+
   function applyRunners(runners: (RacetimeRunner | undefined)[]) {
+    const shownName = (runner: RacetimeRunner) => keptNamesRef.current.get(runner.name.toLowerCase()) ?? runner.name
     if (runnerCount === 2) {
       const sides = ["left", "right"] as const
       sides.forEach((side, i) => {
         const runner = runners[i]
         if (!runner) return
-        if (side === "left") handleLeftTextChange(runner.name)
-        else handleRightTextChange(runner.name)
+        if (side === "left") handleLeftTextChange(shownName(runner))
+        else handleRightTextChange(shownName(runner))
         const channel = runner.channel
         if (!channel) return
         setVods((prev) => ({
@@ -523,7 +527,7 @@ export default function StreamOverlay() {
         }))
       })
     } else {
-      quadRef.current?.setRunners(runners.map((r) => (r ? { name: r.name, channel: r.channel } : undefined)))
+      quadRef.current?.setRunners(runners.map((r) => (r ? { name: shownName(r), channel: r.channel } : undefined)))
     }
   }
 
@@ -629,6 +633,11 @@ export default function StreamOverlay() {
       }
       if (room !== racetimeRoom && !(toolsWin ?? window).confirm("Importing a new room clears the tracker (bosses, items and badges). Continue?")) return
       if (room !== racetimeRoom) clearTrackers()
+      // Only while linked: after an unlink the slots may hold other people's names
+      const shown = runnerCount === 2 ? [leftText, rightText] : quadNames
+      keptNamesRef.current = new Map(
+        (racetimeRoom ? racetimeRunnersRef.current : []).flatMap((known, i) => (known && shown[i]?.trim() ? [[known.name.toLowerCase(), shown[i]] as const] : [])),
+      )
       racetimeRunnersRef.current = race.runners
       racetimeEndedRef.current = false
       racetimeRunningRef.current = false
